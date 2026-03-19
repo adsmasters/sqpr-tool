@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQPR Tool — Kunden</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+        }
+
+        /* Top Bar */
+        .topbar {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .topbar-logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: #3551FF;
+            text-decoration: none;
+        }
+
+        .topbar-nav {
+            display: flex;
+            gap: 4px;
+        }
+
+        .topbar-nav a {
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .topbar-nav a:hover {
+            color: #e6edf3;
+            background: #21262d;
+        }
+
+        .topbar-nav a.active {
+            color: #e6edf3;
+            background: #30363d;
+        }
+
+        .logout-btn {
+            color: #8b949e;
+            background: none;
+            border: 1px solid #30363d;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .logout-btn:hover {
+            color: #f85149;
+            border-color: #f85149;
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .btn-primary {
+            background: #3551FF;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #2a44e0;
+        }
+
+        /* Table Card */
+        .table-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table-card table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-card thead th {
+            text-align: left;
+            padding: 14px 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #30363d;
+            background: #0d1117;
+        }
+
+        .table-card tbody tr {
+            border-bottom: 1px solid #21262d;
+            transition: background 0.15s;
+        }
+
+        .table-card tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .table-card tbody tr:hover {
+            background: #1c2128;
+        }
+
+        .table-card tbody td {
+            padding: 14px 20px;
+            font-size: 14px;
+        }
+
+        .client-name-link {
+            color: #3551FF;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .client-name-link:hover {
+            text-decoration: underline;
+        }
+
+        .marketplace-badge {
+            display: inline-block;
+            background: #21262d;
+            color: #8b949e;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            padding: 4px 10px;
+            border-radius: 4px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .action-btn:hover {
+            color: #e6edf3;
+            background: #21262d;
+        }
+
+        .action-btn.delete:hover {
+            color: #f85149;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8b949e;
+        }
+
+        .empty-state p {
+            font-size: 15px;
+            margin-bottom: 16px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 20px;
+        }
+
+        .modal h2 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        .modal .form-group {
+            margin-bottom: 18px;
+        }
+
+        .modal .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .modal .form-group input,
+        .modal .form-group select,
+        .modal .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #e6edf3;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .modal .form-group input:focus,
+        .modal .form-group select:focus,
+        .modal .form-group textarea:focus {
+            border-color: #3551FF;
+        }
+
+        .modal .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .modal .form-group select option {
+            background: #161b22;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 28px;
+        }
+
+        .btn-secondary {
+            background: #21262d;
+            color: #e6edf3;
+            border: 1px solid #30363d;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #30363d;
+        }
+
+        /* Confirm Dialog */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+        }
+
+        .confirm-overlay.active {
+            display: flex;
+        }
+
+        .confirm-dialog {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 28px 32px;
+            max-width: 400px;
+            width: 100%;
+            margin: 0 20px;
+            text-align: center;
+        }
+
+        .confirm-dialog p {
+            font-size: 15px;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .confirm-dialog .confirm-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-danger {
+            background: #da3633;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-danger:hover {
+            background: #b62324;
+        }
+
+        /* Loading spinner */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #30363d;
+            border-top-color: #3551FF;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
+            <nav class="topbar-nav">
+                <a href="dashboard.html">Dashboard</a>
+                <a href="clients.html" class="active">Kunden</a>
+                <a href="upload.html">Upload</a>
+            </nav>
+        </div>
+        <button class="logout-btn" id="logoutBtn">Logout</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+        <div class="page-header">
+            <h1>Kunden</h1>
+            <button class="btn-primary" id="addClientBtn">+ Kunde hinzufügen</button>
+        </div>
+
+        <div class="table-card">
+            <div class="loading" id="loadingState">
+                <div class="spinner"></div>
+                <div>Kunden werden geladen...</div>
+            </div>
+            <table id="clientsTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Marketplace</th>
+                        <th>Reports</th>
+                        <th>Erstellt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody id="clientsBody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+                <p>Noch keine Kunden angelegt.</p>
+                <button class="btn-primary" id="addClientBtn2">+ Kunde hinzufügen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal-overlay" id="clientModal">
+        <div class="modal">
+            <h2 id="modalTitle">Kunde hinzufügen</h2>
+            <form id="clientForm">
+                <input type="hidden" id="clientId">
+                <div class="form-group">
+                    <label for="clientName">Name</label>
+                    <input type="text" id="clientName" placeholder="Kundenname" required>
+                </div>
+                <div class="form-group">
+                    <label for="clientMarketplace">Marketplace</label>
+                    <select id="clientMarketplace" required>
+                        <option value="">Bitte wählen</option>
+                        <option value="DE">DE</option>
+                        <option value="US">US</option>
+                        <option value="UK">UK</option>
+                        <option value="FR">FR</option>
+                        <option value="IT">IT</option>
+                        <option value="ES">ES</option>
+                        <option value="NL">NL</option>
+                        <option value="SE">SE</option>
+                        <option value="PL">PL</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="clientNotes">Notizen</label>
+                    <textarea id="clientNotes" placeholder="Optionale Notizen zum Kunden"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelModalBtn">Abbrechen</button>
+                    <button type="submit" class="btn-primary" id="saveBtn">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation -->
+    <div class="confirm-overlay" id="confirmDialog">
+        <div class="confirm-dialog">
+            <p id="confirmText">Möchten Sie diesen Kunden wirklich löschen?</p>
+            <div class="confirm-actions">
+                <button class="btn-secondary" id="confirmCancel">Abbrechen</button>
+                <button class="btn-danger" id="confirmDelete">Löschen</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script>
+        // Auth check
+        if (sessionStorage.getItem('sqpr_auth') !== 'true') {
+            window.location.href = 'index.html';
+        }
+
+        // Supabase init
+        const SUPABASE_URL = 'https://lgrnmiszhhahfcmctmwo.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // DOM elements
+        const loadingState = document.getElementById('loadingState');
+        const clientsTable = document.getElementById('clientsTable');
+        const clientsBody = document.getElementById('clientsBody');
+        const emptyState = document.getElementById('emptyState');
+        const clientModal = document.getElementById('clientModal');
+        const clientForm = document.getElementById('clientForm');
+        const modalTitle = document.getElementById('modalTitle');
+        const clientIdField = document.getElementById('clientId');
+        const clientName = document.getElementById('clientName');
+        const clientMarketplace = document.getElementById('clientMarketplace');
+        const clientNotes = document.getElementById('clientNotes');
+        const confirmDialog = document.getElementById('confirmDialog');
+        const confirmText = document.getElementById('confirmText');
+
+        let deleteTargetId = null;
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            sessionStorage.removeItem('sqpr_auth');
+            localStorage.removeItem('sqpr_active_client');
+            window.location.href = 'index.html';
+        });
+
+        // Open modal for adding
+        function openAddModal() {
+            modalTitle.textContent = 'Kunde hinzufügen';
+            clientIdField.value = '';
+            clientForm.reset();
+            clientModal.classList.add('active');
+            clientName.focus();
+        }
+
+        document.getElementById('addClientBtn').addEventListener('click', openAddModal);
+        document.getElementById('addClientBtn2').addEventListener('click', openAddModal);
+
+        // Close modal
+        document.getElementById('cancelModalBtn').addEventListener('click', () => {
+            clientModal.classList.remove('active');
+        });
+
+        clientModal.addEventListener('click', (e) => {
+            if (e.target === clientModal) clientModal.classList.remove('active');
+        });
+
+        // Open modal for editing
+        function openEditModal(client) {
+            modalTitle.textContent = 'Kunde bearbeiten';
+            clientIdField.value = client.id;
+            clientName.value = client.name;
+            clientMarketplace.value = client.marketplace;
+            clientNotes.value = client.notes || '';
+            clientModal.classList.add('active');
+            clientName.focus();
+        }
+
+        // Save (create or update)
+        clientForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = clientIdField.value;
+            const data = {
+                name: clientName.value.trim(),
+                marketplace: clientMarketplace.value,
+                notes: clientNotes.value.trim() || null
+            };
+
+            if (!data.name || !data.marketplace) return;
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Speichern...';
+
+            if (id) {
+                await sb.from('sqpr_clients').update(data).eq('id', id);
+            } else {
+                await sb.from('sqpr_clients').insert(data);
+            }
+
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Speichern';
+            clientModal.classList.remove('active');
+            loadClients();
+        });
+
+        // Delete confirmation
+        function openDeleteConfirm(client) {
+            deleteTargetId = client.id;
+            confirmText.innerHTML = `Möchten Sie <strong>${client.name}</strong> wirklich löschen?`;
+            confirmDialog.classList.add('active');
+        }
+
+        document.getElementById('confirmCancel').addEventListener('click', () => {
+            confirmDialog.classList.remove('active');
+            deleteTargetId = null;
+        });
+
+        confirmDialog.addEventListener('click', (e) => {
+            if (e.target === confirmDialog) {
+                confirmDialog.classList.remove('active');
+                deleteTargetId = null;
+            }
+        });
+
+        document.getElementById('confirmDelete').addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+            await sb.from('sqpr_clients').delete().eq('id', deleteTargetId);
+            if (localStorage.getItem('sqpr_active_client') === String(deleteTargetId)) {
+                localStorage.removeItem('sqpr_active_client');
+            }
+            confirmDialog.classList.remove('active');
+            deleteTargetId = null;
+            loadClients();
+        });
+
+        // Select client
+        function selectClient(clientId) {
+            localStorage.setItem('sqpr_active_client', clientId);
+            window.location.href = 'dashboard.html';
+        }
+
+        // Format date
+        function formatDate(isoString) {
+            const d = new Date(isoString);
+            return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        // Load clients
+        async function loadClients() {
+            loadingState.style.display = 'block';
+            clientsTable.style.display = 'none';
+            emptyState.style.display = 'none';
+
+            const { data: clients, error } = await sb
+                .from('sqpr_clients')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                loadingState.innerHTML = '<p style="color:#f85149;">Fehler beim Laden der Kunden.</p>';
+                console.error(error);
+                return;
+            }
+
+            // Get report counts per client
+            let reportCounts = {};
+            if (clients && clients.length > 0) {
+                const clientIds = clients.map(c => c.id);
+                const { data: reports } = await sb
+                    .from('sqpr_reports')
+                    .select('client_id');
+
+                if (reports) {
+                    reports.forEach(r => {
+                        reportCounts[r.client_id] = (reportCounts[r.client_id] || 0) + 1;
+                    });
+                }
+            }
+
+            loadingState.style.display = 'none';
+
+            if (!clients || clients.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            clientsTable.style.display = 'table';
+            clientsBody.innerHTML = '';
+
+            clients.forEach(client => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><a class="client-name-link" data-id="${client.id}">${escapeHtml(client.name)}</a></td>
+                    <td><span class="marketplace-badge">${escapeHtml(client.marketplace)}</span></td>
+                    <td>${reportCounts[client.id] || 0}</td>
+                    <td>${formatDate(client.created_at)}</td>
+                    <td>
+                        <button class="action-btn edit-btn" data-id="${client.id}">Bearbeiten</button>
+                        <button class="action-btn delete delete-btn" data-id="${client.id}">Löschen</button>
+                    </td>
+                `;
+
+                // Client name click
+                tr.querySelector('.client-name-link').addEventListener('click', () => selectClient(client.id));
+
+                // Edit
+                tr.querySelector('.edit-btn').addEventListener('click', () => openEditModal(client));
+
+                // Delete
+                tr.querySelector('.delete-btn').addEventListener('click', () => openDeleteConfirm(client));
+
+                clientsBody.appendChild(tr);
+            });
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Initial load
+        loadClients();
+    </script>
+</body>
+</html>

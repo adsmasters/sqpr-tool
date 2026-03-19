@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQPR Tool — Upload</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+        }
+
+        /* Top Bar */
+        .topbar {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .topbar-logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: #3551FF;
+            text-decoration: none;
+        }
+
+        .topbar-nav {
+            display: flex;
+            gap: 4px;
+        }
+
+        .topbar-nav a {
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .topbar-nav a:hover {
+            color: #e6edf3;
+            background: #21262d;
+        }
+
+        .topbar-nav a.active {
+            color: #e6edf3;
+            background: #30363d;
+        }
+
+        .logout-btn {
+            color: #8b949e;
+            background: none;
+            border: 1px solid #30363d;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .logout-btn:hover {
+            color: #f85149;
+            border-color: #f85149;
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .page-header {
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        /* Cards */
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            color: #e6edf3;
+        }
+
+        /* Form elements */
+        .form-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #e6edf3;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #3551FF;
+        }
+
+        .form-group select option {
+            background: #161b22;
+        }
+
+        /* Drop zone */
+        .drop-zone {
+            border: 2px dashed #30363d;
+            border-radius: 12px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: #3551FF;
+            background: rgba(53, 81, 255, 0.05);
+        }
+
+        .drop-zone-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+            color: #8b949e;
+        }
+
+        .drop-zone-text {
+            font-size: 15px;
+            color: #8b949e;
+            margin-bottom: 8px;
+        }
+
+        .drop-zone-hint {
+            font-size: 12px;
+            color: #484f58;
+        }
+
+        .drop-zone input[type="file"] {
+            display: none;
+        }
+
+        .file-selected {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px;
+            background: rgba(53, 81, 255, 0.08);
+            border: 1px solid #3551FF;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        .file-selected .file-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+
+        .file-selected .remove-file {
+            background: none;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 4px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .file-selected .remove-file:hover {
+            color: #f85149;
+        }
+
+        /* Preview */
+        .preview-section {
+            display: none;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #21262d;
+            color: #8b949e;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .badge.success {
+            background: rgba(63, 185, 80, 0.15);
+            color: #3fb950;
+        }
+
+        .columns-validation {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .col-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .col-tag.found {
+            background: rgba(63, 185, 80, 0.12);
+            color: #3fb950;
+        }
+
+        .col-tag.missing {
+            background: rgba(248, 81, 73, 0.12);
+            color: #f85149;
+        }
+
+        .preview-table-wrap {
+            overflow-x: auto;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+        }
+
+        .preview-table-wrap table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .preview-table-wrap thead th {
+            text-align: left;
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            border-bottom: 1px solid #30363d;
+            background: #0d1117;
+        }
+
+        .preview-table-wrap tbody tr {
+            border-bottom: 1px solid #21262d;
+        }
+
+        .preview-table-wrap tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .preview-table-wrap tbody td {
+            padding: 8px 14px;
+            font-size: 13px;
+        }
+
+        /* Upload button */
+        .btn-primary {
+            background: #3551FF;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #2a44e0;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .upload-actions {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* Progress */
+        .progress-wrap {
+            display: none;
+            margin-top: 16px;
+        }
+
+        .progress-bar-outer {
+            width: 100%;
+            height: 8px;
+            background: #21262d;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            background: #3551FF;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            font-size: 13px;
+            color: #8b949e;
+            margin-top: 6px;
+        }
+
+        /* Success message */
+        .success-msg {
+            display: none;
+            margin-top: 16px;
+            padding: 14px 18px;
+            background: rgba(63, 185, 80, 0.1);
+            border: 1px solid rgba(63, 185, 80, 0.3);
+            border-radius: 8px;
+            color: #3fb950;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .error-msg {
+            display: none;
+            margin-top: 16px;
+            padding: 14px 18px;
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+            border-radius: 8px;
+            color: #f85149;
+            font-size: 14px;
+        }
+
+        /* Upload history table */
+        .table-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table-card table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-card thead th {
+            text-align: left;
+            padding: 14px 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #30363d;
+            background: #0d1117;
+        }
+
+        .table-card tbody tr {
+            border-bottom: 1px solid #21262d;
+            transition: background 0.15s;
+        }
+
+        .table-card tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .table-card tbody tr:hover {
+            background: #1c2128;
+        }
+
+        .table-card tbody td {
+            padding: 14px 20px;
+            font-size: 14px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: #8b949e;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            padding: 4px 10px;
+            border-radius: 4px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .action-btn:hover {
+            color: #e6edf3;
+            background: #21262d;
+        }
+
+        .action-btn.delete:hover {
+            color: #f85149;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #8b949e;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Loading spinner */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #30363d;
+            border-top-color: #3551FF;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        /* Confirm Dialog */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+        }
+
+        .confirm-overlay.active {
+            display: flex;
+        }
+
+        .confirm-dialog {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 28px 32px;
+            max-width: 400px;
+            width: 100%;
+            margin: 0 20px;
+            text-align: center;
+        }
+
+        .confirm-dialog p {
+            font-size: 15px;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .confirm-dialog .confirm-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-secondary {
+            background: #21262d;
+            color: #e6edf3;
+            border: 1px solid #30363d;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #30363d;
+        }
+
+        .btn-danger {
+            background: #da3633;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-danger:hover {
+            background: #b62324;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
+            <nav class="topbar-nav">
+                <a href="dashboard.html">Dashboard</a>
+                <a href="clients.html">Kunden</a>
+                <a href="upload.html" class="active">Upload</a>
+            </nav>
+        </div>
+        <button class="logout-btn" id="logoutBtn">Logout</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+        <div class="page-header">
+            <h1>CSV Upload</h1>
+        </div>
+
+        <!-- Settings Card -->
+        <div class="card">
+            <div class="card-title">Report-Einstellungen</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="clientSelect">Kunde</label>
+                    <select id="clientSelect">
+                        <option value="">Kunde wählen...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="startDate">Startdatum</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="form-group">
+                    <label for="endDate">Enddatum</label>
+                    <input type="date" id="endDate">
+                </div>
+                <div class="form-group">
+                    <label for="periodType">Zeitraum</label>
+                    <select id="periodType">
+                        <option value="weekly">Wöchentlich</option>
+                        <option value="monthly">Monatlich</option>
+                        <option value="quarterly">Quartalsweise</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Drop Zone Card -->
+        <div class="card">
+            <div class="card-title">CSV-Datei</div>
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">&#128196;</div>
+                <div class="drop-zone-text">CSV-Datei hierher ziehen oder klicken</div>
+                <div class="drop-zone-hint">Amazon SQPR CSV (.csv) — Deutsche und englische Formate werden unterstützt</div>
+                <input type="file" id="fileInput" accept=".csv">
+            </div>
+            <div class="file-selected" id="fileSelected" style="display:none;">
+                <span class="file-name" id="fileName"></span>
+                <button class="remove-file" id="removeFile" title="Datei entfernen">&times;</button>
+            </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div class="card preview-section" id="previewSection">
+            <div class="card-title">Vorschau</div>
+            <span class="badge success" id="rowBadge"></span>
+
+            <div class="card-title" style="font-size:13px; margin-top:12px;">Spalten-Erkennung</div>
+            <div class="columns-validation" id="columnsValidation"></div>
+
+            <div class="preview-table-wrap">
+                <table>
+                    <thead id="previewHead"></thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
+            </div>
+
+            <div class="upload-actions">
+                <button class="btn-primary" id="uploadBtn" disabled>Hochladen</button>
+            </div>
+
+            <div class="progress-wrap" id="progressWrap">
+                <div class="progress-bar-outer">
+                    <div class="progress-bar-inner" id="progressBar"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+
+            <div class="success-msg" id="successMsg"></div>
+            <div class="error-msg" id="errorMsg"></div>
+        </div>
+
+        <!-- Upload History -->
+        <div style="margin-top:12px;">
+            <h2 class="section-title">Upload-Verlauf</h2>
+            <div class="table-card">
+                <div class="loading" id="historyLoading">
+                    <div class="spinner"></div>
+                    <div>Verlauf wird geladen...</div>
+                </div>
+                <table id="historyTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Zeitraum</th>
+                            <th>Typ</th>
+                            <th>Zeilen</th>
+                            <th>Hochgeladen am</th>
+                            <th>Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                </table>
+                <div class="empty-state" id="historyEmpty" style="display:none;">
+                    <p>Noch keine Uploads für diesen Kunden.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation -->
+    <div class="confirm-overlay" id="confirmDialog">
+        <div class="confirm-dialog">
+            <p id="confirmText">Möchten Sie diesen Upload wirklich löschen?</p>
+            <div class="confirm-actions">
+                <button class="btn-secondary" id="confirmCancel">Abbrechen</button>
+                <button class="btn-danger" id="confirmDelete">Löschen</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script>
+        // Auth check
+        if (sessionStorage.getItem('sqpr_auth') !== 'true') {
+            window.location.href = 'index.html';
+        }
+
+        // Supabase init
+        const SUPABASE_URL = 'https://lgrnmiszhhahfcmctmwo.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // DOM
+        const clientSelect = document.getElementById('clientSelect');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const periodType = document.getElementById('periodType');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileSelected = document.getElementById('fileSelected');
+        const fileName = document.getElementById('fileName');
+        const removeFileBtn = document.getElementById('removeFile');
+        const previewSection = document.getElementById('previewSection');
+        const rowBadge = document.getElementById('rowBadge');
+        const columnsValidation = document.getElementById('columnsValidation');
+        const previewHead = document.getElementById('previewHead');
+        const previewBody = document.getElementById('previewBody');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const progressWrap = document.getElementById('progressWrap');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const successMsg = document.getElementById('successMsg');
+        const errorMsg = document.getElementById('errorMsg');
+        const historyLoading = document.getElementById('historyLoading');
+        const historyTable = document.getElementById('historyTable');
+        const historyBody = document.getElementById('historyBody');
+        const historyEmpty = document.getElementById('historyEmpty');
+        const confirmDialog = document.getElementById('confirmDialog');
+        const confirmText = document.getElementById('confirmText');
+
+        let parsedData = null;
+        let parsedHeaders = null;
+        let deleteTargetId = null;
+
+        // Expected columns for validation (partial matching)
+        const EXPECTED_COLUMNS = [
+            'Search Query',
+            'Search Query Score',
+            'Search Query Volume',
+            'Impressions: Total Count',
+            'Impressions: Brand Count',
+            'Impressions: Brand Share %',
+            'Clicks: Total Count',
+            'Clicks: Brand Count',
+            'Clicks: Brand Share %',
+            'Cart Adds: Total Count',
+            'Cart Adds: Brand Count',
+            'Cart Adds: Brand Share %',
+            'Purchases: Total Count',
+            'Purchases: Brand Count',
+            'Purchases: Brand Share %'
+        ];
+
+        // Column key mapping for DB insert (maps expected name to DB column)
+        const COLUMN_DB_MAP = {
+            'Search Query': 'search_query',
+            'Search Query Score': 'search_query_score',
+            'Search Query Volume': 'search_query_volume',
+            'Impressions: Total Count': 'impressions_total',
+            'Impressions: Brand Count': 'impressions_brand',
+            'Impressions: Brand Share %': 'impressions_brand_share',
+            'Clicks: Total Count': 'clicks_total',
+            'Clicks: Brand Count': 'clicks_brand',
+            'Clicks: Brand Share %': 'clicks_brand_share',
+            'Cart Adds: Total Count': 'cart_adds_total',
+            'Cart Adds: Brand Count': 'cart_adds_brand',
+            'Cart Adds: Brand Share %': 'cart_adds_brand_share',
+            'Purchases: Total Count': 'purchases_total',
+            'Purchases: Brand Count': 'purchases_brand',
+            'Purchases: Brand Share %': 'purchases_brand_share'
+        };
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            sessionStorage.removeItem('sqpr_auth');
+            localStorage.removeItem('sqpr_active_client');
+            window.location.href = 'index.html';
+        });
+
+        // Load clients
+        async function loadClients() {
+            const { data: clients, error } = await sb
+                .from('sqpr_clients')
+                .select('id, name')
+                .order('name', { ascending: true });
+
+            if (error || !clients) return;
+
+            clients.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                clientSelect.appendChild(opt);
+            });
+
+            // Pre-select active client
+            const activeClient = localStorage.getItem('sqpr_active_client');
+            if (activeClient) {
+                clientSelect.value = activeClient;
+                loadHistory();
+            }
+        }
+
+        clientSelect.addEventListener('change', () => {
+            if (clientSelect.value) {
+                localStorage.setItem('sqpr_active_client', clientSelect.value);
+            }
+            loadHistory();
+        });
+
+        // --- File handling ---
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.csv')) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        removeFileBtn.addEventListener('click', () => {
+            resetFileState();
+        });
+
+        function resetFileState() {
+            fileInput.value = '';
+            fileSelected.style.display = 'none';
+            previewSection.style.display = 'none';
+            parsedData = null;
+            parsedHeaders = null;
+            uploadBtn.disabled = true;
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            progressWrap.style.display = 'none';
+        }
+
+        function handleFile(file) {
+            fileName.textContent = file.name;
+            fileSelected.style.display = 'flex';
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            progressWrap.style.display = 'none';
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    parseCSV(e.target.result);
+                } catch (err) {
+                    showError('Fehler beim Parsen der CSV: ' + err.message);
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // --- CSV Parsing ---
+
+        function detectDelimiter(text) {
+            // Check first few lines for semicolons vs commas
+            const lines = text.split('\n').slice(0, 20);
+            let semiCount = 0;
+            let commaCount = 0;
+            for (const line of lines) {
+                semiCount += (line.match(/;/g) || []).length;
+                commaCount += (line.match(/,/g) || []).length;
+            }
+            return semiCount > commaCount ? ';' : ',';
+        }
+
+        function splitCSVLine(line, delimiter) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                    if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (ch === delimiter && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += ch;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        function findHeaderRow(lines, delimiter) {
+            // Search for a line containing "Search Query" and "Impressions"
+            for (let i = 0; i < Math.min(lines.length, 30); i++) {
+                const lower = lines[i].toLowerCase();
+                if (lower.includes('search query') && lower.includes('impressions')) {
+                    return i;
+                }
+            }
+            // Fallback: first non-empty line
+            return 0;
+        }
+
+        function matchColumn(header, expected) {
+            // Flexible partial matching (case-insensitive)
+            const h = header.toLowerCase().trim();
+            const e = expected.toLowerCase().trim();
+            return h.includes(e) || e.includes(h);
+        }
+
+        function findColumnIndex(headers, expected) {
+            const eLower = expected.toLowerCase().trim();
+            for (let i = 0; i < headers.length; i++) {
+                const hLower = headers[i].toLowerCase().trim();
+                if (hLower === eLower) return i;
+            }
+            // Partial match
+            for (let i = 0; i < headers.length; i++) {
+                const hLower = headers[i].toLowerCase().trim();
+                if (hLower.includes(eLower) || eLower.includes(hLower)) return i;
+            }
+            return -1;
+        }
+
+        function parseGermanNumber(val) {
+            if (val === null || val === undefined || val === '' || val === '-' || val === 'N/A') return null;
+            let s = String(val).trim();
+            if (s === '') return null;
+
+            const isPercent = s.includes('%');
+            s = s.replace('%', '').trim();
+
+            // Detect German vs English number format
+            // German: 1.234,56 or 1.234 (thousands sep = dot, decimal = comma)
+            // English: 1,234.56 or 1,234 (thousands sep = comma, decimal = dot)
+            const lastDot = s.lastIndexOf('.');
+            const lastComma = s.lastIndexOf(',');
+
+            let num;
+            if (lastComma > lastDot) {
+                // German format: dots are thousands, comma is decimal
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else if (lastDot > lastComma) {
+                // English format: commas are thousands, dot is decimal
+                s = s.replace(/,/g, '');
+            } else if (lastComma >= 0 && lastDot < 0) {
+                // Only commas - could be German decimal
+                // If there's exactly one comma, treat as decimal separator
+                const commaCount = (s.match(/,/g) || []).length;
+                if (commaCount === 1) {
+                    s = s.replace(',', '.');
+                } else {
+                    // Multiple commas = thousands separators
+                    s = s.replace(/,/g, '');
+                }
+            } else if (lastDot >= 0 && lastComma < 0) {
+                // Only dots
+                const dotCount = (s.match(/\./g) || []).length;
+                if (dotCount === 1) {
+                    // Could be decimal or thousands. Check digits after dot.
+                    const afterDot = s.split('.')[1];
+                    if (afterDot.length === 3 && !isPercent) {
+                        // Likely German thousands separator: "1.234" = 1234
+                        s = s.replace('.', '');
+                    }
+                    // else keep as decimal: "5.23" = 5.23
+                } else {
+                    // Multiple dots = thousands separators
+                    s = s.replace(/\./g, '');
+                }
+            }
+
+            num = parseFloat(s);
+            if (isNaN(num)) return null;
+
+            if (isPercent) {
+                num = num / 100;
+            }
+
+            return num;
+        }
+
+        function parseCSV(text) {
+            const delimiter = detectDelimiter(text);
+            const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+            const headerIdx = findHeaderRow(lines, delimiter);
+
+            const headers = splitCSVLine(lines[headerIdx], delimiter);
+            const dataLines = lines.slice(headerIdx + 1);
+
+            // Parse data rows
+            const rows = [];
+            for (const line of dataLines) {
+                if (line.trim() === '') continue;
+                const cells = splitCSVLine(line, delimiter);
+                if (cells.length < 2) continue;
+                // Skip rows that look like summary/metadata
+                if (cells[0].toLowerCase().startsWith('total') || cells[0].trim() === '') continue;
+                rows.push(cells);
+            }
+
+            parsedHeaders = headers;
+            parsedData = rows;
+
+            showPreview(headers, rows);
+        }
+
+        function showPreview(headers, rows) {
+            previewSection.style.display = 'block';
+
+            // Row count badge
+            rowBadge.textContent = rows.length + ' Zeilen erkannt';
+
+            // Column validation
+            columnsValidation.innerHTML = '';
+            const columnMapping = {};
+
+            EXPECTED_COLUMNS.forEach(expected => {
+                const idx = findColumnIndex(headers, expected);
+                const tag = document.createElement('span');
+                if (idx >= 0) {
+                    tag.className = 'col-tag found';
+                    tag.innerHTML = '&#10003; ' + escapeHtml(expected);
+                    columnMapping[expected] = idx;
+                } else {
+                    tag.className = 'col-tag missing';
+                    tag.innerHTML = '&#10007; ' + escapeHtml(expected);
+                }
+                columnsValidation.appendChild(tag);
+            });
+
+            // Preview table (first 5 rows)
+            previewHead.innerHTML = '<tr>' + headers.map(h => '<th>' + escapeHtml(h) + '</th>').join('') + '</tr>';
+            previewBody.innerHTML = '';
+            const previewRows = rows.slice(0, 5);
+            previewRows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = headers.map((_, i) => '<td>' + escapeHtml(row[i] || '') + '</td>').join('');
+                previewBody.appendChild(tr);
+            });
+
+            // Enable upload if we have required columns
+            const hasSearchQuery = findColumnIndex(headers, 'Search Query') >= 0;
+            uploadBtn.disabled = !hasSearchQuery;
+        }
+
+        // --- Upload ---
+
+        uploadBtn.addEventListener('click', async () => {
+            const clientId = clientSelect.value;
+            if (!clientId) {
+                showError('Bitte wählen Sie einen Kunden aus.');
+                return;
+            }
+            if (!startDate.value || !endDate.value) {
+                showError('Bitte geben Sie Start- und Enddatum an.');
+                return;
+            }
+            if (!parsedData || parsedData.length === 0) {
+                showError('Keine Daten zum Hochladen.');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            progressWrap.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Report wird erstellt...';
+
+            try {
+                // 1. Create report record
+                const { data: report, error: reportError } = await sb
+                    .from('sqpr_reports')
+                    .insert({
+                        client_id: parseInt(clientId),
+                        start_date: startDate.value,
+                        end_date: endDate.value,
+                        period_type: periodType.value,
+                        row_count: parsedData.length
+                    })
+                    .select('id')
+                    .single();
+
+                if (reportError) throw new Error('Report konnte nicht erstellt werden: ' + reportError.message);
+
+                const reportId = report.id;
+
+                // 2. Build column index mapping
+                const colIdx = {};
+                EXPECTED_COLUMNS.forEach(expected => {
+                    const idx = findColumnIndex(parsedHeaders, expected);
+                    if (idx >= 0) colIdx[expected] = idx;
+                });
+
+                // 3. Build rows for batch insert
+                const dbRows = parsedData.map(row => {
+                    const obj = { report_id: reportId };
+
+                    EXPECTED_COLUMNS.forEach(expected => {
+                        const dbCol = COLUMN_DB_MAP[expected];
+                        const idx = colIdx[expected];
+                        if (idx === undefined || idx < 0 || !dbCol) return;
+
+                        const rawVal = row[idx];
+                        if (expected === 'Search Query') {
+                            obj[dbCol] = rawVal ? rawVal.trim() : null;
+                        } else if (expected.includes('%') || expected.includes('Share')) {
+                            obj[dbCol] = parseGermanNumber(rawVal);
+                        } else {
+                            const parsed = parseGermanNumber(rawVal);
+                            obj[dbCol] = parsed !== null ? Math.round(parsed) : null;
+                        }
+                    });
+
+                    return obj;
+                });
+
+                // 4. Batch insert in chunks of 500
+                const chunkSize = 500;
+                const totalChunks = Math.ceil(dbRows.length / chunkSize);
+
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = dbRows.slice(i * chunkSize, (i + 1) * chunkSize);
+                    const { error: insertError } = await sb
+                        .from('sqpr_rows')
+                        .insert(chunk);
+
+                    if (insertError) {
+                        // Try to clean up report on failure
+                        await sb.from('sqpr_reports').delete().eq('id', reportId);
+                        throw new Error('Fehler beim Einfügen der Zeilen (Chunk ' + (i + 1) + '): ' + insertError.message);
+                    }
+
+                    const pct = Math.round(((i + 1) / totalChunks) * 100);
+                    progressBar.style.width = pct + '%';
+                    progressText.textContent = pct + '% — ' + Math.min((i + 1) * chunkSize, dbRows.length) + ' / ' + dbRows.length + ' Zeilen';
+                }
+
+                // Success
+                progressBar.style.width = '100%';
+                progressText.textContent = '100%';
+                successMsg.textContent = 'Erfolgreich hochgeladen: ' + dbRows.length + ' Zeilen eingefügt.';
+                successMsg.style.display = 'block';
+
+                // Reset file state and reload history
+                setTimeout(() => {
+                    resetFileState();
+                    loadHistory();
+                }, 1500);
+
+            } catch (err) {
+                showError(err.message);
+                uploadBtn.disabled = false;
+            }
+        });
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.style.display = 'block';
+            successMsg.style.display = 'none';
+        }
+
+        // --- Upload History ---
+
+        async function loadHistory() {
+            const clientId = clientSelect.value;
+            historyLoading.style.display = 'block';
+            historyTable.style.display = 'none';
+            historyEmpty.style.display = 'none';
+
+            if (!clientId) {
+                historyLoading.style.display = 'none';
+                historyEmpty.style.display = 'block';
+                return;
+            }
+
+            const { data: reports, error } = await sb
+                .from('sqpr_reports')
+                .select('*')
+                .eq('client_id', parseInt(clientId))
+                .order('created_at', { ascending: false });
+
+            historyLoading.style.display = 'none';
+
+            if (error || !reports || reports.length === 0) {
+                historyEmpty.style.display = 'block';
+                return;
+            }
+
+            historyTable.style.display = 'table';
+            historyBody.innerHTML = '';
+
+            const periodLabels = {
+                weekly: 'Wöchentlich',
+                monthly: 'Monatlich',
+                quarterly: 'Quartalsweise'
+            };
+
+            reports.forEach(report => {
+                const tr = document.createElement('tr');
+                const sDate = formatDate(report.start_date);
+                const eDate = formatDate(report.end_date);
+                tr.innerHTML = `
+                    <td>${sDate} — ${eDate}</td>
+                    <td>${periodLabels[report.period_type] || report.period_type}</td>
+                    <td>${report.row_count || 0}</td>
+                    <td>${formatDateTime(report.created_at)}</td>
+                    <td><button class="action-btn delete delete-report-btn" data-id="${report.id}">Löschen</button></td>
+                `;
+                tr.querySelector('.delete-report-btn').addEventListener('click', () => {
+                    openDeleteConfirm(report.id);
+                });
+                historyBody.appendChild(tr);
+            });
+        }
+
+        // Delete report
+        function openDeleteConfirm(reportId) {
+            deleteTargetId = reportId;
+            confirmText.textContent = 'Möchten Sie diesen Upload und alle zugehörigen Zeilen wirklich löschen?';
+            confirmDialog.classList.add('active');
+        }
+
+        document.getElementById('confirmCancel').addEventListener('click', () => {
+            confirmDialog.classList.remove('active');
+            deleteTargetId = null;
+        });
+
+        confirmDialog.addEventListener('click', (e) => {
+            if (e.target === confirmDialog) {
+                confirmDialog.classList.remove('active');
+                deleteTargetId = null;
+            }
+        });
+
+        document.getElementById('confirmDelete').addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+            const btn = document.getElementById('confirmDelete');
+            btn.disabled = true;
+            btn.textContent = 'Löschen...';
+
+            // Delete rows first, then report
+            await sb.from('sqpr_rows').delete().eq('report_id', deleteTargetId);
+            await sb.from('sqpr_reports').delete().eq('id', deleteTargetId);
+
+            btn.disabled = false;
+            btn.textContent = 'Löschen';
+            confirmDialog.classList.remove('active');
+            deleteTargetId = null;
+            loadHistory();
+        });
+
+        // Helpers
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        function formatDateTime(isoStr) {
+            if (!isoStr) return '-';
+            const d = new Date(isoStr);
+            return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+                ', ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Init
+        loadClients();
+    </script>
+</body>
+</html>

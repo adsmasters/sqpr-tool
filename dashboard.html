@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQPR Tool — Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+        }
+
+        /* Top Bar */
+        .topbar {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .topbar-logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: #3551FF;
+            text-decoration: none;
+        }
+
+        .topbar-nav {
+            display: flex;
+            gap: 4px;
+        }
+
+        .topbar-nav a {
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .topbar-nav a:hover {
+            color: #e6edf3;
+            background: #21262d;
+        }
+
+        .topbar-nav a.active {
+            color: #e6edf3;
+            background: #30363d;
+        }
+
+        .logout-btn {
+            color: #8b949e;
+            background: none;
+            border: 1px solid #30363d;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .logout-btn:hover {
+            color: #f85149;
+            border-color: #f85149;
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* No Client State */
+        .no-client {
+            text-align: center;
+            padding: 80px 20px;
+        }
+
+        .no-client-icon {
+            width: 64px;
+            height: 64px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .no-client h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .no-client p {
+            color: #8b949e;
+            font-size: 15px;
+            margin-bottom: 24px;
+        }
+
+        .no-client a {
+            display: inline-block;
+            background: #3551FF;
+            color: #fff;
+            text-decoration: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .no-client a:hover {
+            background: #2a44e0;
+        }
+
+        /* Header Row */
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-left h1 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .marketplace-badge {
+            display: inline-block;
+            background: #21262d;
+            color: #8b949e;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .report-select {
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #e6edf3;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            outline: none;
+            cursor: pointer;
+            min-width: 220px;
+            transition: border-color 0.2s;
+        }
+
+        .report-select:focus {
+            border-color: #3551FF;
+        }
+
+        .report-select option {
+            background: #161b22;
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .kpi-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 22px 24px;
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #e6edf3;
+        }
+
+        .kpi-value.accent {
+            color: #3551FF;
+        }
+
+        /* Section Cards */
+        .section-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 28px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        /* Funnel Chart Container */
+        .funnel-container {
+            position: relative;
+        }
+
+        .funnel-stage {
+            display: flex;
+            align-items: center;
+            margin-bottom: 18px;
+            gap: 16px;
+        }
+
+        .funnel-stage:last-child {
+            margin-bottom: 0;
+        }
+
+        .funnel-label {
+            width: 110px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #8b949e;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .funnel-bars {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .funnel-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .funnel-bar-track {
+            flex: 1;
+            height: 22px;
+            background: #21262d;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .funnel-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.6s ease;
+        }
+
+        .funnel-bar-fill.total {
+            background: #484f58;
+        }
+
+        .funnel-bar-fill.brand {
+            background: #3551FF;
+        }
+
+        .funnel-bar-value {
+            font-size: 13px;
+            font-weight: 600;
+            min-width: 90px;
+            text-align: right;
+            color: #8b949e;
+        }
+
+        .funnel-share {
+            font-size: 12px;
+            font-weight: 700;
+            min-width: 60px;
+            text-align: right;
+            color: #3551FF;
+        }
+
+        .funnel-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: -6px 0 -6px 126px;
+            padding: 2px 0;
+        }
+
+        .funnel-arrow-text {
+            font-size: 11px;
+            color: #484f58;
+            font-weight: 600;
+            padding: 2px 10px;
+            background: #0d1117;
+            border-radius: 4px;
+            border: 1px solid #21262d;
+        }
+
+        .funnel-legend {
+            display: flex;
+            gap: 24px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #21262d;
+        }
+
+        .funnel-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #8b949e;
+        }
+
+        .funnel-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        /* Trend Chart */
+        .chart-wrapper {
+            position: relative;
+            height: 320px;
+        }
+
+        /* Table */
+        .table-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #e6edf3;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            outline: none;
+            width: 280px;
+            max-width: 100%;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: #3551FF;
+        }
+
+        .result-count {
+            font-size: 13px;
+            color: #8b949e;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table thead th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #30363d;
+            background: #0d1117;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            transition: color 0.2s;
+        }
+
+        .data-table thead th:hover {
+            color: #e6edf3;
+        }
+
+        .data-table thead th.sorted-asc::after {
+            content: ' \u25B2';
+            font-size: 9px;
+        }
+
+        .data-table thead th.sorted-desc::after {
+            content: ' \u25BC';
+            font-size: 9px;
+        }
+
+        .data-table tbody tr {
+            border-bottom: 1px solid #21262d;
+            transition: background 0.15s;
+        }
+
+        .data-table tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .data-table tbody tr:hover {
+            background: #1c2128;
+        }
+
+        .data-table tbody td {
+            padding: 11px 16px;
+            font-size: 13px;
+        }
+
+        .data-table td.query-cell {
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .data-table td.num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .share-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 52px;
+            text-align: center;
+        }
+
+        .share-badge.green {
+            background: rgba(63, 185, 80, 0.15);
+            color: #3fb950;
+        }
+
+        .share-badge.yellow {
+            background: rgba(210, 153, 34, 0.15);
+            color: #d29922;
+        }
+
+        .share-badge.red {
+            background: rgba(248, 81, 73, 0.15);
+            color: #f85149;
+        }
+
+        .load-more-row {
+            text-align: center;
+            padding: 16px;
+        }
+
+        .btn-load-more {
+            background: #21262d;
+            color: #e6edf3;
+            border: 1px solid #30363d;
+            padding: 8px 24px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-load-more:hover {
+            background: #30363d;
+        }
+
+        /* Table overflow */
+        .table-scroll {
+            overflow-x: auto;
+        }
+
+        /* Loading spinner */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8b949e;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #30363d;
+            border-top-color: #3551FF;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .topbar {
+                padding: 0 16px;
+            }
+
+            .topbar-left {
+                gap: 16px;
+            }
+
+            .topbar-nav a {
+                padding: 6px 8px;
+                font-size: 13px;
+            }
+
+            .main {
+                padding: 20px 12px;
+            }
+
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .report-select {
+                width: 100%;
+            }
+
+            .search-input {
+                width: 100%;
+            }
+
+            .funnel-arrow {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
+            <nav class="topbar-nav">
+                <a href="dashboard.html" class="active">Dashboard</a>
+                <a href="clients.html">Kunden</a>
+                <a href="upload.html">Upload</a>
+            </nav>
+        </div>
+        <button class="logout-btn" id="logoutBtn">Logout</button>
+    </div>
+
+    <!-- No Client Selected -->
+    <div class="main" id="noClientView" style="display:none;">
+        <div class="no-client">
+            <div class="no-client-icon">&#x1F465;</div>
+            <h2>Bitte w&auml;hle einen Kunden aus</h2>
+            <p>W&auml;hle einen Kunden in der Kunden&uuml;bersicht, um das Dashboard anzuzeigen.</p>
+            <a href="clients.html">Zur Kunden&uuml;bersicht</a>
+        </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="main" id="dashboardView" style="display:none;">
+
+        <!-- Header Row -->
+        <div class="header-row">
+            <div class="header-left">
+                <h1 id="clientName">—</h1>
+                <span class="marketplace-badge" id="clientMarketplace"></span>
+            </div>
+            <select class="report-select" id="reportSelect">
+                <option value="all">Alle Zeitr&auml;ume</option>
+            </select>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Suchbegriffe</div>
+                <div class="kpi-value" id="kpiQueries">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">&Oslash; Impression Share</div>
+                <div class="kpi-value accent" id="kpiImprShare">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">&Oslash; Click Share</div>
+                <div class="kpi-value accent" id="kpiClickShare">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">&Oslash; Purchase Share</div>
+                <div class="kpi-value accent" id="kpiPurchaseShare">—</div>
+            </div>
+        </div>
+
+        <!-- Funnel Visualization -->
+        <div class="section-card">
+            <div class="section-title">Funnel &Uuml;bersicht</div>
+            <div class="funnel-container" id="funnelContainer">
+                <div class="loading"><div class="spinner"></div><div>Lade Daten...</div></div>
+            </div>
+        </div>
+
+        <!-- Market Share Trend -->
+        <div class="section-card" id="trendSection" style="display:none;">
+            <div class="section-title">Market Share Trend</div>
+            <div class="chart-wrapper">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Suchbegriffe Table -->
+        <div class="section-card">
+            <div class="section-title">Top Suchbegriffe</div>
+            <div class="table-controls">
+                <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern...">
+                <div class="result-count" id="resultCount"></div>
+            </div>
+            <div class="table-scroll">
+                <table class="data-table" id="queryTable">
+                    <thead>
+                        <tr>
+                            <th data-col="query">Suchbegriff</th>
+                            <th data-col="score">Score</th>
+                            <th data-col="volume">Volumen</th>
+                            <th data-col="impr_share">Impr. Share</th>
+                            <th data-col="click_share">Click Share</th>
+                            <th data-col="cart_share">Cart Share</th>
+                            <th data-col="purchase_share">Purchase Share</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queryBody"></tbody>
+                </table>
+            </div>
+            <div class="load-more-row" id="loadMoreRow" style="display:none;">
+                <button class="btn-load-more" id="loadMoreBtn">Mehr laden</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="main" id="loadingView">
+        <div class="loading">
+            <div class="spinner"></div>
+            <div>Dashboard wird geladen...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Auth check
+        if (sessionStorage.getItem('sqpr_auth') !== 'true') {
+            window.location.href = 'index.html';
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            sessionStorage.removeItem('sqpr_auth');
+            localStorage.removeItem('sqpr_active_client');
+            window.location.href = 'index.html';
+        });
+
+        // Supabase init
+        const SUPABASE_URL = 'https://lgrnmiszhhahfcmctmwo.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // State
+        let allRows = [];
+        let allReports = [];
+        let clientInfo = null;
+        let processedQueries = [];
+        let currentSort = { col: 'volume', dir: 'desc' };
+        let searchFilter = '';
+        let displayCount = 50;
+        let trendChartInstance = null;
+
+        // DOM refs
+        const noClientView = document.getElementById('noClientView');
+        const dashboardView = document.getElementById('dashboardView');
+        const loadingView = document.getElementById('loadingView');
+        const reportSelect = document.getElementById('reportSelect');
+
+        // Check active client
+        const activeClientId = localStorage.getItem('sqpr_active_client');
+
+        if (!activeClientId) {
+            loadingView.style.display = 'none';
+            noClientView.style.display = 'block';
+        } else {
+            init();
+        }
+
+        async function init() {
+            try {
+                // Load client info
+                const { data: client, error: clientErr } = await sb
+                    .from('sqpr_clients')
+                    .select('*')
+                    .eq('id', activeClientId)
+                    .single();
+
+                if (clientErr || !client) {
+                    localStorage.removeItem('sqpr_active_client');
+                    loadingView.style.display = 'none';
+                    noClientView.style.display = 'block';
+                    return;
+                }
+
+                clientInfo = client;
+                document.getElementById('clientName').textContent = client.name;
+                document.getElementById('clientMarketplace').textContent = client.marketplace;
+
+                // Load reports for this client
+                const { data: reports } = await sb
+                    .from('sqpr_reports')
+                    .select('*')
+                    .eq('client_id', activeClientId)
+                    .order('report_date', { ascending: true });
+
+                allReports = reports || [];
+
+                // Populate report selector
+                reportSelect.innerHTML = '<option value="all">Alle Zeitr\u00e4ume</option>';
+                allReports.forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.id;
+                    const label = r.period_label || r.report_date || ('Report #' + r.id);
+                    opt.textContent = label;
+                    reportSelect.appendChild(opt);
+                });
+
+                // Load all SQPR rows for this client
+                await loadRows('all');
+
+                loadingView.style.display = 'none';
+                dashboardView.style.display = 'block';
+            } catch (err) {
+                console.error('Init error:', err);
+                loadingView.innerHTML = '<div class="loading"><p style="color:#f85149;">Fehler beim Laden des Dashboards.</p></div>';
+            }
+        }
+
+        // Load rows based on report filter
+        async function loadRows(reportFilter) {
+            let query = sb.from('sqpr_rows').select('*').eq('client_id', activeClientId);
+            if (reportFilter !== 'all') {
+                query = query.eq('report_id', reportFilter);
+            }
+
+            const { data: rows, error } = await query;
+            if (error) {
+                console.error('Error loading rows:', error);
+                return;
+            }
+
+            allRows = rows || [];
+            processData();
+        }
+
+        // Report selector change
+        reportSelect.addEventListener('change', async () => {
+            await loadRows(reportSelect.value);
+        });
+
+        // Process data and render
+        function processData() {
+            if (allRows.length === 0) {
+                renderKPIs(0, 0, 0, 0);
+                renderFunnelEmpty();
+                renderTable([]);
+                return;
+            }
+
+            // Aggregate by search query
+            const queryMap = {};
+            allRows.forEach(row => {
+                const key = row.search_query || row.keyword || '';
+                if (!queryMap[key]) {
+                    queryMap[key] = {
+                        query: key,
+                        search_query_score: 0,
+                        search_query_volume: 0,
+                        impressions_total: 0,
+                        impressions_brand: 0,
+                        clicks_total: 0,
+                        clicks_brand: 0,
+                        cart_adds_total: 0,
+                        cart_adds_brand: 0,
+                        purchases_total: 0,
+                        purchases_brand: 0,
+                        impressions_brand_share_sum: 0,
+                        clicks_brand_share_sum: 0,
+                        cart_adds_brand_share_sum: 0,
+                        purchases_brand_share_sum: 0,
+                        count: 0
+                    };
+                }
+                const q = queryMap[key];
+                q.search_query_score += (row.search_query_score || 0);
+                q.search_query_volume += (row.search_query_volume || 0);
+                q.impressions_total += (row.impressions_total || 0);
+                q.impressions_brand += (row.impressions_brand || 0);
+                q.clicks_total += (row.clicks_total || 0);
+                q.clicks_brand += (row.clicks_brand || 0);
+                q.cart_adds_total += (row.cart_adds_total || 0);
+                q.cart_adds_brand += (row.cart_adds_brand || 0);
+                q.purchases_total += (row.purchases_total || 0);
+                q.purchases_brand += (row.purchases_brand || 0);
+                q.impressions_brand_share_sum += (row.impressions_brand_share || 0);
+                q.clicks_brand_share_sum += (row.clicks_brand_share || 0);
+                q.cart_adds_brand_share_sum += (row.cart_adds_brand_share || 0);
+                q.purchases_brand_share_sum += (row.purchases_brand_share || 0);
+                q.count++;
+            });
+
+            const queries = Object.values(queryMap).map(q => ({
+                query: q.query,
+                score: q.search_query_score,
+                volume: q.search_query_volume,
+                impr_share: q.count > 0 ? q.impressions_brand_share_sum / q.count : 0,
+                click_share: q.count > 0 ? q.clicks_brand_share_sum / q.count : 0,
+                cart_share: q.count > 0 ? q.cart_adds_brand_share_sum / q.count : 0,
+                purchase_share: q.count > 0 ? q.purchases_brand_share_sum / q.count : 0,
+                impressions_total: q.impressions_total,
+                impressions_brand: q.impressions_brand,
+                clicks_total: q.clicks_total,
+                clicks_brand: q.clicks_brand,
+                cart_adds_total: q.cart_adds_total,
+                cart_adds_brand: q.cart_adds_brand,
+                purchases_total: q.purchases_total,
+                purchases_brand: q.purchases_brand
+            }));
+
+            processedQueries = queries;
+
+            // KPIs
+            const uniqueQueries = queries.length;
+            const avgImprShare = queries.reduce((s, q) => s + q.impr_share, 0) / (queries.length || 1);
+            const avgClickShare = queries.reduce((s, q) => s + q.click_share, 0) / (queries.length || 1);
+            const avgPurchaseShare = queries.reduce((s, q) => s + q.purchase_share, 0) / (queries.length || 1);
+
+            renderKPIs(uniqueQueries, avgImprShare, avgClickShare, avgPurchaseShare);
+
+            // Funnel totals
+            const funnel = queries.reduce((acc, q) => {
+                acc.impressions_total += q.impressions_total;
+                acc.impressions_brand += q.impressions_brand;
+                acc.clicks_total += q.clicks_total;
+                acc.clicks_brand += q.clicks_brand;
+                acc.cart_adds_total += q.cart_adds_total;
+                acc.cart_adds_brand += q.cart_adds_brand;
+                acc.purchases_total += q.purchases_total;
+                acc.purchases_brand += q.purchases_brand;
+                return acc;
+            }, {
+                impressions_total: 0, impressions_brand: 0,
+                clicks_total: 0, clicks_brand: 0,
+                cart_adds_total: 0, cart_adds_brand: 0,
+                purchases_total: 0, purchases_brand: 0
+            });
+
+            renderFunnel(funnel);
+
+            // Trend (only if "all" selected and multiple reports)
+            if (reportSelect.value === 'all' && allReports.length > 1) {
+                renderTrend();
+            } else {
+                document.getElementById('trendSection').style.display = 'none';
+            }
+
+            // Table
+            displayCount = 50;
+            renderTable(queries);
+        }
+
+        // Render KPIs
+        function renderKPIs(count, imprShare, clickShare, purchaseShare) {
+            document.getElementById('kpiQueries').textContent = count.toLocaleString('de-DE');
+            document.getElementById('kpiImprShare').textContent = formatPercent(imprShare);
+            document.getElementById('kpiClickShare').textContent = formatPercent(clickShare);
+            document.getElementById('kpiPurchaseShare').textContent = formatPercent(purchaseShare);
+        }
+
+        // Format percentage
+        function formatPercent(val) {
+            if (val == null || isNaN(val)) return '0,00 %';
+            return (val * 100).toFixed(2).replace('.', ',') + ' %';
+        }
+
+        function formatPercentShort(val) {
+            if (val == null || isNaN(val)) return '0,0 %';
+            return (val * 100).toFixed(1).replace('.', ',') + ' %';
+        }
+
+        // Format number
+        function formatNum(n) {
+            if (n == null) return '0';
+            return Math.round(n).toLocaleString('de-DE');
+        }
+
+        // Render Funnel
+        function renderFunnel(f) {
+            const stages = [
+                { label: 'Impressionen', total: f.impressions_total, brand: f.impressions_brand },
+                { label: 'Klicks', total: f.clicks_total, brand: f.clicks_brand },
+                { label: 'Warenkorb', total: f.cart_adds_total, brand: f.cart_adds_brand },
+                { label: 'K\u00e4ufe', total: f.purchases_total, brand: f.purchases_brand }
+            ];
+
+            const maxTotal = Math.max(...stages.map(s => s.total), 1);
+
+            let html = '';
+            stages.forEach((stage, i) => {
+                const share = stage.total > 0 ? stage.brand / stage.total : 0;
+                const totalPct = (stage.total / maxTotal) * 100;
+                const brandPct = (stage.brand / maxTotal) * 100;
+
+                html += `
+                    <div class="funnel-stage">
+                        <div class="funnel-label">${stage.label}</div>
+                        <div class="funnel-bars">
+                            <div class="funnel-bar-row">
+                                <div class="funnel-bar-track">
+                                    <div class="funnel-bar-fill total" style="width:${totalPct}%"></div>
+                                </div>
+                                <div class="funnel-bar-value">${formatNum(stage.total)} Gesamt</div>
+                            </div>
+                            <div class="funnel-bar-row">
+                                <div class="funnel-bar-track">
+                                    <div class="funnel-bar-fill brand" style="width:${brandPct}%"></div>
+                                </div>
+                                <div class="funnel-bar-value">${formatNum(stage.brand)} Brand</div>
+                            </div>
+                        </div>
+                        <div class="funnel-share">${formatPercentShort(share)}</div>
+                    </div>`;
+
+                // Conversion arrow between stages
+                if (i < stages.length - 1) {
+                    const nextStage = stages[i + 1];
+                    const convTotal = stage.total > 0 ? (nextStage.total / stage.total * 100).toFixed(1).replace('.', ',') : '0,0';
+                    const convBrand = stage.brand > 0 ? (nextStage.brand / stage.brand * 100).toFixed(1).replace('.', ',') : '0,0';
+                    html += `
+                        <div class="funnel-arrow">
+                            <span class="funnel-arrow-text">\u2193 ${convTotal} % Gesamt &nbsp;|&nbsp; \u2193 ${convBrand} % Brand</span>
+                        </div>`;
+                }
+            });
+
+            html += `
+                <div class="funnel-legend">
+                    <div class="funnel-legend-item">
+                        <div class="funnel-legend-dot" style="background:#484f58"></div>
+                        Gesamt (Markt)
+                    </div>
+                    <div class="funnel-legend-item">
+                        <div class="funnel-legend-dot" style="background:#3551FF"></div>
+                        Brand
+                    </div>
+                </div>`;
+
+            document.getElementById('funnelContainer').innerHTML = html;
+        }
+
+        function renderFunnelEmpty() {
+            document.getElementById('funnelContainer').innerHTML = '<div class="loading" style="padding:30px;"><p style="color:#8b949e;">Keine Daten vorhanden.</p></div>';
+        }
+
+        // Render Trend Chart
+        function renderTrend() {
+            const trendSection = document.getElementById('trendSection');
+            trendSection.style.display = 'block';
+
+            // Group rows by report_id
+            const reportMap = {};
+            allRows.forEach(row => {
+                const rid = row.report_id;
+                if (!reportMap[rid]) {
+                    reportMap[rid] = {
+                        impressions_total: 0, impressions_brand: 0,
+                        clicks_total: 0, clicks_brand: 0,
+                        cart_adds_total: 0, cart_adds_brand: 0,
+                        purchases_total: 0, purchases_brand: 0
+                    };
+                }
+                const m = reportMap[rid];
+                m.impressions_total += (row.impressions_total || 0);
+                m.impressions_brand += (row.impressions_brand || 0);
+                m.clicks_total += (row.clicks_total || 0);
+                m.clicks_brand += (row.clicks_brand || 0);
+                m.cart_adds_total += (row.cart_adds_total || 0);
+                m.cart_adds_brand += (row.cart_adds_brand || 0);
+                m.purchases_total += (row.purchases_total || 0);
+                m.purchases_brand += (row.purchases_brand || 0);
+            });
+
+            // Build data sorted by report date
+            const sortedReports = allReports.filter(r => reportMap[r.id]).sort((a, b) => {
+                return (a.report_date || '').localeCompare(b.report_date || '');
+            });
+
+            const labels = sortedReports.map(r => r.period_label || r.report_date || '?');
+            const imprShares = sortedReports.map(r => {
+                const m = reportMap[r.id];
+                return m.impressions_total > 0 ? (m.impressions_brand / m.impressions_total * 100) : 0;
+            });
+            const clickShares = sortedReports.map(r => {
+                const m = reportMap[r.id];
+                return m.clicks_total > 0 ? (m.clicks_brand / m.clicks_total * 100) : 0;
+            });
+            const cartShares = sortedReports.map(r => {
+                const m = reportMap[r.id];
+                return m.cart_adds_total > 0 ? (m.cart_adds_brand / m.cart_adds_total * 100) : 0;
+            });
+            const purchaseShares = sortedReports.map(r => {
+                const m = reportMap[r.id];
+                return m.purchases_total > 0 ? (m.purchases_brand / m.purchases_total * 100) : 0;
+            });
+
+            if (trendChartInstance) {
+                trendChartInstance.destroy();
+            }
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Impression Share',
+                            data: imprShares,
+                            borderColor: '#3551FF',
+                            backgroundColor: 'rgba(53, 81, 255, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: false
+                        },
+                        {
+                            label: 'Click Share',
+                            data: clickShares,
+                            borderColor: '#3fb950',
+                            backgroundColor: 'rgba(63, 185, 80, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: false
+                        },
+                        {
+                            label: 'Cart Add Share',
+                            data: cartShares,
+                            borderColor: '#d29922',
+                            backgroundColor: 'rgba(210, 153, 34, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: false
+                        },
+                        {
+                            label: 'Purchase Share',
+                            data: purchaseShares,
+                            borderColor: '#f85149',
+                            backgroundColor: 'rgba(248, 81, 73, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#8b949e',
+                                font: { family: 'Arial', size: 12 },
+                                padding: 20,
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#161b22',
+                            titleColor: '#e6edf3',
+                            bodyColor: '#8b949e',
+                            borderColor: '#30363d',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2).replace('.', ',') + ' %';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#21262d' },
+                            ticks: { color: '#8b949e', font: { family: 'Arial', size: 11 } }
+                        },
+                        y: {
+                            grid: { color: '#21262d' },
+                            ticks: {
+                                color: '#8b949e',
+                                font: { family: 'Arial', size: 11 },
+                                callback: function(val) { return val.toFixed(1).replace('.', ',') + ' %'; }
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render Table
+        function renderTable(queries) {
+            const filtered = queries.filter(q => {
+                if (!searchFilter) return true;
+                return q.query.toLowerCase().includes(searchFilter.toLowerCase());
+            });
+
+            // Sort
+            filtered.sort((a, b) => {
+                let aVal = a[currentSort.col];
+                let bVal = b[currentSort.col];
+                if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = (bVal || '').toLowerCase();
+                    return currentSort.dir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                }
+                return currentSort.dir === 'asc' ? (aVal - bVal) : (bVal - aVal);
+            });
+
+            // Update count
+            document.getElementById('resultCount').textContent = `${filtered.length} Suchbegriffe`;
+
+            // Render rows
+            const tbody = document.getElementById('queryBody');
+            tbody.innerHTML = '';
+            const toShow = filtered.slice(0, displayCount);
+
+            toShow.forEach(q => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="query-cell" title="${escapeHtml(q.query)}">${escapeHtml(q.query)}</td>
+                    <td class="num">${formatNum(q.score)}</td>
+                    <td class="num">${formatNum(q.volume)}</td>
+                    <td class="num">${shareBadge(q.impr_share)}</td>
+                    <td class="num">${shareBadge(q.click_share)}</td>
+                    <td class="num">${shareBadge(q.cart_share)}</td>
+                    <td class="num">${shareBadge(q.purchase_share)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Load more
+            const loadMoreRow = document.getElementById('loadMoreRow');
+            if (filtered.length > displayCount) {
+                loadMoreRow.style.display = 'block';
+            } else {
+                loadMoreRow.style.display = 'none';
+            }
+
+            // Update sort indicators
+            document.querySelectorAll('.data-table thead th').forEach(th => {
+                th.classList.remove('sorted-asc', 'sorted-desc');
+                if (th.dataset.col === currentSort.col) {
+                    th.classList.add(currentSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                }
+            });
+        }
+
+        // Share badge with color
+        function shareBadge(val) {
+            const pct = (val || 0) * 100;
+            const display = pct.toFixed(1).replace('.', ',') + ' %';
+            let cls = 'red';
+            if (pct >= 10) cls = 'green';
+            else if (pct >= 5) cls = 'yellow';
+            return `<span class="share-badge ${cls}">${display}</span>`;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        // Sort by column click
+        document.querySelectorAll('.data-table thead th').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.dataset.col;
+                if (currentSort.col === col) {
+                    currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.col = col;
+                    currentSort.dir = col === 'query' ? 'asc' : 'desc';
+                }
+                renderTable(processedQueries);
+            });
+        });
+
+        // Search filter
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchFilter = e.target.value;
+            displayCount = 50;
+            renderTable(processedQueries);
+        });
+
+        // Load more
+        document.getElementById('loadMoreBtn').addEventListener('click', () => {
+            displayCount += 50;
+            renderTable(processedQueries);
+        });
+    </script>
+</body>
+</html>
