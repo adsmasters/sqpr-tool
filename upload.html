@@ -1117,7 +1117,7 @@
 
                 // 3. Build rows for batch insert
                 const dbRows = parsedData.map(row => {
-                    const obj = { report_id: reportId };
+                    const obj = { report_id: reportId, client_id: clientId };
 
                     EXPECTED_COLUMNS.forEach(expected => {
                         const dbCol = COLUMN_DB_MAP[expected];
