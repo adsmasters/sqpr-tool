@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SQPR Tool — Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: Arial, sans-serif;
@@ -31,562 +29,152 @@
             top: 0;
             z-index: 100;
         }
-
-        .topbar-left {
-            display: flex;
-            align-items: center;
-            gap: 32px;
-        }
-
-        .topbar-logo {
-            font-size: 18px;
-            font-weight: 700;
-            color: #3551FF;
-            text-decoration: none;
-        }
-
-        .topbar-nav {
-            display: flex;
-            gap: 4px;
-        }
-
+        .topbar-left { display: flex; align-items: center; gap: 32px; }
+        .topbar-logo { font-size: 18px; font-weight: 700; color: #3551FF; text-decoration: none; }
+        .topbar-nav { display: flex; gap: 4px; }
         .topbar-nav a {
-            color: #8b949e;
-            text-decoration: none;
-            font-size: 14px;
-            padding: 8px 14px;
-            border-radius: 6px;
-            transition: color 0.2s, background 0.2s;
+            color: #8b949e; text-decoration: none; font-size: 14px;
+            padding: 8px 14px; border-radius: 6px; transition: color 0.2s, background 0.2s;
         }
-
-        .topbar-nav a:hover {
-            color: #e6edf3;
-            background: #21262d;
-        }
-
-        .topbar-nav a.active {
-            color: #e6edf3;
-            background: #30363d;
-        }
-
-        .logout-btn {
-            color: #8b949e;
-            background: none;
-            border: 1px solid #30363d;
-            padding: 6px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-family: Arial, sans-serif;
-            cursor: pointer;
+        .topbar-nav a:hover { color: #e6edf3; background: #21262d; }
+        .topbar-nav a.active { color: #e6edf3; background: #21262d; }
+        .btn-logout {
+            background: transparent; border: 1px solid #30363d; color: #8b949e;
+            padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
             transition: color 0.2s, border-color 0.2s;
         }
+        .btn-logout:hover { color: #e6edf3; border-color: #8b949e; }
 
-        .logout-btn:hover {
-            color: #f85149;
-            border-color: #f85149;
-        }
+        /* Main container */
+        .main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 64px; }
 
-        /* Main Content */
-        .main {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 32px 24px;
-        }
-
-        /* No Client State */
-        .no-client {
-            text-align: center;
-            padding: 80px 20px;
-        }
-
-        .no-client-icon {
-            width: 64px;
-            height: 64px;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 16px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            font-size: 28px;
-        }
-
-        .no-client h2 {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-
-        .no-client p {
-            color: #8b949e;
-            font-size: 15px;
-            margin-bottom: 24px;
-        }
-
-        .no-client a {
-            display: inline-block;
-            background: #3551FF;
-            color: #fff;
-            text-decoration: none;
-            padding: 10px 24px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            transition: background 0.2s;
-        }
-
-        .no-client a:hover {
-            background: #2a44e0;
-        }
-
-        /* Header Row */
+        /* Header row */
         .header-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-            gap: 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
         }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .header-left h1 {
-            font-size: 24px;
-            font-weight: 700;
-        }
-
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .client-name { font-size: 22px; font-weight: 700; }
         .marketplace-badge {
-            display: inline-block;
-            background: #21262d;
-            color: #8b949e;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
+            background: #21262d; border: 1px solid #30363d; color: #8b949e;
+            font-size: 12px; padding: 3px 10px; border-radius: 12px; font-weight: 600;
         }
-
-        .report-select {
-            background: #161b22;
-            border: 1px solid #30363d;
-            color: #e6edf3;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: Arial, sans-serif;
-            outline: none;
-            cursor: pointer;
-            min-width: 220px;
-            transition: border-color 0.2s;
-        }
-
-        .report-select:focus {
-            border-color: #3551FF;
-        }
-
-        .report-select option {
-            background: #161b22;
+        .period-select {
+            background: #161b22; border: 1px solid #30363d; color: #e6edf3;
+            padding: 8px 14px; border-radius: 6px; font-size: 14px; cursor: pointer;
+            appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b949e' viewBox='0 0 16 16'%3E%3Cpath d='M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center;
+            padding-right: 32px;
         }
 
         /* KPI Cards */
         .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            margin-bottom: 28px;
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;
+            margin-bottom: 24px;
         }
-
         .kpi-card {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 12px;
-            padding: 22px 24px;
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+            padding: 16px; text-align: center;
         }
+        .kpi-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .kpi-value { font-size: 22px; font-weight: 700; color: #e6edf3; }
+        .kpi-diff { font-size: 12px; margin-top: 4px; font-weight: 600; }
+        .kpi-diff.positive { color: #3fb950; }
+        .kpi-diff.negative { color: #f85149; }
 
-        .kpi-label {
-            font-size: 12px;
-            color: #8b949e;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-            margin-bottom: 10px;
+        /* Charts */
+        .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .chart-card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px;
         }
+        .chart-card.full { grid-column: 1 / -1; }
+        .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #e6edf3; }
+        .chart-container { position: relative; width: 100%; }
+        .chart-container canvas { width: 100% !important; }
 
-        .kpi-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #e6edf3;
+        /* Table section */
+        .table-section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+        .table-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; border-bottom: 1px solid #30363d; flex-wrap: wrap; gap: 8px;
         }
-
-        .kpi-value.accent {
-            color: #3551FF;
-        }
-
-        /* Section Cards */
-        .section-card {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 28px;
-        }
-
-        .section-title {
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-
-        /* Funnel Chart Container */
-        .funnel-container {
-            position: relative;
-        }
-
-        .funnel-stage {
-            display: flex;
-            align-items: center;
-            margin-bottom: 18px;
-            gap: 16px;
-        }
-
-        .funnel-stage:last-child {
-            margin-bottom: 0;
-        }
-
-        .funnel-label {
-            width: 110px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #8b949e;
-            text-align: right;
-            flex-shrink: 0;
-        }
-
-        .funnel-bars {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .funnel-bar-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .funnel-bar-track {
-            flex: 1;
-            height: 22px;
-            background: #21262d;
-            border-radius: 4px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .funnel-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.6s ease;
-        }
-
-        .funnel-bar-fill.total {
-            background: #484f58;
-        }
-
-        .funnel-bar-fill.brand {
-            background: #3551FF;
-        }
-
-        .funnel-bar-value {
-            font-size: 13px;
-            font-weight: 600;
-            min-width: 90px;
-            text-align: right;
-            color: #8b949e;
-        }
-
-        .funnel-share {
-            font-size: 12px;
-            font-weight: 700;
-            min-width: 60px;
-            text-align: right;
-            color: #3551FF;
-        }
-
-        .funnel-arrow {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: -6px 0 -6px 126px;
-            padding: 2px 0;
-        }
-
-        .funnel-arrow-text {
-            font-size: 11px;
-            color: #484f58;
-            font-weight: 600;
-            padding: 2px 10px;
-            background: #0d1117;
-            border-radius: 4px;
-            border: 1px solid #21262d;
-        }
-
-        .funnel-legend {
-            display: flex;
-            gap: 24px;
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid #21262d;
-        }
-
-        .funnel-legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            color: #8b949e;
-        }
-
-        .funnel-legend-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 2px;
-        }
-
-        /* Trend Chart */
-        .chart-wrapper {
-            position: relative;
-            height: 320px;
-        }
-
-        /* Table */
-        .table-controls {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-
+        .table-count { font-size: 13px; color: #8b949e; }
         .search-input {
-            background: #0d1117;
-            border: 1px solid #30363d;
-            color: #e6edf3;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: Arial, sans-serif;
-            outline: none;
-            width: 280px;
-            max-width: 100%;
-            transition: border-color 0.2s;
+            background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+            padding: 6px 12px; border-radius: 6px; font-size: 13px; width: 260px;
         }
+        .search-input::placeholder { color: #484f58; }
+        .search-input:focus { outline: none; border-color: #3551FF; }
 
-        .search-input:focus {
-            border-color: #3551FF;
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1200px; }
+        thead th {
+            position: sticky; top: 0; background: #161b22; border-bottom: 2px solid #30363d;
+            padding: 8px 10px; text-align: right; color: #8b949e; font-weight: 600;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+            cursor: pointer; user-select: none; white-space: nowrap;
         }
+        thead th:first-child { text-align: left; }
+        thead th:hover { color: #e6edf3; }
+        thead th .sort-icon { font-size: 10px; margin-left: 3px; opacity: 0.5; }
+        thead th.sorted .sort-icon { opacity: 1; color: #3551FF; }
 
-        .result-count {
-            font-size: 13px;
-            color: #8b949e;
-        }
+        tbody tr { border-bottom: 1px solid #21262d; }
+        tbody tr:nth-child(odd) { background: #0d1117; }
+        tbody tr:nth-child(even) { background: #161b22; }
+        tbody tr:hover { background: #1c2333; }
+        tbody td { padding: 6px 10px; text-align: right; white-space: nowrap; height: 36px; vertical-align: middle; }
+        tbody td:first-child { text-align: left; font-weight: 500; color: #e6edf3; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .data-table thead th {
-            text-align: left;
-            padding: 12px 16px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #8b949e;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid #30363d;
-            background: #0d1117;
-            cursor: pointer;
-            user-select: none;
-            white-space: nowrap;
-            transition: color 0.2s;
-        }
-
-        .data-table thead th:hover {
-            color: #e6edf3;
-        }
-
-        .data-table thead th.sorted-asc::after {
-            content: ' \u25B2';
-            font-size: 9px;
-        }
-
-        .data-table thead th.sorted-desc::after {
-            content: ' \u25BC';
-            font-size: 9px;
-        }
-
-        .data-table tbody tr {
-            border-bottom: 1px solid #21262d;
-            transition: background 0.15s;
-        }
-
-        .data-table tbody tr:last-child {
-            border-bottom: none;
-        }
-
-        .data-table tbody tr:hover {
-            background: #1c2128;
-        }
-
-        .data-table tbody td {
-            padding: 11px 16px;
-            font-size: 13px;
-        }
-
-        .data-table td.query-cell {
-            max-width: 280px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-weight: 500;
-        }
-
-        .data-table td.num {
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-        }
-
+        /* Share badges */
         .share-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: 600;
-            min-width: 52px;
-            text-align: center;
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 12px; font-weight: 600;
         }
+        .share-green { background: #16a34a20; color: #3fb950; }
+        .share-yellow { background: #eab30820; color: #eab308; }
+        .share-red { background: #f8514920; color: #f85149; }
+        .share-gray { background: #484f5820; color: #484f58; }
 
-        .share-badge.green {
-            background: rgba(63, 185, 80, 0.15);
-            color: #3fb950;
-        }
+        .share-diff { display: block; font-size: 10px; margin-top: 2px; font-weight: 600; }
+        .share-diff.positive { color: #3fb950; }
+        .share-diff.negative { color: #f85149; }
 
-        .share-badge.yellow {
-            background: rgba(210, 153, 34, 0.15);
-            color: #d29922;
-        }
-
-        .share-badge.red {
-            background: rgba(248, 81, 73, 0.15);
-            color: #f85149;
-        }
-
-        .load-more-row {
-            text-align: center;
-            padding: 16px;
-        }
-
+        /* Load more */
+        .load-more-wrap { padding: 16px; text-align: center; border-top: 1px solid #30363d; }
         .btn-load-more {
-            background: #21262d;
-            color: #e6edf3;
-            border: 1px solid #30363d;
-            padding: 8px 24px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-family: Arial, sans-serif;
-            cursor: pointer;
+            background: #21262d; border: 1px solid #30363d; color: #e6edf3;
+            padding: 8px 24px; border-radius: 6px; cursor: pointer; font-size: 13px;
             transition: background 0.2s;
         }
+        .btn-load-more:hover { background: #30363d; }
 
-        .btn-load-more:hover {
-            background: #30363d;
+        /* Empty state */
+        .empty-state {
+            text-align: center; padding: 80px 20px;
         }
+        .empty-state h2 { font-size: 20px; margin-bottom: 12px; }
+        .empty-state a { color: #3551FF; text-decoration: none; }
+        .empty-state a:hover { text-decoration: underline; }
 
-        /* Table overflow */
-        .table-scroll {
-            overflow-x: auto;
-        }
-
-        /* Loading spinner */
-        .loading {
-            text-align: center;
-            padding: 60px 20px;
-            color: #8b949e;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-            border: 3px solid #30363d;
-            border-top-color: #3551FF;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            margin-bottom: 12px;
-        }
+        /* Loading */
+        .loading { text-align: center; padding: 60px; color: #8b949e; font-size: 14px; }
 
         /* Responsive */
-        @media (max-width: 900px) {
-            .kpi-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+        @media (max-width: 1024px) {
+            .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+            .charts-row { grid-template-columns: 1fr; }
         }
-
-        @media (max-width: 600px) {
-            .topbar {
-                padding: 0 16px;
-            }
-
-            .topbar-left {
-                gap: 16px;
-            }
-
-            .topbar-nav a {
-                padding: 6px 8px;
-                font-size: 13px;
-            }
-
-            .main {
-                padding: 20px 12px;
-            }
-
-            .kpi-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .header-row {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .report-select {
-                width: 100%;
-            }
-
-            .search-input {
-                width: 100%;
-            }
-
-            .funnel-arrow {
-                margin-left: 0;
-            }
+        @media (max-width: 640px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .main { padding: 16px; }
+            .topbar { padding: 0 16px; }
+            .search-input { width: 100%; }
         }
     </style>
 </head>
 <body>
-
     <!-- Top Bar -->
     <div class="topbar">
         <div class="topbar-left">
@@ -597,686 +185,575 @@
                 <a href="upload.html">Upload</a>
             </nav>
         </div>
-        <button class="logout-btn" id="logoutBtn">Logout</button>
+        <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
 
-    <!-- No Client Selected -->
-    <div class="main" id="noClientView" style="display:none;">
-        <div class="no-client">
-            <div class="no-client-icon">&#x1F465;</div>
-            <h2>Bitte w&auml;hle einen Kunden aus</h2>
-            <p>W&auml;hle einen Kunden in der Kunden&uuml;bersicht, um das Dashboard anzuzeigen.</p>
-            <a href="clients.html">Zur Kunden&uuml;bersicht</a>
-        </div>
+    <!-- Main Content -->
+    <div class="main" id="app">
+        <div class="loading" id="loadingState">Daten werden geladen...</div>
     </div>
 
-    <!-- Dashboard Content -->
-    <div class="main" id="dashboardView" style="display:none;">
-
-        <!-- Header Row -->
-        <div class="header-row">
-            <div class="header-left">
-                <h1 id="clientName">—</h1>
-                <span class="marketplace-badge" id="clientMarketplace"></span>
-            </div>
-            <select class="report-select" id="reportSelect">
-                <option value="all">Alle Zeitr&auml;ume</option>
-            </select>
-        </div>
-
-        <!-- KPI Cards -->
-        <div class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-label">Suchbegriffe</div>
-                <div class="kpi-value" id="kpiQueries">—</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">&Oslash; Impression Share</div>
-                <div class="kpi-value accent" id="kpiImprShare">—</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">&Oslash; Click Share</div>
-                <div class="kpi-value accent" id="kpiClickShare">—</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">&Oslash; Purchase Share</div>
-                <div class="kpi-value accent" id="kpiPurchaseShare">—</div>
-            </div>
-        </div>
-
-        <!-- Funnel Visualization -->
-        <div class="section-card">
-            <div class="section-title">Funnel &Uuml;bersicht</div>
-            <div class="funnel-container" id="funnelContainer">
-                <div class="loading"><div class="spinner"></div><div>Lade Daten...</div></div>
-            </div>
-        </div>
-
-        <!-- Market Share Trend -->
-        <div class="section-card" id="trendSection" style="display:none;">
-            <div class="section-title">Market Share Trend</div>
-            <div class="chart-wrapper">
-                <canvas id="trendChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Top Suchbegriffe Table -->
-        <div class="section-card">
-            <div class="section-title">Top Suchbegriffe</div>
-            <div class="table-controls">
-                <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern...">
-                <div class="result-count" id="resultCount"></div>
-            </div>
-            <div class="table-scroll">
-                <table class="data-table" id="queryTable">
-                    <thead>
-                        <tr>
-                            <th data-col="query">Suchbegriff</th>
-                            <th data-col="score">Score</th>
-                            <th data-col="volume">Volumen</th>
-                            <th data-col="impr_share">Impr. Share</th>
-                            <th data-col="click_share">Click Share</th>
-                            <th data-col="cart_share">Cart Share</th>
-                            <th data-col="purchase_share">Purchase Share</th>
-                        </tr>
-                    </thead>
-                    <tbody id="queryBody"></tbody>
-                </table>
-            </div>
-            <div class="load-more-row" id="loadMoreRow" style="display:none;">
-                <button class="btn-load-more" id="loadMoreBtn">Mehr laden</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading State -->
-    <div class="main" id="loadingView">
-        <div class="loading">
-            <div class="spinner"></div>
-            <div>Dashboard wird geladen...</div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Auth check
-        if (sessionStorage.getItem('sqpr_auth') !== 'true') {
+        if (!sessionStorage.getItem('sqpr_auth')) {
             window.location.href = 'index.html';
         }
-
-        // Logout
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            sessionStorage.removeItem('sqpr_auth');
-            localStorage.removeItem('sqpr_active_client');
-            window.location.href = 'index.html';
-        });
 
         // Supabase init
-        const SUPABASE_URL = 'https://lgrnmiszhhahfcmctmwo.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI';
-        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const sb = supabase.createClient(
+            'https://lgrnmiszhhahfcmctmwo.supabase.co',
+            'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI'
+        );
 
         // State
+        let client = null;
+        let reports = [];
         let allRows = [];
-        let allReports = [];
-        let clientInfo = null;
-        let processedQueries = [];
-        let currentSort = { col: 'volume', dir: 'desc' };
-        let searchFilter = '';
-        let displayCount = 50;
-        let trendChartInstance = null;
+        let filteredRows = [];
+        let displayedCount = 100;
+        let sortCol = null;
+        let sortDir = 'desc';
+        let searchTerm = '';
+        let selectedReportId = 'all';
+        let funnelChart = null;
+        let trendChart = null;
 
-        // DOM refs
-        const noClientView = document.getElementById('noClientView');
-        const dashboardView = document.getElementById('dashboardView');
-        const loadingView = document.getElementById('loadingView');
-        const reportSelect = document.getElementById('reportSelect');
-
-        // Check active client
-        const activeClientId = localStorage.getItem('sqpr_active_client');
-
-        if (!activeClientId) {
-            loadingView.style.display = 'none';
-            noClientView.style.display = 'block';
-        } else {
-            init();
-        }
-
-        async function init() {
-            try {
-                // Load client info
-                const { data: client, error: clientErr } = await sb
-                    .from('sqpr_clients')
-                    .select('*')
-                    .eq('id', activeClientId)
-                    .single();
-
-                if (clientErr || !client) {
-                    localStorage.removeItem('sqpr_active_client');
-                    loadingView.style.display = 'none';
-                    noClientView.style.display = 'block';
-                    return;
-                }
-
-                clientInfo = client;
-                document.getElementById('clientName').textContent = client.name;
-                document.getElementById('clientMarketplace').textContent = client.marketplace;
-
-                // Load reports for this client
-                const { data: reports } = await sb
-                    .from('sqpr_reports')
-                    .select('*')
-                    .eq('client_id', activeClientId)
-                    .order('report_date_start', { ascending: true });
-
-                allReports = reports || [];
-
-                // Populate report selector
-                reportSelect.innerHTML = '<option value="all">Alle Zeitr\u00e4ume</option>';
-                allReports.forEach(r => {
-                    const opt = document.createElement('option');
-                    opt.value = r.id;
-                    const label = r.report_date_start + ' — ' + r.report_date_end;
-                    opt.textContent = label;
-                    reportSelect.appendChild(opt);
-                });
-
-                // Load all SQPR rows for this client
-                await loadRows('all');
-
-                loadingView.style.display = 'none';
-                dashboardView.style.display = 'block';
-            } catch (err) {
-                console.error('Init error:', err);
-                loadingView.innerHTML = '<div class="loading"><p style="color:#f85149;">Fehler beim Laden des Dashboards.</p></div>';
-            }
-        }
-
-        // Load rows based on report filter
-        async function loadRows(reportFilter) {
-            let query = sb.from('sqpr_rows').select('*').eq('client_id', activeClientId);
-            if (reportFilter !== 'all') {
-                query = query.eq('report_id', reportFilter);
-            }
-
-            const { data: rows, error } = await query;
-            if (error) {
-                console.error('Error loading rows:', error);
-                return;
-            }
-
-            allRows = rows || [];
-            processData();
-        }
-
-        // Report selector change
-        reportSelect.addEventListener('change', async () => {
-            await loadRows(reportSelect.value);
-        });
-
-        // Process data and render
-        function processData() {
-            if (allRows.length === 0) {
-                renderKPIs(0, 0, 0, 0);
-                renderFunnelEmpty();
-                renderTable([]);
-                return;
-            }
-
-            // Aggregate by search query
-            const queryMap = {};
-            allRows.forEach(row => {
-                const key = row.search_query || row.keyword || '';
-                if (!queryMap[key]) {
-                    queryMap[key] = {
-                        query: key,
-                        search_query_score: 0,
-                        search_query_volume: 0,
-                        impressions_total: 0,
-                        impressions_brand: 0,
-                        clicks_total: 0,
-                        clicks_brand: 0,
-                        cart_adds_total: 0,
-                        cart_adds_brand: 0,
-                        purchases_total: 0,
-                        purchases_brand: 0,
-                        impressions_brand_share_sum: 0,
-                        clicks_brand_share_sum: 0,
-                        cart_adds_brand_share_sum: 0,
-                        purchases_brand_share_sum: 0,
-                        count: 0
-                    };
-                }
-                const q = queryMap[key];
-                q.search_query_score += (row.search_query_score || 0);
-                q.search_query_volume += (row.search_query_volume || 0);
-                q.impressions_total += (row.impressions_total || 0);
-                q.impressions_brand += (row.impressions_brand || 0);
-                q.clicks_total += (row.clicks_total || 0);
-                q.clicks_brand += (row.clicks_brand || 0);
-                q.cart_adds_total += (row.cart_adds_total || 0);
-                q.cart_adds_brand += (row.cart_adds_brand || 0);
-                q.purchases_total += (row.purchases_total || 0);
-                q.purchases_brand += (row.purchases_brand || 0);
-                q.impressions_brand_share_sum += (row.impressions_brand_share || 0);
-                q.clicks_brand_share_sum += (row.clicks_brand_share || 0);
-                q.cart_adds_brand_share_sum += (row.cart_adds_brand_share || 0);
-                q.purchases_brand_share_sum += (row.purchases_brand_share || 0);
-                q.count++;
-            });
-
-            const queries = Object.values(queryMap).map(q => ({
-                query: q.query,
-                score: q.search_query_score,
-                volume: q.search_query_volume,
-                impr_share: q.count > 0 ? q.impressions_brand_share_sum / q.count : 0,
-                click_share: q.count > 0 ? q.clicks_brand_share_sum / q.count : 0,
-                cart_share: q.count > 0 ? q.cart_adds_brand_share_sum / q.count : 0,
-                purchase_share: q.count > 0 ? q.purchases_brand_share_sum / q.count : 0,
-                impressions_total: q.impressions_total,
-                impressions_brand: q.impressions_brand,
-                clicks_total: q.clicks_total,
-                clicks_brand: q.clicks_brand,
-                cart_adds_total: q.cart_adds_total,
-                cart_adds_brand: q.cart_adds_brand,
-                purchases_total: q.purchases_total,
-                purchases_brand: q.purchases_brand
-            }));
-
-            processedQueries = queries;
-
-            // KPIs
-            const uniqueQueries = queries.length;
-            const avgImprShare = queries.reduce((s, q) => s + q.impr_share, 0) / (queries.length || 1);
-            const avgClickShare = queries.reduce((s, q) => s + q.click_share, 0) / (queries.length || 1);
-            const avgPurchaseShare = queries.reduce((s, q) => s + q.purchase_share, 0) / (queries.length || 1);
-
-            renderKPIs(uniqueQueries, avgImprShare, avgClickShare, avgPurchaseShare);
-
-            // Funnel totals
-            const funnel = queries.reduce((acc, q) => {
-                acc.impressions_total += q.impressions_total;
-                acc.impressions_brand += q.impressions_brand;
-                acc.clicks_total += q.clicks_total;
-                acc.clicks_brand += q.clicks_brand;
-                acc.cart_adds_total += q.cart_adds_total;
-                acc.cart_adds_brand += q.cart_adds_brand;
-                acc.purchases_total += q.purchases_total;
-                acc.purchases_brand += q.purchases_brand;
-                return acc;
-            }, {
-                impressions_total: 0, impressions_brand: 0,
-                clicks_total: 0, clicks_brand: 0,
-                cart_adds_total: 0, cart_adds_brand: 0,
-                purchases_total: 0, purchases_brand: 0
-            });
-
-            renderFunnel(funnel);
-
-            // Trend (only if "all" selected and multiple reports)
-            if (reportSelect.value === 'all' && allReports.length > 1) {
-                renderTrend();
-            } else {
-                document.getElementById('trendSection').style.display = 'none';
-            }
-
-            // Table
-            displayCount = 50;
-            renderTable(queries);
-        }
-
-        // Render KPIs
-        function renderKPIs(count, imprShare, clickShare, purchaseShare) {
-            document.getElementById('kpiQueries').textContent = count.toLocaleString('de-DE');
-            document.getElementById('kpiImprShare').textContent = formatPercent(imprShare);
-            document.getElementById('kpiClickShare').textContent = formatPercent(clickShare);
-            document.getElementById('kpiPurchaseShare').textContent = formatPercent(purchaseShare);
-        }
-
-        // Format percentage
-        function formatPercent(val) {
-            if (val == null || isNaN(val)) return '0,00 %';
-            return (val * 100).toFixed(2).replace('.', ',') + ' %';
-        }
-
-        function formatPercentShort(val) {
-            if (val == null || isNaN(val)) return '0,0 %';
-            return (val * 100).toFixed(1).replace('.', ',') + ' %';
-        }
-
-        // Format number
-        function formatNum(n) {
+        // Helpers
+        function fmtInt(n) {
             if (n == null) return '0';
             return Math.round(n).toLocaleString('de-DE');
         }
+        function fmtPct(n) {
+            if (n == null || isNaN(n)) return '0,00 %';
+            return n.toFixed(2).replace('.', ',') + ' %';
+        }
+        function fmtDiff(n) {
+            if (n == null || isNaN(n)) return '';
+            const sign = n > 0 ? '+' : '';
+            const arrow = n > 0 ? '▲' : n < 0 ? '▼' : '';
+            return arrow + ' ' + sign + n.toFixed(2).replace('.', ',') + ' %';
+        }
+        function shareBadgeClass(val) {
+            if (val == null || val === 0) return 'share-gray';
+            if (val > 10) return 'share-green';
+            if (val >= 5) return 'share-yellow';
+            return 'share-red';
+        }
+        function safeDiv(a, b) {
+            return b ? (a / b) * 100 : 0;
+        }
 
-        // Render Funnel
-        function renderFunnel(f) {
-            const stages = [
-                { label: 'Impressionen', total: f.impressions_total, brand: f.impressions_brand },
-                { label: 'Klicks', total: f.clicks_total, brand: f.clicks_brand },
-                { label: 'Warenkorb', total: f.cart_adds_total, brand: f.cart_adds_brand },
-                { label: 'K\u00e4ufe', total: f.purchases_total, brand: f.purchases_brand }
-            ];
+        function logout() {
+            sessionStorage.removeItem('sqpr_auth');
+            window.location.href = 'index.html';
+        }
 
-            const maxTotal = Math.max(...stages.map(s => s.total), 1);
+        // Init
+        async function init() {
+            const app = document.getElementById('app');
+            const clientId = localStorage.getItem('sqpr_active_client');
 
-            let html = '';
-            stages.forEach((stage, i) => {
-                const share = stage.total > 0 ? stage.brand / stage.total : 0;
-                const totalPct = (stage.total / maxTotal) * 100;
-                const brandPct = (stage.brand / maxTotal) * 100;
+            if (!clientId) {
+                app.innerHTML = '<div class="empty-state"><h2>Bitte wähle einen Kunden aus</h2><p><a href="clients.html">Zur Kundenübersicht →</a></p></div>';
+                return;
+            }
 
-                html += `
-                    <div class="funnel-stage">
-                        <div class="funnel-label">${stage.label}</div>
-                        <div class="funnel-bars">
-                            <div class="funnel-bar-row">
-                                <div class="funnel-bar-track">
-                                    <div class="funnel-bar-fill total" style="width:${totalPct}%"></div>
-                                </div>
-                                <div class="funnel-bar-value">${formatNum(stage.total)} Gesamt</div>
-                            </div>
-                            <div class="funnel-bar-row">
-                                <div class="funnel-bar-track">
-                                    <div class="funnel-bar-fill brand" style="width:${brandPct}%"></div>
-                                </div>
-                                <div class="funnel-bar-value">${formatNum(stage.brand)} Brand</div>
-                            </div>
-                        </div>
-                        <div class="funnel-share">${formatPercentShort(share)}</div>
-                    </div>`;
+            // Load client
+            const { data: clientData } = await sb.from('sqpr_clients').select('*').eq('id', clientId).single();
+            if (!clientData) {
+                app.innerHTML = '<div class="empty-state"><h2>Kunde nicht gefunden</h2><p><a href="clients.html">Zur Kundenübersicht →</a></p></div>';
+                return;
+            }
+            client = clientData;
 
-                // Conversion arrow between stages
-                if (i < stages.length - 1) {
-                    const nextStage = stages[i + 1];
-                    const convTotal = stage.total > 0 ? (nextStage.total / stage.total * 100).toFixed(1).replace('.', ',') : '0,0';
-                    const convBrand = stage.brand > 0 ? (nextStage.brand / stage.brand * 100).toFixed(1).replace('.', ',') : '0,0';
-                    html += `
-                        <div class="funnel-arrow">
-                            <span class="funnel-arrow-text">\u2193 ${convTotal} % Gesamt &nbsp;|&nbsp; \u2193 ${convBrand} % Brand</span>
-                        </div>`;
+            // Load reports
+            const { data: reportData } = await sb.from('sqpr_reports').select('*').eq('client_id', clientId).order('report_date_start', { ascending: true });
+            reports = reportData || [];
+
+            if (reports.length === 0) {
+                app.innerHTML = `<div class="empty-state"><h2>Keine Reports für ${client.name}</h2><p><a href="upload.html">Report hochladen →</a></p></div>`;
+                return;
+            }
+
+            // Load all rows
+            await loadRows();
+
+            // Render
+            render();
+        }
+
+        async function loadRows() {
+            let query = sb.from('sqpr_rows').select('*').eq('client_id', client.id);
+            if (selectedReportId !== 'all') {
+                query = query.eq('report_id', selectedReportId);
+            }
+
+            // Paginated fetch to avoid limits
+            let all = [];
+            let from = 0;
+            const batchSize = 1000;
+            while (true) {
+                const { data, error } = await query.range(from, from + batchSize - 1);
+                if (error || !data || data.length === 0) break;
+                all = all.concat(data);
+                if (data.length < batchSize) break;
+                from += batchSize;
+            }
+            allRows = all;
+            applyFilter();
+        }
+
+        function applyFilter() {
+            if (searchTerm) {
+                const lower = searchTerm.toLowerCase();
+                filteredRows = allRows.filter(r => r.search_query && r.search_query.toLowerCase().includes(lower));
+            } else {
+                filteredRows = [...allRows];
+            }
+            applySorting();
+        }
+
+        function applySorting() {
+            if (!sortCol) {
+                // Default sort by search_query_volume desc
+                filteredRows.sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0));
+                return;
+            }
+            filteredRows.sort((a, b) => {
+                let va = getColValue(a, sortCol);
+                let vb = getColValue(b, sortCol);
+                if (typeof va === 'string') {
+                    return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+                }
+                return sortDir === 'asc' ? va - vb : vb - va;
+            });
+        }
+
+        function getColValue(row, col) {
+            switch (col) {
+                case 'query': return (row.search_query || '').toLowerCase();
+                case 'score': return row.search_query_score || 0;
+                case 'volume': return row.search_query_volume || 0;
+                case 'impressions': return row.impressions_total || 0;
+                case 'clicks': return row.clicks_total || 0;
+                case 'cart': return row.cart_adds_total || 0;
+                case 'purchases': return row.purchases_total || 0;
+                case 'ctr': return safeDiv(row.clicks_total, row.impressions_total);
+                case 'atcr': return safeDiv(row.cart_adds_total, row.clicks_total);
+                case 'cvr': return safeDiv(row.purchases_total, row.clicks_total);
+                case 'impr_share': return (row.impressions_brand_share || 0) * 100;
+                case 'click_share': return (row.clicks_brand_share || 0) * 100;
+                case 'cart_share': return (row.cart_adds_brand_share || 0) * 100;
+                case 'purchase_share': return (row.purchases_brand_share || 0) * 100;
+                default: return 0;
+            }
+        }
+
+        function computeKPIs(rows) {
+            const count = rows.length;
+            if (count === 0) return { count: 0, imprShare: 0, clickShare: 0, cartShare: 0, purchaseShare: 0, ctr: 0 };
+            const avgImprShare = rows.reduce((s, r) => s + (r.impressions_brand_share || 0), 0) / count * 100;
+            const avgClickShare = rows.reduce((s, r) => s + (r.clicks_brand_share || 0), 0) / count * 100;
+            const avgCartShare = rows.reduce((s, r) => s + (r.cart_adds_brand_share || 0), 0) / count * 100;
+            const avgPurchaseShare = rows.reduce((s, r) => s + (r.purchases_brand_share || 0), 0) / count * 100;
+            const totalImpr = rows.reduce((s, r) => s + (r.impressions_total || 0), 0);
+            const totalClicks = rows.reduce((s, r) => s + (r.clicks_total || 0), 0);
+            const ctr = totalImpr ? (totalClicks / totalImpr) * 100 : 0;
+            return { count, imprShare: avgImprShare, clickShare: avgClickShare, cartShare: avgCartShare, purchaseShare: avgPurchaseShare, ctr };
+        }
+
+        function computeTotals(rows) {
+            return {
+                impressions: rows.reduce((s, r) => s + (r.impressions_total || 0), 0),
+                clicks: rows.reduce((s, r) => s + (r.clicks_total || 0), 0),
+                cartAdds: rows.reduce((s, r) => s + (r.cart_adds_total || 0), 0),
+                purchases: rows.reduce((s, r) => s + (r.purchases_total || 0), 0),
+                impressionsBrand: rows.reduce((s, r) => s + (r.impressions_brand || 0), 0),
+                clicksBrand: rows.reduce((s, r) => s + (r.clicks_brand || 0), 0),
+                cartAddsBrand: rows.reduce((s, r) => s + (r.cart_adds_brand || 0), 0),
+                purchasesBrand: rows.reduce((s, r) => s + (r.purchases_brand || 0), 0),
+            };
+        }
+
+        function getReportRows(reportId) {
+            return allRows.filter(r => r.report_id === reportId);
+        }
+
+        function hasMultipleReports() {
+            if (selectedReportId !== 'all') return false;
+            return reports.length >= 2;
+        }
+
+        function getDiffs() {
+            if (!hasMultipleReports()) return null;
+            const latest = reports[reports.length - 1];
+            const prev = reports[reports.length - 2];
+            const latestRows = getReportRows(latest.id);
+            const prevRows = getReportRows(prev.id);
+            const kpiLatest = computeKPIs(latestRows);
+            const kpiPrev = computeKPIs(prevRows);
+            return {
+                count: kpiLatest.count - kpiPrev.count,
+                imprShare: kpiLatest.imprShare - kpiPrev.imprShare,
+                clickShare: kpiLatest.clickShare - kpiPrev.clickShare,
+                cartShare: kpiLatest.cartShare - kpiPrev.cartShare,
+                purchaseShare: kpiLatest.purchaseShare - kpiPrev.purchaseShare,
+                ctr: kpiLatest.ctr - kpiPrev.ctr,
+            };
+        }
+
+        // Build per-query diffs for table share columns
+        function buildQueryDiffs() {
+            if (!hasMultipleReports()) return null;
+            const latest = reports[reports.length - 1];
+            const prev = reports[reports.length - 2];
+            const prevRows = getReportRows(prev.id);
+            const map = {};
+            prevRows.forEach(r => {
+                map[r.search_query] = {
+                    imprShare: (r.impressions_brand_share || 0) * 100,
+                    clickShare: (r.clicks_brand_share || 0) * 100,
+                    cartShare: (r.cart_adds_brand_share || 0) * 100,
+                    purchaseShare: (r.purchases_brand_share || 0) * 100,
+                };
+            });
+            // Latest rows diffs
+            const latestRows = getReportRows(latest.id);
+            const diffs = {};
+            latestRows.forEach(r => {
+                const prevQ = map[r.search_query];
+                if (prevQ) {
+                    diffs[r.search_query] = {
+                        imprShare: (r.impressions_brand_share || 0) * 100 - prevQ.imprShare,
+                        clickShare: (r.clicks_brand_share || 0) * 100 - prevQ.clickShare,
+                        cartShare: (r.cart_adds_brand_share || 0) * 100 - prevQ.cartShare,
+                        purchaseShare: (r.purchases_brand_share || 0) * 100 - prevQ.purchaseShare,
+                    };
                 }
             });
+            return diffs;
+        }
 
+        function render() {
+            const app = document.getElementById('app');
+            const kpis = computeKPIs(allRows);
+            const diffs = getDiffs();
+            const queryDiffs = buildQueryDiffs();
+            const showTrend = hasMultipleReports();
+            const totals = computeTotals(allRows);
+
+            // Period options
+            let periodOptions = '<option value="all">Alle Zeiträume</option>';
+            reports.forEach(r => {
+                const label = formatDateRange(r.report_date_start, r.report_date_end) + (r.reporting_range ? ' (' + r.reporting_range + ')' : '');
+                periodOptions += `<option value="${r.id}" ${selectedReportId === r.id ? 'selected' : ''}>${label}</option>`;
+            });
+
+            let html = '';
+
+            // Header row
             html += `
-                <div class="funnel-legend">
-                    <div class="funnel-legend-item">
-                        <div class="funnel-legend-dot" style="background:#484f58"></div>
-                        Gesamt (Markt)
+                <div class="header-row">
+                    <div class="header-left">
+                        <span class="client-name">${esc(client.name)}</span>
+                        <span class="marketplace-badge">${esc(client.marketplace || 'DE')}</span>
                     </div>
-                    <div class="funnel-legend-item">
-                        <div class="funnel-legend-dot" style="background:#3551FF"></div>
-                        Brand
+                    <select class="period-select" id="periodSelect">${periodOptions}</select>
+                </div>`;
+
+            // KPI Cards
+            html += '<div class="kpi-grid">';
+            html += kpiCard('Suchbegriffe', fmtInt(kpis.count), diffs ? diffHtml(diffs.count, true) : '');
+            html += kpiCard('Ø Impression Share', fmtPct(kpis.imprShare), diffs ? diffHtml(diffs.imprShare) : '');
+            html += kpiCard('Ø Click Share', fmtPct(kpis.clickShare), diffs ? diffHtml(diffs.clickShare) : '');
+            html += kpiCard('Ø Cart Share', fmtPct(kpis.cartShare), diffs ? diffHtml(diffs.cartShare) : '');
+            html += kpiCard('Ø Purchase Share', fmtPct(kpis.purchaseShare), diffs ? diffHtml(diffs.purchaseShare) : '');
+            html += kpiCard('Ø CTR', fmtPct(kpis.ctr), diffs ? diffHtml(diffs.ctr) : '');
+            html += '</div>';
+
+            // Charts row
+            if (showTrend) {
+                html += '<div class="charts-row">';
+                html += '<div class="chart-card"><div class="chart-title">Funnel: Gesamt vs. Marke</div><div class="chart-container"><canvas id="funnelChart" height="200"></canvas></div></div>';
+                html += '<div class="chart-card"><div class="chart-title">Brand Share Trend</div><div class="chart-container"><canvas id="trendChart" height="200"></canvas></div></div>';
+                html += '</div>';
+            } else {
+                html += '<div class="charts-row"><div class="chart-card full"><div class="chart-title">Funnel: Gesamt vs. Marke</div><div class="chart-container"><canvas id="funnelChart" height="180"></canvas></div></div></div>';
+            }
+
+            // Table section
+            html += `
+                <div class="table-section">
+                    <div class="table-toolbar">
+                        <span class="table-count" id="tableCount">${fmtInt(filteredRows.length)} Suchbegriffe</span>
+                        <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern..." value="${esc(searchTerm)}">
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr>
+                                ${thCol('Suchbegriff', 'query')}
+                                ${thCol('Score', 'score')}
+                                ${thCol('Volumen', 'volume')}
+                                ${thCol('Impr.', 'impressions')}
+                                ${thCol('Klicks', 'clicks')}
+                                ${thCol('Warenkorb', 'cart')}
+                                ${thCol('Käufe', 'purchases')}
+                                ${thCol('CTR %', 'ctr')}
+                                ${thCol('ATCR %', 'atcr')}
+                                ${thCol('CVR %', 'cvr')}
+                                ${thCol('Impr. Share', 'impr_share')}
+                                ${thCol('Click Share', 'click_share')}
+                                ${thCol('Cart Share', 'cart_share')}
+                                ${thCol('Purch. Share', 'purchase_share')}
+                            </tr></thead>
+                            <tbody id="tableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
+                        <button class="btn-load-more" id="loadMoreBtn">Mehr laden</button>
                     </div>
                 </div>`;
 
-            document.getElementById('funnelContainer').innerHTML = html;
+            app.innerHTML = html;
+
+            // Render table rows
+            renderTableRows(queryDiffs);
+
+            // Events
+            document.getElementById('periodSelect').addEventListener('change', async function () {
+                selectedReportId = this.value;
+                displayedCount = 100;
+                await loadRows();
+                render();
+            });
+
+            document.getElementById('searchInput').addEventListener('input', function () {
+                searchTerm = this.value;
+                displayedCount = 100;
+                applyFilter();
+                renderTableRows(queryDiffs);
+                document.getElementById('tableCount').textContent = fmtInt(filteredRows.length) + ' Suchbegriffe';
+            });
+
+            document.getElementById('loadMoreBtn').addEventListener('click', function () {
+                displayedCount += 100;
+                renderTableRows(queryDiffs);
+            });
+
+            // Sort headers
+            document.querySelectorAll('thead th[data-col]').forEach(th => {
+                th.addEventListener('click', function () {
+                    const col = this.dataset.col;
+                    if (sortCol === col) {
+                        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortCol = col;
+                        sortDir = 'desc';
+                    }
+                    applyFilter();
+                    renderTableRows(queryDiffs);
+                    // Update sort indicators
+                    document.querySelectorAll('thead th').forEach(t => t.classList.remove('sorted'));
+                    this.classList.add('sorted');
+                    document.querySelectorAll('thead th .sort-icon').forEach(s => s.textContent = '');
+                    this.querySelector('.sort-icon').textContent = sortDir === 'asc' ? ' ▲' : ' ▼';
+                });
+            });
+
+            // Charts
+            renderFunnelChart(totals);
+            if (showTrend) renderTrendChart();
         }
 
-        function renderFunnelEmpty() {
-            document.getElementById('funnelContainer').innerHTML = '<div class="loading" style="padding:30px;"><p style="color:#8b949e;">Keine Daten vorhanden.</p></div>';
+        function renderTableRows(queryDiffs) {
+            const tbody = document.getElementById('tableBody');
+            const showDiffs = hasMultipleReports() && queryDiffs;
+            const rows = filteredRows.slice(0, displayedCount);
+
+            let html = '';
+            rows.forEach(r => {
+                const imprShare = (r.impressions_brand_share || 0) * 100;
+                const clickShare = (r.clicks_brand_share || 0) * 100;
+                const cartShare = (r.cart_adds_brand_share || 0) * 100;
+                const purchaseShare = (r.purchases_brand_share || 0) * 100;
+                const ctr = safeDiv(r.clicks_total, r.impressions_total);
+                const atcr = safeDiv(r.cart_adds_total, r.clicks_total);
+                const cvr = safeDiv(r.purchases_total, r.clicks_total);
+
+                const qd = showDiffs && queryDiffs[r.search_query] ? queryDiffs[r.search_query] : null;
+
+                html += '<tr>';
+                html += `<td title="${esc(r.search_query || '')}">${esc(r.search_query || '')}</td>`;
+                html += `<td>${fmtInt(r.search_query_score)}</td>`;
+                html += `<td>${fmtInt(r.search_query_volume)}</td>`;
+                html += `<td>${fmtInt(r.impressions_total)}</td>`;
+                html += `<td>${fmtInt(r.clicks_total)}</td>`;
+                html += `<td>${fmtInt(r.cart_adds_total)}</td>`;
+                html += `<td>${fmtInt(r.purchases_total)}</td>`;
+                html += `<td>${fmtPct(ctr)}</td>`;
+                html += `<td>${fmtPct(atcr)}</td>`;
+                html += `<td>${fmtPct(cvr)}</td>`;
+                html += shareTd(imprShare, qd ? qd.imprShare : null);
+                html += shareTd(clickShare, qd ? qd.clickShare : null);
+                html += shareTd(cartShare, qd ? qd.cartShare : null);
+                html += shareTd(purchaseShare, qd ? qd.purchaseShare : null);
+                html += '</tr>';
+            });
+            tbody.innerHTML = html;
+
+            const wrap = document.getElementById('loadMoreWrap');
+            wrap.style.display = displayedCount < filteredRows.length ? '' : 'none';
         }
 
-        // Render Trend Chart
-        function renderTrend() {
-            const trendSection = document.getElementById('trendSection');
-            trendSection.style.display = 'block';
-
-            // Group rows by report_id
-            const reportMap = {};
-            allRows.forEach(row => {
-                const rid = row.report_id;
-                if (!reportMap[rid]) {
-                    reportMap[rid] = {
-                        impressions_total: 0, impressions_brand: 0,
-                        clicks_total: 0, clicks_brand: 0,
-                        cart_adds_total: 0, cart_adds_brand: 0,
-                        purchases_total: 0, purchases_brand: 0
-                    };
-                }
-                const m = reportMap[rid];
-                m.impressions_total += (row.impressions_total || 0);
-                m.impressions_brand += (row.impressions_brand || 0);
-                m.clicks_total += (row.clicks_total || 0);
-                m.clicks_brand += (row.clicks_brand || 0);
-                m.cart_adds_total += (row.cart_adds_total || 0);
-                m.cart_adds_brand += (row.cart_adds_brand || 0);
-                m.purchases_total += (row.purchases_total || 0);
-                m.purchases_brand += (row.purchases_brand || 0);
-            });
-
-            // Build data sorted by report date
-            const sortedReports = allReports.filter(r => reportMap[r.id]).sort((a, b) => {
-                return (a.report_date_start || '').localeCompare(b.report_date_start || '');
-            });
-
-            const labels = sortedReports.map(r => r.report_date_start + ' — ' + r.report_date_end);
-            const imprShares = sortedReports.map(r => {
-                const m = reportMap[r.id];
-                return m.impressions_total > 0 ? (m.impressions_brand / m.impressions_total * 100) : 0;
-            });
-            const clickShares = sortedReports.map(r => {
-                const m = reportMap[r.id];
-                return m.clicks_total > 0 ? (m.clicks_brand / m.clicks_total * 100) : 0;
-            });
-            const cartShares = sortedReports.map(r => {
-                const m = reportMap[r.id];
-                return m.cart_adds_total > 0 ? (m.cart_adds_brand / m.cart_adds_total * 100) : 0;
-            });
-            const purchaseShares = sortedReports.map(r => {
-                const m = reportMap[r.id];
-                return m.purchases_total > 0 ? (m.purchases_brand / m.purchases_total * 100) : 0;
-            });
-
-            if (trendChartInstance) {
-                trendChartInstance.destroy();
+        function shareTd(val, diff) {
+            const cls = shareBadgeClass(val);
+            let diffHtmlStr = '';
+            if (diff != null && diff !== 0) {
+                const dcls = diff > 0 ? 'positive' : 'negative';
+                const arrow = diff > 0 ? '▲' : '▼';
+                diffHtmlStr = `<span class="share-diff ${dcls}">${arrow} ${diff > 0 ? '+' : ''}${diff.toFixed(2).replace('.', ',')}%</span>`;
             }
+            return `<td><span class="share-badge ${cls}">${fmtPct(val)}</span>${diffHtmlStr}</td>`;
+        }
 
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            trendChartInstance = new Chart(ctx, {
-                type: 'line',
+        function kpiCard(label, value, diffStr) {
+            return `<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div>${diffStr}</div>`;
+        }
+
+        function diffHtml(val, isInt) {
+            if (val == null || val === 0) return '';
+            const cls = val > 0 ? 'positive' : 'negative';
+            const arrow = val > 0 ? '▲' : '▼';
+            const sign = val > 0 ? '+' : '';
+            const formatted = isInt ? sign + Math.round(val) : sign + val.toFixed(2).replace('.', ',') + ' %';
+            return `<div class="kpi-diff ${cls}">${arrow} ${formatted}</div>`;
+        }
+
+        function thCol(label, col) {
+            const isSorted = sortCol === col;
+            const icon = isSorted ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+            return `<th data-col="${col}" class="${isSorted ? 'sorted' : ''}">${label}<span class="sort-icon">${icon}</span></th>`;
+        }
+
+        function formatDateRange(start, end) {
+            if (!start) return '';
+            const s = new Date(start);
+            const e = end ? new Date(end) : null;
+            const fmt = d => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            return e ? fmt(s) + ' – ' + fmt(e) : fmt(s);
+        }
+
+        function esc(str) {
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        // Charts
+        function renderFunnelChart(totals) {
+            const ctx = document.getElementById('funnelChart');
+            if (!ctx) return;
+            if (funnelChart) funnelChart.destroy();
+
+            const labels = ['Impressionen', 'Klicks', 'Warenkorb', 'Käufe'];
+            const totalVals = [totals.impressions, totals.clicks, totals.cartAdds, totals.purchases];
+            const brandVals = [totals.impressionsBrand, totals.clicksBrand, totals.cartAddsBrand, totals.purchasesBrand];
+
+            funnelChart = new Chart(ctx, {
+                type: 'bar',
                 data: {
-                    labels,
+                    labels: labels,
                     datasets: [
-                        {
-                            label: 'Impression Share',
-                            data: imprShares,
-                            borderColor: '#3551FF',
-                            backgroundColor: 'rgba(53, 81, 255, 0.1)',
-                            borderWidth: 2,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: false
-                        },
-                        {
-                            label: 'Click Share',
-                            data: clickShares,
-                            borderColor: '#3fb950',
-                            backgroundColor: 'rgba(63, 185, 80, 0.1)',
-                            borderWidth: 2,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: false
-                        },
-                        {
-                            label: 'Cart Add Share',
-                            data: cartShares,
-                            borderColor: '#d29922',
-                            backgroundColor: 'rgba(210, 153, 34, 0.1)',
-                            borderWidth: 2,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: false
-                        },
-                        {
-                            label: 'Purchase Share',
-                            data: purchaseShares,
-                            borderColor: '#f85149',
-                            backgroundColor: 'rgba(248, 81, 73, 0.1)',
-                            borderWidth: 2,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            fill: false
-                        }
+                        { label: 'Gesamt', data: totalVals, backgroundColor: '#30363d', borderRadius: 4 },
+                        { label: 'Marke', data: brandVals, backgroundColor: '#3551FF', borderRadius: 4 },
                     ]
                 },
                 options: {
+                    indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
                     plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: '#8b949e',
-                                font: { family: 'Arial', size: 12 },
-                                padding: 20,
-                                usePointStyle: true,
-                                pointStyle: 'circle'
-                            }
-                        },
+                        legend: { position: 'top', labels: { color: '#8b949e', font: { size: 12 } } },
                         tooltip: {
-                            backgroundColor: '#161b22',
-                            titleColor: '#e6edf3',
-                            bodyColor: '#8b949e',
-                            borderColor: '#30363d',
-                            borderWidth: 1,
-                            padding: 12,
                             callbacks: {
-                                label: function(ctx) {
-                                    return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2).replace('.', ',') + ' %';
+                                label: function (ctx) {
+                                    return ctx.dataset.label + ': ' + ctx.raw.toLocaleString('de-DE');
                                 }
                             }
                         }
                     },
                     scales: {
                         x: {
-                            grid: { color: '#21262d' },
-                            ticks: { color: '#8b949e', font: { family: 'Arial', size: 11 } }
+                            ticks: { color: '#8b949e', callback: v => v >= 1000 ? (v / 1000).toLocaleString('de-DE') + 'k' : v },
+                            grid: { color: '#21262d' }
                         },
                         y: {
-                            grid: { color: '#21262d' },
-                            ticks: {
-                                color: '#8b949e',
-                                font: { family: 'Arial', size: 11 },
-                                callback: function(val) { return val.toFixed(1).replace('.', ',') + ' %'; }
-                            },
-                            beginAtZero: true
+                            ticks: { color: '#e6edf3', font: { size: 12 } },
+                            grid: { display: false }
                         }
                     }
                 }
             });
         }
 
-        // Render Table
-        function renderTable(queries) {
-            const filtered = queries.filter(q => {
-                if (!searchFilter) return true;
-                return q.query.toLowerCase().includes(searchFilter.toLowerCase());
+        function renderTrendChart() {
+            const ctx = document.getElementById('trendChart');
+            if (!ctx) return;
+            if (trendChart) trendChart.destroy();
+
+            const labels = reports.map(r => formatDateRange(r.report_date_start, r.report_date_end));
+            const imprData = [], clickData = [], cartData = [], purchData = [];
+
+            reports.forEach(r => {
+                const rows = getReportRows(r.id);
+                const kpis = computeKPIs(rows);
+                imprData.push(+kpis.imprShare.toFixed(2));
+                clickData.push(+kpis.clickShare.toFixed(2));
+                cartData.push(+kpis.cartShare.toFixed(2));
+                purchData.push(+kpis.purchaseShare.toFixed(2));
             });
 
-            // Sort
-            filtered.sort((a, b) => {
-                let aVal = a[currentSort.col];
-                let bVal = b[currentSort.col];
-                if (typeof aVal === 'string') {
-                    aVal = aVal.toLowerCase();
-                    bVal = (bVal || '').toLowerCase();
-                    return currentSort.dir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-                }
-                return currentSort.dir === 'asc' ? (aVal - bVal) : (bVal - aVal);
-            });
-
-            // Update count
-            document.getElementById('resultCount').textContent = `${filtered.length} Suchbegriffe`;
-
-            // Render rows
-            const tbody = document.getElementById('queryBody');
-            tbody.innerHTML = '';
-            const toShow = filtered.slice(0, displayCount);
-
-            toShow.forEach(q => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="query-cell" title="${escapeHtml(q.query)}">${escapeHtml(q.query)}</td>
-                    <td class="num">${formatNum(q.score)}</td>
-                    <td class="num">${formatNum(q.volume)}</td>
-                    <td class="num">${shareBadge(q.impr_share)}</td>
-                    <td class="num">${shareBadge(q.click_share)}</td>
-                    <td class="num">${shareBadge(q.cart_share)}</td>
-                    <td class="num">${shareBadge(q.purchase_share)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            // Load more
-            const loadMoreRow = document.getElementById('loadMoreRow');
-            if (filtered.length > displayCount) {
-                loadMoreRow.style.display = 'block';
-            } else {
-                loadMoreRow.style.display = 'none';
-            }
-
-            // Update sort indicators
-            document.querySelectorAll('.data-table thead th').forEach(th => {
-                th.classList.remove('sorted-asc', 'sorted-desc');
-                if (th.dataset.col === currentSort.col) {
-                    th.classList.add(currentSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Impression Share', data: imprData, borderColor: '#3551FF', backgroundColor: '#3551FF20', tension: 0.3, fill: false, pointRadius: 4 },
+                        { label: 'Click Share', data: clickData, borderColor: '#3fb950', backgroundColor: '#3fb95020', tension: 0.3, fill: false, pointRadius: 4 },
+                        { label: 'Cart Share', data: cartData, borderColor: '#eab308', backgroundColor: '#eab30820', tension: 0.3, fill: false, pointRadius: 4 },
+                        { label: 'Purchase Share', data: purchData, borderColor: '#f85149', backgroundColor: '#f8514920', tension: 0.3, fill: false, pointRadius: 4 },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return ctx.dataset.label + ': ' + ctx.raw.toFixed(2).replace('.', ',') + ' %';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8b949e', font: { size: 10 }, maxRotation: 45 },
+                            grid: { color: '#21262d' }
+                        },
+                        y: {
+                            ticks: { color: '#8b949e', callback: v => v.toFixed(1).replace('.', ',') + ' %' },
+                            grid: { color: '#21262d' }
+                        }
+                    }
                 }
             });
         }
 
-        // Share badge with color
-        function shareBadge(val) {
-            const pct = (val || 0) * 100;
-            const display = pct.toFixed(1).replace('.', ',') + ' %';
-            let cls = 'red';
-            if (pct >= 10) cls = 'green';
-            else if (pct >= 5) cls = 'yellow';
-            return `<span class="share-badge ${cls}">${display}</span>`;
-        }
-
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str || '';
-            return div.innerHTML;
-        }
-
-        // Sort by column click
-        document.querySelectorAll('.data-table thead th').forEach(th => {
-            th.addEventListener('click', () => {
-                const col = th.dataset.col;
-                if (currentSort.col === col) {
-                    currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSort.col = col;
-                    currentSort.dir = col === 'query' ? 'asc' : 'desc';
-                }
-                renderTable(processedQueries);
-            });
-        });
-
-        // Search filter
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            searchFilter = e.target.value;
-            displayCount = 50;
-            renderTable(processedQueries);
-        });
-
-        // Load more
-        document.getElementById('loadMoreBtn').addEventListener('click', () => {
-            displayCount += 50;
-            renderTable(processedQueries);
-        });
+        // Start
+        init();
     </script>
 </body>
 </html>
