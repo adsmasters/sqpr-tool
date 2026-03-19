@@ -341,10 +341,10 @@
                 case 'ctr': return safeDiv(row.clicks_total, row.impressions_total);
                 case 'atcr': return safeDiv(row.cart_adds_total, row.clicks_total);
                 case 'cvr': return safeDiv(row.purchases_total, row.clicks_total);
-                case 'impr_share': return (row.impressions_brand_share || 0) * 100;
-                case 'click_share': return (row.clicks_brand_share || 0) * 100;
-                case 'cart_share': return (row.cart_adds_brand_share || 0) * 100;
-                case 'purchase_share': return (row.purchases_brand_share || 0) * 100;
+                case 'impr_share': return row.impressions_brand_share || 0;
+                case 'click_share': return row.clicks_brand_share || 0;
+                case 'cart_share': return row.cart_adds_brand_share || 0;
+                case 'purchase_share': return row.purchases_brand_share || 0;
                 default: return 0;
             }
         }
@@ -352,10 +352,10 @@
         function computeKPIs(rows) {
             const count = rows.length;
             if (count === 0) return { count: 0, imprShare: 0, clickShare: 0, cartShare: 0, purchaseShare: 0, ctr: 0 };
-            const avgImprShare = rows.reduce((s, r) => s + (r.impressions_brand_share || 0), 0) / count * 100;
-            const avgClickShare = rows.reduce((s, r) => s + (r.clicks_brand_share || 0), 0) / count * 100;
-            const avgCartShare = rows.reduce((s, r) => s + (r.cart_adds_brand_share || 0), 0) / count * 100;
-            const avgPurchaseShare = rows.reduce((s, r) => s + (r.purchases_brand_share || 0), 0) / count * 100;
+            const avgImprShare = rows.reduce((s, r) => s + (r.impressions_brand_share || 0), 0) / count;
+            const avgClickShare = rows.reduce((s, r) => s + (r.clicks_brand_share || 0), 0) / count;
+            const avgCartShare = rows.reduce((s, r) => s + (r.cart_adds_brand_share || 0), 0) / count;
+            const avgPurchaseShare = rows.reduce((s, r) => s + (r.purchases_brand_share || 0), 0) / count;
             const totalImpr = rows.reduce((s, r) => s + (r.impressions_total || 0), 0);
             const totalClicks = rows.reduce((s, r) => s + (r.clicks_total || 0), 0);
             const ctr = totalImpr ? (totalClicks / totalImpr) * 100 : 0;
@@ -411,10 +411,10 @@
             const map = {};
             prevRows.forEach(r => {
                 map[r.search_query] = {
-                    imprShare: (r.impressions_brand_share || 0) * 100,
-                    clickShare: (r.clicks_brand_share || 0) * 100,
-                    cartShare: (r.cart_adds_brand_share || 0) * 100,
-                    purchaseShare: (r.purchases_brand_share || 0) * 100,
+                    imprShare: r.impressions_brand_share || 0,
+                    clickShare: r.clicks_brand_share || 0,
+                    cartShare: r.cart_adds_brand_share || 0,
+                    purchaseShare: r.purchases_brand_share || 0,
                 };
             });
             // Latest rows diffs
@@ -424,10 +424,10 @@
                 const prevQ = map[r.search_query];
                 if (prevQ) {
                     diffs[r.search_query] = {
-                        imprShare: (r.impressions_brand_share || 0) * 100 - prevQ.imprShare,
-                        clickShare: (r.clicks_brand_share || 0) * 100 - prevQ.clickShare,
-                        cartShare: (r.cart_adds_brand_share || 0) * 100 - prevQ.cartShare,
-                        purchaseShare: (r.purchases_brand_share || 0) * 100 - prevQ.purchaseShare,
+                        imprShare: (r.impressions_brand_share || 0) - prevQ.imprShare,
+                        clickShare: (r.clicks_brand_share || 0) - prevQ.clickShare,
+                        cartShare: (r.cart_adds_brand_share || 0) - prevQ.cartShare,
+                        purchaseShare: (r.purchases_brand_share || 0) - prevQ.purchaseShare,
                     };
                 }
             });
@@ -573,10 +573,10 @@
 
             let html = '';
             rows.forEach(r => {
-                const imprShare = (r.impressions_brand_share || 0) * 100;
-                const clickShare = (r.clicks_brand_share || 0) * 100;
-                const cartShare = (r.cart_adds_brand_share || 0) * 100;
-                const purchaseShare = (r.purchases_brand_share || 0) * 100;
+                const imprShare = r.impressions_brand_share || 0;
+                const clickShare = r.clicks_brand_share || 0;
+                const cartShare = r.cart_adds_brand_share || 0;
+                const purchaseShare = r.purchases_brand_share || 0;
                 const ctr = safeDiv(r.clicks_total, r.impressions_total);
                 const atcr = safeDiv(r.cart_adds_total, r.clicks_total);
                 const cvr = safeDiv(r.purchases_total, r.clicks_total);
