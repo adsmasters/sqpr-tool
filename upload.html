@@ -752,43 +752,28 @@
         let parsedHeaders = null;
         let deleteTargetId = null;
 
-        // Expected columns for validation (partial matching)
-        const EXPECTED_COLUMNS = [
-            'Search Query',
-            'Search Query Score',
-            'Search Query Volume',
-            'Impressions: Total Count',
-            'Impressions: Brand Count',
-            'Impressions: Brand Share %',
-            'Clicks: Total Count',
-            'Clicks: Brand Count',
-            'Clicks: Brand Share %',
-            'Cart Adds: Total Count',
-            'Cart Adds: Brand Count',
-            'Cart Adds: Brand Share %',
-            'Purchases: Total Count',
-            'Purchases: Brand Count',
-            'Purchases: Brand Share %'
+        // Expected columns for validation - each entry has display name, DB column, and search terms (EN + DE)
+        const COLUMN_DEFS = [
+            { name: 'Search Query', db: 'search_query', match: ['search query', 'suchabfrage'] },
+            { name: 'Search Query Score', db: 'search_query_score', match: ['search query score', 'ergebnis der suchabfrage'] },
+            { name: 'Search Query Volume', db: 'search_query_volume', match: ['search query volume', 'volumen der suchabfrage'] },
+            { name: 'Impressions: Total Count', db: 'impressions_total', match: ['impressions: total count', 'eindr\u00fccke: gesamtanzahl', 'eindrucke: gesamtanzahl'] },
+            { name: 'Impressions: Brand Count', db: 'impressions_brand', match: ['impressions: brand count', 'eindr\u00fccke: markenanzahl', 'eindrucke: markenanzahl'] },
+            { name: 'Impressions: Brand Share %', db: 'impressions_brand_share', match: ['impressions: brand share', 'eindr\u00fccke: markenanteil', 'eindrucke: markenanteil'] },
+            { name: 'Clicks: Total Count', db: 'clicks_total', match: ['clicks: total count', 'klicks: gesamtanzahl'] },
+            { name: 'Clicks: Brand Count', db: 'clicks_brand', match: ['clicks: brand count', 'klicks: anzahl der marken'] },
+            { name: 'Clicks: Brand Share %', db: 'clicks_brand_share', match: ['clicks: brand share', 'klicks: markenanteil'] },
+            { name: 'Cart Adds: Total Count', db: 'cart_adds_total', match: ['cart adds: total count', 'produkte im einkaufswagen: gesamtanzahl'] },
+            { name: 'Cart Adds: Brand Count', db: 'cart_adds_brand', match: ['cart adds: brand count', 'produkte im einkaufswagen: markenanzahl'] },
+            { name: 'Cart Adds: Brand Share %', db: 'cart_adds_brand_share', match: ['cart adds: brand share', 'produkte im einkaufswagen: markenanteil'] },
+            { name: 'Purchases: Total Count', db: 'purchases_total', match: ['purchases: total count', 'k\u00e4ufe: gesamtanzahl', 'kaufe: gesamtanzahl'] },
+            { name: 'Purchases: Brand Count', db: 'purchases_brand', match: ['purchases: brand count', 'k\u00e4ufe: markenanzahl', 'kaufe: markenanzahl'] },
+            { name: 'Purchases: Brand Share %', db: 'purchases_brand_share', match: ['purchases: brand share', 'k\u00e4ufe: markenanteil', 'kaufe: markenanteil'] }
         ];
 
-        // Column key mapping for DB insert (maps expected name to DB column)
-        const COLUMN_DB_MAP = {
-            'Search Query': 'search_query',
-            'Search Query Score': 'search_query_score',
-            'Search Query Volume': 'search_query_volume',
-            'Impressions: Total Count': 'impressions_total',
-            'Impressions: Brand Count': 'impressions_brand',
-            'Impressions: Brand Share %': 'impressions_brand_share',
-            'Clicks: Total Count': 'clicks_total',
-            'Clicks: Brand Count': 'clicks_brand',
-            'Clicks: Brand Share %': 'clicks_brand_share',
-            'Cart Adds: Total Count': 'cart_adds_total',
-            'Cart Adds: Brand Count': 'cart_adds_brand',
-            'Cart Adds: Brand Share %': 'cart_adds_brand_share',
-            'Purchases: Total Count': 'purchases_total',
-            'Purchases: Brand Count': 'purchases_brand',
-            'Purchases: Brand Share %': 'purchases_brand_share'
-        };
+        const EXPECTED_COLUMNS = COLUMN_DEFS.map(d => d.name);
+        const COLUMN_DB_MAP = {};
+        COLUMN_DEFS.forEach(d => { COLUMN_DB_MAP[d.name] = d.db; });
 
         // Logout
         document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -930,10 +915,12 @@
         }
 
         function findHeaderRow(lines, delimiter) {
-            // Search for a line containing "Search Query" and "Impressions"
+            // Search for a line containing query/impressions keywords (EN or DE)
             for (let i = 0; i < Math.min(lines.length, 30); i++) {
                 const lower = lines[i].toLowerCase();
-                if (lower.includes('search query') && lower.includes('impressions')) {
+                const hasQuery = lower.includes('search query') || lower.includes('suchabfrage');
+                const hasImpressions = lower.includes('impressions') || lower.includes('eindr');
+                if (hasQuery && hasImpressions) {
                     return i;
                 }
             }
@@ -941,23 +928,18 @@
             return 0;
         }
 
-        function matchColumn(header, expected) {
-            // Flexible partial matching (case-insensitive)
-            const h = header.toLowerCase().trim();
-            const e = expected.toLowerCase().trim();
-            return h.includes(e) || e.includes(h);
-        }
-
         function findColumnIndex(headers, expected) {
-            const eLower = expected.toLowerCase().trim();
+            // Find the COLUMN_DEF for this expected name
+            const def = COLUMN_DEFS.find(d => d.name === expected);
+            if (!def) return -1;
+
             for (let i = 0; i < headers.length; i++) {
                 const hLower = headers[i].toLowerCase().trim();
-                if (hLower === eLower) return i;
-            }
-            // Partial match
-            for (let i = 0; i < headers.length; i++) {
-                const hLower = headers[i].toLowerCase().trim();
-                if (hLower.includes(eLower) || eLower.includes(hLower)) return i;
+                for (const term of def.match) {
+                    if (hLower.includes(term) || term.includes(hLower)) {
+                        return i;
+                    }
+                }
             }
             return -1;
         }
