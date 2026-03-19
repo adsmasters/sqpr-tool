@@ -768,7 +768,7 @@
                     .from('sqpr_reports')
                     .select('*')
                     .eq('client_id', activeClientId)
-                    .order('report_date', { ascending: true });
+                    .order('report_date_start', { ascending: true });
 
                 allReports = reports || [];
 
@@ -777,7 +777,7 @@
                 allReports.forEach(r => {
                     const opt = document.createElement('option');
                     opt.value = r.id;
-                    const label = r.period_label || r.report_date || ('Report #' + r.id);
+                    const label = r.report_date_start + ' — ' + r.report_date_end;
                     opt.textContent = label;
                     reportSelect.appendChild(opt);
                 });
@@ -1049,10 +1049,10 @@
 
             // Build data sorted by report date
             const sortedReports = allReports.filter(r => reportMap[r.id]).sort((a, b) => {
-                return (a.report_date || '').localeCompare(b.report_date || '');
+                return (a.report_date_start || '').localeCompare(b.report_date_start || '');
             });
 
-            const labels = sortedReports.map(r => r.period_label || r.report_date || '?');
+            const labels = sortedReports.map(r => r.report_date_start + ' — ' + r.report_date_end);
             const imprShares = sortedReports.map(r => {
                 const m = reportMap[r.id];
                 return m.impressions_total > 0 ? (m.impressions_brand / m.impressions_total * 100) : 0;
