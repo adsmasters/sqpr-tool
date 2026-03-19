@@ -338,8 +338,11 @@
                 case 'clicks': return row.clicks_total || 0;
                 case 'cart': return row.cart_adds_total || 0;
                 case 'purchases': return row.purchases_total || 0;
+                case 'impr_brand': return row.impressions_brand || 0;
+                case 'clicks_brand': return row.clicks_brand || 0;
+                case 'cart_brand': return row.cart_adds_brand || 0;
+                case 'purchases_brand': return row.purchases_brand || 0;
                 case 'ctr': return safeDiv(row.clicks_total, row.impressions_total);
-                case 'atcr': return safeDiv(row.cart_adds_total, row.clicks_total);
                 case 'cvr': return safeDiv(row.purchases_total, row.clicks_total);
                 case 'impr_share': return row.impressions_brand_share || 0;
                 case 'click_share': return row.clicks_brand_share || 0;
@@ -494,17 +497,16 @@
                                 ${thCol('Suchbegriff', 'query')}
                                 ${thCol('Score', 'score')}
                                 ${thCol('Volumen', 'volume')}
-                                ${thCol('Impr.', 'impressions')}
-                                ${thCol('Klicks', 'clicks')}
-                                ${thCol('Warenkorb', 'cart')}
-                                ${thCol('Käufe', 'purchases')}
-                                ${thCol('CTR %', 'ctr')}
-                                ${thCol('ATCR %', 'atcr')}
-                                ${thCol('CVR %', 'cvr')}
+                                ${thCol('Impr. Marke', 'impr_brand')}
                                 ${thCol('Impr. Share', 'impr_share')}
+                                ${thCol('Klicks Marke', 'clicks_brand')}
                                 ${thCol('Click Share', 'click_share')}
+                                ${thCol('Warenk. Marke', 'cart_brand')}
                                 ${thCol('Cart Share', 'cart_share')}
+                                ${thCol('Käufe Marke', 'purchases_brand')}
                                 ${thCol('Purch. Share', 'purchase_share')}
+                                ${thCol('CTR %', 'ctr')}
+                                ${thCol('CVR %', 'cvr')}
                             </tr></thead>
                             <tbody id="tableBody">
                             </tbody>
@@ -578,7 +580,6 @@
                 const cartShare = r.cart_adds_brand_share || 0;
                 const purchaseShare = r.purchases_brand_share || 0;
                 const ctr = safeDiv(r.clicks_total, r.impressions_total);
-                const atcr = safeDiv(r.cart_adds_total, r.clicks_total);
                 const cvr = safeDiv(r.purchases_total, r.clicks_total);
 
                 const qd = showDiffs && queryDiffs[r.search_query] ? queryDiffs[r.search_query] : null;
@@ -587,17 +588,16 @@
                 html += `<td title="${esc(r.search_query || '')}">${esc(r.search_query || '')}</td>`;
                 html += `<td>${fmtInt(r.search_query_score)}</td>`;
                 html += `<td>${fmtInt(r.search_query_volume)}</td>`;
-                html += `<td>${fmtInt(r.impressions_total)}</td>`;
-                html += `<td>${fmtInt(r.clicks_total)}</td>`;
-                html += `<td>${fmtInt(r.cart_adds_total)}</td>`;
-                html += `<td>${fmtInt(r.purchases_total)}</td>`;
-                html += `<td>${fmtPct(ctr)}</td>`;
-                html += `<td>${fmtPct(atcr)}</td>`;
-                html += `<td>${fmtPct(cvr)}</td>`;
+                html += `<td>${fmtInt(r.impressions_brand)}</td>`;
                 html += shareTd(imprShare, qd ? qd.imprShare : null);
+                html += `<td>${fmtInt(r.clicks_brand)}</td>`;
                 html += shareTd(clickShare, qd ? qd.clickShare : null);
+                html += `<td>${fmtInt(r.cart_adds_brand)}</td>`;
                 html += shareTd(cartShare, qd ? qd.cartShare : null);
+                html += `<td>${fmtInt(r.purchases_brand)}</td>`;
                 html += shareTd(purchaseShare, qd ? qd.purchaseShare : null);
+                html += `<td>${fmtPct(ctr)}</td>`;
+                html += `<td>${fmtPct(cvr)}</td>`;
                 html += '</tr>';
             });
             tbody.innerHTML = html;
