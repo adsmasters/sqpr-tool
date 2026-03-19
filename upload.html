@@ -1095,10 +1095,10 @@
                 const { data: report, error: reportError } = await sb
                     .from('sqpr_reports')
                     .insert({
-                        client_id: parseInt(clientId),
-                        start_date: startDate.value,
-                        end_date: endDate.value,
-                        period_type: periodType.value,
+                        client_id: clientId,
+                        report_date_start: startDate.value,
+                        report_date_end: endDate.value,
+                        reporting_range: periodType.value,
                         row_count: parsedData.length
                     })
                     .select('id')
@@ -1221,13 +1221,13 @@
 
             reports.forEach(report => {
                 const tr = document.createElement('tr');
-                const sDate = formatDate(report.start_date);
-                const eDate = formatDate(report.end_date);
+                const sDate = formatDate(report.report_date_start);
+                const eDate = formatDate(report.report_date_end);
                 tr.innerHTML = `
                     <td>${sDate} — ${eDate}</td>
-                    <td>${periodLabels[report.period_type] || report.period_type}</td>
+                    <td>${periodLabels[report.reporting_range] || report.reporting_range}</td>
                     <td>${report.row_count || 0}</td>
-                    <td>${formatDateTime(report.created_at)}</td>
+                    <td>${formatDateTime(report.uploaded_at)}</td>
                     <td><button class="action-btn delete delete-report-btn" data-id="${report.id}">Löschen</button></td>
                 `;
                 tr.querySelector('.delete-report-btn').addEventListener('click', () => {
