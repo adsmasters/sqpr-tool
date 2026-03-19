@@ -933,12 +933,18 @@
             const def = COLUMN_DEFS.find(d => d.name === expected);
             if (!def) return -1;
 
+            // Pass 1: exact match
             for (let i = 0; i < headers.length; i++) {
                 const hLower = headers[i].toLowerCase().trim();
                 for (const term of def.match) {
-                    if (hLower.includes(term) || term.includes(hLower)) {
-                        return i;
-                    }
+                    if (hLower === term) return i;
+                }
+            }
+            // Pass 2: header contains term (term must be in header, NOT the reverse)
+            for (let i = 0; i < headers.length; i++) {
+                const hLower = headers[i].toLowerCase().trim();
+                for (const term of def.match) {
+                    if (hLower.includes(term)) return i;
                 }
             }
             return -1;
