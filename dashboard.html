@@ -495,6 +495,7 @@
                         <table>
                             <thead><tr>
                                 ${thCol('Suchbegriff', 'query')}
+                                ${thCol('Suchvolumen', 'volume')}
                                 ${thCol('Impr. Marke', 'impr_brand')}
                                 ${thCol('Impr. Share', 'impr_share')}
                                 ${thCol('Klicks Marke', 'clicks_brand')}
@@ -584,6 +585,7 @@
 
                 html += '<tr>';
                 html += `<td title="${esc(r.search_query || '')}">${esc(r.search_query || '')}</td>`;
+                html += `<td>${fmtInt(r.search_query_volume)}</td>`;
                 html += `<td>${fmtInt(r.impressions_brand)}</td>`;
                 html += shareTd(imprShare, qd ? qd.imprShare : null);
                 html += `<td>${fmtInt(r.clicks_brand)}</td>`;
