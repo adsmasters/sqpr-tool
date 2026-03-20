@@ -801,8 +801,16 @@
             const trendSearchInput = document.getElementById('trendSearchInput');
             const trendSuggestions = document.getElementById('trendSuggestions');
 
-            // Build unique search terms list
-            const uniqueTerms = [...new Set(allRows.map(r => r.search_query).filter(Boolean))].sort();
+            // Build unique search terms with volume for sorting
+            const termVolumeMap = {};
+            allRows.forEach(r => {
+                if (!r.search_query) return;
+                const vol = r.search_query_volume || 0;
+                if (!termVolumeMap[r.search_query] || vol > termVolumeMap[r.search_query]) {
+                    termVolumeMap[r.search_query] = vol;
+                }
+            });
+            const uniqueTerms = Object.keys(termVolumeMap).sort((a, b) => termVolumeMap[b] - termVolumeMap[a]);
 
             trendSearchInput.addEventListener('input', function () {
                 const val = this.value.toLowerCase().trim();
@@ -818,7 +826,7 @@
                     return;
                 }
                 trendSuggestions.innerHTML = matches.map(t =>
-                    `<div class="trend-suggestion" data-term="${esc(t)}">${esc(t)}</div>`
+                    `<div class="trend-suggestion" data-term="${esc(t)}">${esc(t)} <span style="color:#484f58;font-size:11px;float:right;">Vol. ${fmtInt(termVolumeMap[t] || 0)}</span></div>`
                 ).join('');
                 trendSuggestions.classList.add('visible');
             });
