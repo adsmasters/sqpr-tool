@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQPR Tool — Hilfe</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+        }
+
+        /* Top Bar */
+        .topbar {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 32px; }
+        .topbar-logo { font-size: 18px; font-weight: 700; color: #3551FF; text-decoration: none; }
+        .topbar-nav { display: flex; gap: 4px; }
+        .topbar-nav a {
+            color: #8b949e; text-decoration: none; font-size: 14px;
+            padding: 8px 14px; border-radius: 6px; transition: color 0.2s, background 0.2s;
+        }
+        .topbar-nav a:hover { color: #e6edf3; background: #21262d; }
+        .topbar-nav a.active { color: #e6edf3; background: #30363d; }
+        .logout-btn {
+            color: #8b949e; background: none; border: 1px solid #30363d;
+            padding: 6px 16px; border-radius: 6px; font-size: 13px;
+            font-family: Arial, sans-serif; cursor: pointer; transition: color 0.2s, border-color 0.2s;
+        }
+        .logout-btn:hover { color: #f85149; border-color: #f85149; }
+
+        /* Main */
+        .main { max-width: 860px; margin: 0 auto; padding: 32px 24px 80px; }
+
+        .page-title { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+        .page-subtitle { font-size: 14px; color: #8b949e; margin-bottom: 28px; }
+
+        /* TOC */
+        .toc-card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+            padding: 20px 24px; margin-bottom: 28px;
+        }
+        .toc-title { font-size: 13px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+        .toc-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px;
+        }
+        .toc-link {
+            display: flex; align-items: center; gap: 10px;
+            color: #e6edf3; text-decoration: none; font-size: 14px;
+            padding: 6px 8px; border-radius: 6px; transition: background 0.15s;
+        }
+        .toc-link:hover { background: #21262d; }
+        .toc-num {
+            width: 22px; height: 22px; border-radius: 50%; background: #3551FF;
+            color: #fff; font-size: 11px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+
+        /* Section cards */
+        .section-card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+            padding: 24px 28px; margin-bottom: 20px;
+        }
+        .section-header {
+            display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+        }
+        .section-badge {
+            width: 30px; height: 30px; border-radius: 50%; background: #3551FF;
+            color: #fff; font-size: 14px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .section-title { font-size: 18px; font-weight: 700; }
+
+        .section-card p { font-size: 14px; line-height: 1.7; color: #c9d1d9; margin-bottom: 12px; }
+        .section-card p:last-child { margin-bottom: 0; }
+
+        .section-card ol, .section-card ul {
+            padding-left: 20px; margin-bottom: 12px;
+        }
+        .section-card li {
+            font-size: 14px; line-height: 1.7; color: #c9d1d9; margin-bottom: 4px;
+        }
+        .section-card li:last-child { margin-bottom: 0; }
+
+        .section-card strong { color: #e6edf3; }
+
+        .section-card code {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 4px;
+            padding: 2px 7px; font-size: 13px; color: #79c0ff; font-family: 'SF Mono', Consolas, monospace;
+        }
+
+        .kpi-list { list-style: none; padding-left: 0 !important; }
+        .kpi-list li { padding-left: 0; position: relative; }
+        .kpi-list li::before { content: none; }
+        .kpi-item {
+            display: flex; gap: 8px; align-items: baseline;
+            padding: 6px 0; border-bottom: 1px solid #30363d1a;
+        }
+        .kpi-label { color: #3551FF; font-weight: 600; font-size: 13px; white-space: nowrap; }
+        .kpi-desc { color: #c9d1d9; font-size: 14px; }
+
+        .diff-green { color: #3fb950; font-weight: 600; }
+        .diff-red { color: #f85149; font-weight: 600; }
+
+        .hint-box {
+            background: #0d1117; border: 1px solid #30363d; border-left: 3px solid #3551FF;
+            border-radius: 6px; padding: 12px 16px; margin-top: 12px; font-size: 13px;
+            color: #8b949e; line-height: 1.6;
+        }
+
+        .access-box {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 8px;
+            padding: 16px 20px; margin-top: 8px;
+        }
+        .access-row {
+            display: flex; align-items: center; gap: 12px; padding: 6px 0;
+            font-size: 14px;
+        }
+        .access-label { color: #8b949e; font-weight: 600; min-width: 80px; }
+        .access-value { color: #e6edf3; }
+        .access-value a { color: #3551FF; text-decoration: none; }
+        .access-value a:hover { text-decoration: underline; }
+
+        @media (max-width: 600px) {
+            .topbar { padding: 0 16px; }
+            .main { padding: 20px 16px 60px; }
+            .toc-grid { grid-template-columns: 1fr; }
+            .section-card { padding: 20px; }
+        }
+
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
+            <nav class="topbar-nav">
+                <a href="dashboard.html">Dashboard</a>
+                <a href="clients.html">Kunden</a>
+                <a href="upload.html">Upload</a>
+                <a href="help.html" class="active">Hilfe</a>
+            </nav>
+        </div>
+        <button class="logout-btn" onclick="sessionStorage.removeItem('sqpr_auth'); window.location.href='index.html';">Logout</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+        <h1 class="page-title">Hilfe &amp; Anleitung</h1>
+        <p class="page-subtitle">Alles, was du zum SQPR Tool wissen musst — Schritt f&uuml;r Schritt.</p>
+
+        <!-- Table of Contents -->
+        <div class="toc-card">
+            <div class="toc-title">Inhaltsverzeichnis</div>
+            <div class="toc-grid">
+                <a href="#section-1" class="toc-link"><span class="toc-num">1</span> Was ist das SQPR Tool?</a>
+                <a href="#section-7" class="toc-link"><span class="toc-num">7</span> Trend Analyse</a>
+                <a href="#section-2" class="toc-link"><span class="toc-num">2</span> Daten hochladen</a>
+                <a href="#section-8" class="toc-link"><span class="toc-num">8</span> Cluster Analyse</a>
+                <a href="#section-3" class="toc-link"><span class="toc-num">3</span> Dashboard KPIs</a>
+                <a href="#section-9" class="toc-link"><span class="toc-num">9</span> Tabellen-Ansichten</a>
+                <a href="#section-4" class="toc-link"><span class="toc-num">4</span> Vergleich</a>
+                <a href="#section-10" class="toc-link"><span class="toc-num">10</span> CSV Export &amp; Datenformat</a>
+                <a href="#section-5" class="toc-link"><span class="toc-num">5</span> Top Mover</a>
+                <a href="#section-11" class="toc-link"><span class="toc-num">11</span> Zugang</a>
+                <a href="#section-6" class="toc-link"><span class="toc-num">6</span> Brand Trend Chart</a>
+            </div>
+        </div>
+
+        <!-- Section 1 -->
+        <div class="section-card" id="section-1">
+            <div class="section-header">
+                <div class="section-badge">1</div>
+                <div class="section-title">Was ist das SQPR Tool?</div>
+            </div>
+            <p>Das SQPR Tool analysiert Amazon Search Query Performance Reports (SQPR) und zeigt euch, wie eure Kunden-Marken bei relevanten Suchbegriffen performen — Impression Share, Click Share, Cart Share und Purchase Share im Zeitverlauf.</p>
+        </div>
+
+        <!-- Section 2 -->
+        <div class="section-card" id="section-2">
+            <div class="section-header">
+                <div class="section-badge">2</div>
+                <div class="section-title">Daten hochladen</div>
+            </div>
+            <ol>
+                <li>Unter <strong>Kunden</strong> einen Kunden anlegen (Name + Marketplace)</li>
+                <li>Unter <strong>Upload</strong> den Kunden ausw&auml;hlen</li>
+                <li>SQPR CSV aus Seller Central hochladen (Brand Analytics &rarr; Suchabfrage-Performance)</li>
+                <li>Startdatum, Enddatum und Zeitraum (Monatlich/W&ouml;chentlich) angeben</li>
+                <li>Je mehr Monate hochgeladen werden, desto besser die Trendanalyse</li>
+            </ol>
+        </div>
+
+        <!-- Section 3 -->
+        <div class="section-card" id="section-3">
+            <div class="section-header">
+                <div class="section-badge">3</div>
+                <div class="section-title">Dashboard KPIs</div>
+            </div>
+            <ul class="kpi-list">
+                <li><div class="kpi-item"><span class="kpi-label">&Oslash; Impression Share</span><span class="kpi-desc">— wie oft wird die Marke in Suchergebnissen angezeigt</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">&Oslash; Click Share</span><span class="kpi-desc">— wie oft wird auf die Marke geklickt</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">&Oslash; Cart Share</span><span class="kpi-desc">— wie oft wird die Marke in den Warenkorb gelegt</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">&Oslash; Purchase Share</span><span class="kpi-desc">— wie oft wird die Marke gekauft</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">&Oslash; CTR</span><span class="kpi-desc">— Klickrate &uuml;ber alle Suchbegriffe</span></div></li>
+            </ul>
+        </div>
+
+        <!-- Section 4 -->
+        <div class="section-card" id="section-4">
+            <div class="section-header">
+                <div class="section-badge">4</div>
+                <div class="section-title">Vergleich</div>
+            </div>
+            <ul>
+                <li><strong>Zeitraum</strong>: W&auml;hle einen spezifischen Monat oder &bdquo;Alle Zeitr&auml;ume&ldquo;</li>
+                <li><strong>Vergleich mit</strong>: Vormonat, Vorjahr, oder ein spezifischer Monat</li>
+            </ul>
+            <p>Diff-Werte werden <span class="diff-green">&#9650; gr&uuml;n (Verbesserung)</span> oder <span class="diff-red">&#9660; rot (R&uuml;ckgang)</span> angezeigt.</p>
+        </div>
+
+        <!-- Section 5 -->
+        <div class="section-card" id="section-5">
+            <div class="section-header">
+                <div class="section-badge">5</div>
+                <div class="section-title">Top Mover</div>
+            </div>
+            <p>Zeigt automatisch die Suchbegriffe mit den gr&ouml;&szlig;ten Ver&auml;nderungen:</p>
+            <ul>
+                <li><strong>Top Gewinner</strong>: Gr&ouml;&szlig;ter Purchase Share Zuwachs</li>
+                <li><strong>Top Verlierer</strong>: Gr&ouml;&szlig;ter Purchase Share R&uuml;ckgang</li>
+            </ul>
+            <div class="hint-box">Klick auf einen Suchbegriff f&uuml;gt ihn automatisch zur Trend Analyse hinzu.</div>
+        </div>
+
+        <!-- Section 6 -->
+        <div class="section-card" id="section-6">
+            <div class="section-header">
+                <div class="section-badge">6</div>
+                <div class="section-title">Brand Trend Chart</div>
+            </div>
+            <ul>
+                <li>Umschaltbar zwischen <strong>Share %</strong> (Impression/Click/Cart/Purchase Share) und <strong>Absolut</strong> (Klicks/Warenkorb/K&auml;ufe Marke)</li>
+                <li>Zeigt den Verlauf &uuml;ber alle hochgeladenen Monate</li>
+            </ul>
+        </div>
+
+        <!-- Section 7 -->
+        <div class="section-card" id="section-7">
+            <div class="section-header">
+                <div class="section-badge">7</div>
+                <div class="section-title">Trend Analyse</div>
+            </div>
+            <ul>
+                <li>Suche nach Suchbegriffen und w&auml;hle bis zu 5 aus</li>
+                <li>Vorschl&auml;ge sortiert nach Suchvolumen</li>
+                <li>W&auml;hle die Metrik: Suchvolumen, Impression/Click/Cart/Purchase Share</li>
+                <li>Line Chart zeigt den Verlauf pro Suchbegriff</li>
+            </ul>
+        </div>
+
+        <!-- Section 8 -->
+        <div class="section-card" id="section-8">
+            <div class="section-header">
+                <div class="section-badge">8</div>
+                <div class="section-title">Cluster Analyse</div>
+            </div>
+            <p>Gruppiere Suchbegriffe in Cluster (z.B. Brand, Wettbewerber, Generisch) und vergleiche sie.</p>
+            <p><strong>Cluster erstellen:</strong></p>
+            <ol>
+                <li>Cluster Analyse aufklappen &rarr; &bdquo;+&ldquo; klicken</li>
+                <li>Name eingeben (z.B. &bdquo;Eigenmarke&ldquo;)</li>
+                <li>Keywords eingeben (ein pro Zeile):
+                    <ul style="margin-top: 6px; margin-bottom: 2px;">
+                        <li><code>red bull</code> = Broad — enth&auml;lt &bdquo;red bull&ldquo;</li>
+                        <li><code>[energy drink]</code> = Exact — exakter Suchbegriff</li>
+                        <li><code>-monster</code> = Negativ — ausschlie&szlig;en</li>
+                    </ul>
+                </li>
+            </ol>
+            <div class="hint-box"><strong>Reihenfolge wichtig:</strong> Ein Suchbegriff wird dem ersten passenden Cluster zugeordnet. Brand-Cluster sollten vor Generisch-Clustern stehen.</div>
+        </div>
+
+        <!-- Section 9 -->
+        <div class="section-card" id="section-9">
+            <div class="section-header">
+                <div class="section-badge">9</div>
+                <div class="section-title">Tabellen-Ansichten</div>
+            </div>
+            <ul>
+                <li><strong>Standard</strong>: Alle Suchbegriffe mit Marken-KPIs, sortierbar und filterbar</li>
+                <li><strong>Monatsvergleich</strong>: Alle Monate nebeneinander pro Suchbegriff, sortierbar nach Klicks/Warenkorb/K&auml;ufe</li>
+            </ul>
+        </div>
+
+        <!-- Section 10 -->
+        <div class="section-card" id="section-10">
+            <div class="section-header">
+                <div class="section-badge">10</div>
+                <div class="section-title">CSV Export &amp; Datenformat</div>
+            </div>
+            <ul>
+                <li>SQPR CSV aus Seller Central: Brand Analytics &rarr; Suchabfrage-Performance &rarr; CSV herunterladen</li>
+                <li>Deutsche und englische CSV-Formate werden unterst&uuml;tzt</li>
+                <li>Das Tool erkennt Spalten automatisch (Vorschau pr&uuml;fen vor Upload)</li>
+            </ul>
+        </div>
+
+        <!-- Section 11 -->
+        <div class="section-card" id="section-11">
+            <div class="section-header">
+                <div class="section-badge">11</div>
+                <div class="section-title">Zugang</div>
+            </div>
+            <div class="access-box">
+                <div class="access-row">
+                    <span class="access-label">URL</span>
+                    <span class="access-value"><a href="https://adsmasters.github.io/sqpr-tool/" target="_blank">https://adsmasters.github.io/sqpr-tool/</a></span>
+                </div>
+                <div class="access-row">
+                    <span class="access-label">Passwort</span>
+                    <span class="access-value">adsmasters2026</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Auth check
+        if (!sessionStorage.getItem('sqpr_auth')) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

@@ -83,6 +83,23 @@
         .kpi-diff.positive { color: #3fb950; }
         .kpi-diff.negative { color: #f85149; }
 
+        /* Top Mover */
+        .top-mover-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .top-mover-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+        .top-mover-title { font-size: 13px; font-weight: 600; padding: 10px 14px; border-bottom: 1px solid #30363d; }
+        .top-mover-title.winners { border-left: 3px solid #3fb950; }
+        .top-mover-title.losers { border-left: 3px solid #f85149; }
+        .top-mover-row { display: flex; align-items: center; justify-content: space-between; height: 32px; padding: 0 14px; border-bottom: 1px solid #30363d1a; cursor: pointer; transition: background 0.15s; }
+        .top-mover-row:hover { background: #21262d; }
+        .top-mover-row:last-child { border-bottom: none; }
+        .top-mover-term { font-size: 13px; color: #e6edf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+        .top-mover-vals { display: flex; align-items: center; gap: 10px; font-size: 12px; flex-shrink: 0; }
+        .top-mover-share { color: #8b949e; }
+        .top-mover-diff { font-weight: 600; }
+        .top-mover-diff.positive { color: #3fb950; }
+        .top-mover-diff.negative { color: #f85149; }
+        @media (max-width: 700px) { .top-mover-grid { grid-template-columns: 1fr; } }
+
         /* Charts */
         .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
         .chart-card {
@@ -351,6 +368,7 @@
                 <a href="dashboard.html" class="active">Dashboard</a>
                 <a href="clients.html">Kunden</a>
                 <a href="upload.html">Upload</a>
+                <a href="help.html">Hilfe</a>
             </nav>
         </div>
         <button class="btn-logout" onclick="logout()">Logout</button>
@@ -992,6 +1010,39 @@
             html += kpiCard('Ø CTR', fmtPct(kpis.ctr), diffs ? diffHtml(diffs.ctr) : '');
             html += '</div>';
 
+            // Top Mover section (only when comparison is active)
+            if (canCompare() && queryDiffs) {
+                const currentMap = {};
+                filteredRows.forEach(r => { currentMap[r.search_query] = r.purchases_brand_share || 0; });
+                const entries = Object.entries(queryDiffs)
+                    .filter(([q]) => currentMap[q] !== undefined)
+                    .map(([q, d]) => ({ term: q, share: currentMap[q], diff: d.purchaseShare }));
+                const winners = [...entries].sort((a, b) => b.diff - a.diff).filter(e => e.diff > 0).slice(0, 5);
+                const losers = [...entries].sort((a, b) => a.diff - b.diff).filter(e => e.diff < 0).slice(0, 5);
+                if (winners.length || losers.length) {
+                    const moverRow = (e, isPos) => {
+                        const arrow = isPos ? '▲' : '▼';
+                        const cls = isPos ? 'positive' : 'negative';
+                        return `<div class="top-mover-row" data-mover-term="${esc(e.term)}" title="${esc(e.term)}">
+                            <span class="top-mover-term">${esc(e.term)}</span>
+                            <span class="top-mover-vals">
+                                <span class="top-mover-share">${fmtPct(e.share)}</span>
+                                <span class="top-mover-diff ${cls}">${arrow} ${fmtPct(Math.abs(e.diff))}</span>
+                            </span>
+                        </div>`;
+                    };
+                    html += '<div class="top-mover-grid">';
+                    html += '<div class="top-mover-card"><div class="top-mover-title winners">Top Gewinner</div>';
+                    if (winners.length) { winners.forEach(e => html += moverRow(e, true)); }
+                    else { html += '<div style="padding:10px 14px;font-size:12px;color:#8b949e;">Keine Gewinner</div>'; }
+                    html += '</div>';
+                    html += '<div class="top-mover-card"><div class="top-mover-title losers">Top Verlierer</div>';
+                    if (losers.length) { losers.forEach(e => html += moverRow(e, false)); }
+                    else { html += '<div style="padding:10px 14px;font-size:12px;color:#8b949e;">Keine Verlierer</div>'; }
+                    html += '</div></div>';
+                }
+            }
+
             // Chart section - full width trend chart with metric toggle
             if (showTrend) {
                 html += `<div class="chart-card" style="margin-bottom:24px;">
@@ -1237,6 +1288,25 @@
 
             renderTrendTags();
             if (selectedTrendTerms.length > 0) renderTermTrendChart();
+
+            // Top Mover click -> add to Trend Analyse
+            document.querySelectorAll('.top-mover-row[data-mover-term]').forEach(el => {
+                el.addEventListener('click', function () {
+                    const term = this.dataset.moverTerm;
+                    if (selectedTrendTerms.length < 5 && !selectedTrendTerms.includes(term)) {
+                        selectedTrendTerms.push(term);
+                        renderTrendTags();
+                        renderTermTrendChart();
+                        // Expand trend section if collapsed
+                        const trendBody = document.getElementById('trendBody');
+                        if (trendBody && trendBody.style.display === 'none') {
+                            trendBody.style.display = '';
+                            const chevron = document.querySelector('#trendToggle .chevron');
+                            if (chevron) chevron.style.transform = 'rotate(180deg)';
+                        }
+                    }
+                });
+            });
 
             // Table view toggle events
             document.querySelectorAll('.table-view-btn').forEach(btn => {
