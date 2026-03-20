@@ -393,10 +393,25 @@
         }
 
         function applyFilter() {
-            // Start with report-filtered rows
-            let base = allRows;
+            let base;
             if (selectedReportId !== 'all') {
                 base = allRows.filter(r => r.report_id === selectedReportId);
+            } else {
+                // "Alle Zeiträume": deduplicate by search_query, keep latest report's row
+                const sortedReports = [...reports].sort((a, b) => new Date(b.report_date_start) - new Date(a.report_date_start));
+                const reportOrder = sortedReports.map(r => r.id);
+                const seen = {};
+                base = [];
+                // Iterate rows sorted by report recency (latest first)
+                const rowsByRecency = [...allRows].sort((a, b) => {
+                    return reportOrder.indexOf(a.report_id) - reportOrder.indexOf(b.report_id);
+                });
+                rowsByRecency.forEach(r => {
+                    if (r.search_query && !seen[r.search_query]) {
+                        seen[r.search_query] = true;
+                        base.push(r);
+                    }
+                });
             }
             if (searchTerm) {
                 const lower = searchTerm.toLowerCase();
