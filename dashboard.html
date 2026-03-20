@@ -161,6 +161,84 @@
         /* Loading */
         .loading { text-align: center; padding: 60px; color: #8b949e; font-size: 14px; }
 
+        /* Trend Analyse section */
+        .trend-section {
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+            margin-bottom: 24px; overflow: hidden;
+        }
+        .trend-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; cursor: pointer; user-select: none;
+        }
+        .trend-header:hover { background: #1c2333; }
+        .trend-header h3 { font-size: 14px; font-weight: 600; color: #e6edf3; }
+        .trend-header .chevron { color: #8b949e; transition: transform 0.2s; font-size: 12px; }
+        .trend-header.open .chevron { transform: rotate(180deg); }
+        .trend-body { padding: 0 20px 20px; }
+        .trend-controls { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; }
+        .trend-search-wrap { position: relative; flex: 1; min-width: 260px; }
+        .trend-search-input {
+            background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+            padding: 8px 12px; border-radius: 6px; font-size: 13px; width: 100%;
+        }
+        .trend-search-input::placeholder { color: #484f58; }
+        .trend-search-input:focus { outline: none; border-color: #3551FF; }
+        .trend-suggestions {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+            background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+            margin-top: 4px; max-height: 240px; overflow-y: auto; display: none;
+        }
+        .trend-suggestions.visible { display: block; }
+        .trend-suggestion {
+            padding: 8px 12px; font-size: 13px; color: #e6edf3; cursor: pointer;
+            border-bottom: 1px solid #21262d;
+        }
+        .trend-suggestion:last-child { border-bottom: none; }
+        .trend-suggestion:hover { background: #21262d; }
+        .trend-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        .trend-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+            color: #fff; cursor: default;
+        }
+        .trend-tag .remove-tag {
+            cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.7;
+            margin-left: 2px;
+        }
+        .trend-tag .remove-tag:hover { opacity: 1; }
+        .trend-metric-select {
+            background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+            padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
+            appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b949e' viewBox='0 0 16 16'%3E%3Cpath d='M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center;
+            padding-right: 32px;
+        }
+        .trend-chart-wrap { position: relative; width: 100%; min-height: 260px; }
+        .trend-chart-wrap canvas { width: 100% !important; }
+        .trend-empty { color: #484f58; font-size: 13px; text-align: center; padding: 40px 0; }
+
+        /* Table view toggle */
+        .table-view-toggle {
+            display: inline-flex; border: 1px solid #30363d; border-radius: 6px; overflow: hidden;
+        }
+        .table-view-btn {
+            background: transparent; border: none; color: #8b949e; padding: 6px 14px;
+            font-size: 12px; cursor: pointer; font-weight: 600; transition: background 0.2s, color 0.2s;
+        }
+        .table-view-btn.active { background: #3551FF; color: #fff; }
+        .table-view-btn:hover:not(.active) { background: #21262d; color: #e6edf3; }
+
+        /* Month comparison table */
+        .month-table { min-width: auto !important; }
+        .month-table thead th { font-size: 10px; padding: 6px 8px; }
+        .month-table thead th.month-group-header {
+            text-align: center; background: #1c2333; color: #e6edf3;
+            font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none;
+            border-bottom: 2px solid #3551FF; cursor: default;
+        }
+        .month-table tbody td { padding: 5px 8px; font-size: 12px; }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .kpi-grid { grid-template-columns: repeat(3, 1fr); }
@@ -218,6 +296,11 @@
         let compareReportId = 'auto'; // 'auto' = previous period, 'none' = no comparison, or a report ID
         let funnelChart = null;
         let trendChart = null;
+        let termTrendChart = null;
+        let selectedTrendTerms = [];
+        let trendMetric = 'volume';
+        let tableViewMode = 'standard'; // 'standard' or 'month'
+        const trendColors = ['#3551FF', '#3fb950', '#eab308', '#f85149', '#a855f7'];
 
         // Helpers
         function fmtInt(n) {
@@ -561,12 +644,48 @@
                 html += '<div class="charts-row"><div class="chart-card full"><div class="chart-title">Funnel: Gesamt vs. Marke</div><div class="chart-container"><canvas id="funnelChart" height="180"></canvas></div></div></div>';
             }
 
+            // Trend Analyse section
+            html += `
+                <div class="trend-section" id="trendSection">
+                    <div class="trend-header" id="trendToggle">
+                        <h3>Trend Analyse</h3>
+                        <span class="chevron">▼</span>
+                    </div>
+                    <div class="trend-body" id="trendBody" style="display:none;">
+                        <div class="trend-controls">
+                            <div class="trend-search-wrap">
+                                <input type="text" class="trend-search-input" id="trendSearchInput" placeholder="Suchbegriff suchen (max. 5)..." autocomplete="off">
+                                <div class="trend-suggestions" id="trendSuggestions"></div>
+                                <div class="trend-tags" id="trendTags"></div>
+                            </div>
+                            <select class="trend-metric-select" id="trendMetricSelect">
+                                <option value="volume">Suchvolumen</option>
+                                <option value="impr_share">Impression Share %</option>
+                                <option value="click_share">Click Share %</option>
+                                <option value="cart_share">Cart Share %</option>
+                                <option value="purchase_share">Purchase Share %</option>
+                            </select>
+                        </div>
+                        <div class="trend-chart-wrap" id="termTrendChartWrap">
+                            <div class="trend-empty" id="trendEmpty">Wähle mindestens einen Suchbegriff aus, um den Trend zu sehen.</div>
+                            <canvas id="termTrendChart" height="260" style="display:none;"></canvas>
+                        </div>
+                    </div>
+                </div>`;
+
             // Table section
+            const showMonthToggle = reports.length >= 2;
             html += `
                 <div class="table-section">
                     <div class="table-toolbar">
                         <span class="table-count" id="tableCount">${fmtInt(filteredRows.length)} Suchbegriffe</span>
-                        <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern..." value="${esc(searchTerm)}">
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern..." value="${esc(searchTerm)}">
+                            ${showMonthToggle ? `<div class="table-view-toggle">
+                                <button class="table-view-btn ${tableViewMode === 'standard' ? 'active' : ''}" data-view="standard">Standard</button>
+                                <button class="table-view-btn ${tableViewMode === 'month' ? 'active' : ''}" data-view="month">Monatsvergleich</button>
+                            </div>` : ''}
+                        </div>
                     </div>
                     <div class="table-wrap">
                         <table>
@@ -615,13 +734,21 @@
                 searchTerm = this.value;
                 displayedCount = 100;
                 applyFilter();
-                renderTableRows(queryDiffs);
-                document.getElementById('tableCount').textContent = fmtInt(filteredRows.length) + ' Suchbegriffe';
+                if (tableViewMode === 'month' && reports.length >= 2) {
+                    renderMonthComparisonTable();
+                } else {
+                    renderTableRows(queryDiffs);
+                    document.getElementById('tableCount').textContent = fmtInt(filteredRows.length) + ' Suchbegriffe';
+                }
             });
 
             document.getElementById('loadMoreBtn').addEventListener('click', function () {
                 displayedCount += 100;
-                renderTableRows(queryDiffs);
+                if (tableViewMode === 'month' && reports.length >= 2) {
+                    renderMonthComparisonTable();
+                } else {
+                    renderTableRows(queryDiffs);
+                }
             });
 
             // Sort headers
@@ -643,6 +770,90 @@
                     this.querySelector('.sort-icon').textContent = sortDir === 'asc' ? ' ▲' : ' ▼';
                 });
             });
+
+            // Trend Analyse events
+            document.getElementById('trendToggle').addEventListener('click', function () {
+                const body = document.getElementById('trendBody');
+                const isOpen = body.style.display !== 'none';
+                body.style.display = isOpen ? 'none' : 'block';
+                this.classList.toggle('open', !isOpen);
+            });
+
+            const trendSearchInput = document.getElementById('trendSearchInput');
+            const trendSuggestions = document.getElementById('trendSuggestions');
+
+            // Build unique search terms list
+            const uniqueTerms = [...new Set(allRows.map(r => r.search_query).filter(Boolean))].sort();
+
+            trendSearchInput.addEventListener('input', function () {
+                const val = this.value.toLowerCase().trim();
+                if (!val || selectedTrendTerms.length >= 5) {
+                    trendSuggestions.classList.remove('visible');
+                    return;
+                }
+                const matches = uniqueTerms.filter(t =>
+                    t.toLowerCase().includes(val) && !selectedTrendTerms.includes(t)
+                ).slice(0, 10);
+                if (matches.length === 0) {
+                    trendSuggestions.classList.remove('visible');
+                    return;
+                }
+                trendSuggestions.innerHTML = matches.map(t =>
+                    `<div class="trend-suggestion" data-term="${esc(t)}">${esc(t)}</div>`
+                ).join('');
+                trendSuggestions.classList.add('visible');
+            });
+
+            trendSuggestions.addEventListener('click', function (e) {
+                const el = e.target.closest('.trend-suggestion');
+                if (!el) return;
+                const term = el.dataset.term;
+                if (selectedTrendTerms.length < 5 && !selectedTrendTerms.includes(term)) {
+                    selectedTrendTerms.push(term);
+                    trendSearchInput.value = '';
+                    trendSuggestions.classList.remove('visible');
+                    renderTrendTags();
+                    renderTermTrendChart();
+                }
+            });
+
+            // Close suggestions on outside click
+            document.addEventListener('click', function (e) {
+                if (!e.target.closest('.trend-search-wrap')) {
+                    trendSuggestions.classList.remove('visible');
+                }
+            });
+
+            document.getElementById('trendMetricSelect').value = trendMetric;
+            document.getElementById('trendMetricSelect').addEventListener('change', function () {
+                trendMetric = this.value;
+                renderTermTrendChart();
+            });
+
+            renderTrendTags();
+            if (selectedTrendTerms.length > 0) renderTermTrendChart();
+
+            // Table view toggle events
+            document.querySelectorAll('.table-view-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const view = this.dataset.view;
+                    if (view === tableViewMode) return;
+                    tableViewMode = view;
+                    document.querySelectorAll('.table-view-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    if (tableViewMode === 'month') {
+                        renderMonthComparisonTable();
+                    } else {
+                        // Re-render standard table
+                        restoreStandardTable(queryDiffs);
+                    }
+                });
+            });
+
+            // If month view was active, re-render it
+            if (tableViewMode === 'month' && reports.length >= 2) {
+                renderMonthComparisonTable();
+            }
 
             // Charts
             renderFunnelChart(totals);
@@ -839,6 +1050,257 @@
                         }
                     }
                 }
+            });
+        }
+
+        // Trend Analyse functions
+        function renderTrendTags() {
+            const container = document.getElementById('trendTags');
+            if (!container) return;
+            container.innerHTML = selectedTrendTerms.map((term, i) =>
+                `<span class="trend-tag" style="background:${trendColors[i]}">
+                    ${esc(term)}
+                    <span class="remove-tag" data-idx="${i}">&times;</span>
+                </span>`
+            ).join('');
+            container.querySelectorAll('.remove-tag').forEach(el => {
+                el.addEventListener('click', function () {
+                    selectedTrendTerms.splice(parseInt(this.dataset.idx), 1);
+                    renderTrendTags();
+                    renderTermTrendChart();
+                });
+            });
+        }
+
+        function getTermMetricValue(row, metric) {
+            switch (metric) {
+                case 'volume': return row.search_query_volume || 0;
+                case 'impr_share': return row.impressions_brand_share || 0;
+                case 'click_share': return row.clicks_brand_share || 0;
+                case 'cart_share': return row.cart_adds_brand_share || 0;
+                case 'purchase_share': return row.purchases_brand_share || 0;
+                default: return 0;
+            }
+        }
+
+        function getMetricLabel(metric) {
+            switch (metric) {
+                case 'volume': return 'Suchvolumen';
+                case 'impr_share': return 'Impression Share %';
+                case 'click_share': return 'Click Share %';
+                case 'cart_share': return 'Cart Share %';
+                case 'purchase_share': return 'Purchase Share %';
+                default: return '';
+            }
+        }
+
+        function renderTermTrendChart() {
+            const canvas = document.getElementById('termTrendChart');
+            const empty = document.getElementById('trendEmpty');
+            if (!canvas || !empty) return;
+
+            if (selectedTrendTerms.length === 0) {
+                canvas.style.display = 'none';
+                empty.style.display = '';
+                if (termTrendChart) { termTrendChart.destroy(); termTrendChart = null; }
+                return;
+            }
+            canvas.style.display = '';
+            empty.style.display = 'none';
+
+            const sortedReports = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
+            const labels = sortedReports.map(r => {
+                const d = new Date(r.report_date_start);
+                return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+            });
+
+            const isPercent = trendMetric !== 'volume';
+
+            const datasets = selectedTrendTerms.map((term, i) => {
+                const data = sortedReports.map(r => {
+                    const row = allRows.find(row => row.report_id === r.id && row.search_query === term);
+                    return row ? getTermMetricValue(row, trendMetric) : null;
+                });
+                return {
+                    label: term,
+                    data: data,
+                    borderColor: trendColors[i],
+                    backgroundColor: trendColors[i] + '20',
+                    tension: 0.3,
+                    fill: false,
+                    pointRadius: 4,
+                    spanGaps: true,
+                };
+            });
+
+            if (termTrendChart) termTrendChart.destroy();
+            termTrendChart = new Chart(canvas, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    if (ctx.raw == null) return ctx.dataset.label + ': –';
+                                    if (isPercent) return ctx.dataset.label + ': ' + ctx.raw.toFixed(2).replace('.', ',') + ' %';
+                                    return ctx.dataset.label + ': ' + Math.round(ctx.raw).toLocaleString('de-DE');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#8b949e', font: { size: 10 }, maxRotation: 45 },
+                            grid: { color: '#21262d' }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#8b949e',
+                                callback: v => isPercent ? v.toFixed(1).replace('.', ',') + ' %' : v.toLocaleString('de-DE')
+                            },
+                            grid: { color: '#21262d' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Monthly Comparison Table
+        function formatShortMonth(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+        }
+
+        function renderMonthComparisonTable() {
+            const tableWrap = document.querySelector('.table-wrap');
+            if (!tableWrap) return;
+
+            const sortedReports = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
+            const months = sortedReports.map(r => ({ id: r.id, label: formatShortMonth(r.report_date_start) }));
+
+            // Build per-report row maps
+            const reportMaps = {};
+            sortedReports.forEach(r => {
+                const map = {};
+                getReportRows(r.id).forEach(row => { map[row.search_query] = row; });
+                reportMaps[r.id] = map;
+            });
+
+            // Get unique search terms from filtered rows
+            let terms;
+            if (searchTerm) {
+                const lower = searchTerm.toLowerCase();
+                terms = [...new Set(allRows.map(r => r.search_query).filter(Boolean))].filter(t => t.toLowerCase().includes(lower));
+            } else {
+                terms = [...new Set(allRows.map(r => r.search_query).filter(Boolean))];
+            }
+            // Sort by latest report volume desc
+            const latestId = sortedReports[sortedReports.length - 1].id;
+            terms.sort((a, b) => {
+                const ra = reportMaps[latestId][a];
+                const rb = reportMaps[latestId][b];
+                return ((rb ? rb.search_query_volume : 0) || 0) - ((ra ? ra.search_query_volume : 0) || 0);
+            });
+
+            const displayTerms = terms.slice(0, displayedCount);
+            const metricCols = ['Suchvol.', 'Impr. %', 'Click %', 'Cart %', 'Purch. %'];
+            const totalCols = 1 + months.length * 5;
+
+            // Build header rows
+            let groupHeaderRow = '<tr><th class="month-group-header" rowspan="2" style="text-align:left;min-width:200px;position:sticky;left:0;z-index:2;background:#1c2333;">Suchbegriff</th>';
+            months.forEach(m => {
+                groupHeaderRow += `<th class="month-group-header" colspan="5">${esc(m.label)}</th>`;
+            });
+            groupHeaderRow += '</tr>';
+
+            let subHeaderRow = '<tr>';
+            months.forEach(() => {
+                metricCols.forEach(mc => {
+                    subHeaderRow += `<th>${mc}</th>`;
+                });
+            });
+            subHeaderRow += '</tr>';
+
+            // Build body rows
+            let bodyHtml = '';
+            displayTerms.forEach(term => {
+                bodyHtml += '<tr>';
+                bodyHtml += `<td style="text-align:left;font-weight:500;color:#e6edf3;max-width:240px;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;z-index:1;background:inherit;" title="${esc(term)}">${esc(term)}</td>`;
+                months.forEach(m => {
+                    const row = reportMaps[m.id][term];
+                    if (row) {
+                        bodyHtml += `<td>${fmtInt(row.search_query_volume)}</td>`;
+                        bodyHtml += `<td>${fmtPct(row.impressions_brand_share)}</td>`;
+                        bodyHtml += `<td>${fmtPct(row.clicks_brand_share)}</td>`;
+                        bodyHtml += `<td>${fmtPct(row.cart_adds_brand_share)}</td>`;
+                        bodyHtml += `<td>${fmtPct(row.purchases_brand_share)}</td>`;
+                    } else {
+                        bodyHtml += '<td>–</td><td>–</td><td>–</td><td>–</td><td>–</td>';
+                    }
+                });
+                bodyHtml += '</tr>';
+            });
+
+            tableWrap.innerHTML = `
+                <table class="month-table" style="min-width:${Math.max(1200, totalCols * 80)}px;">
+                    <thead>${groupHeaderRow}${subHeaderRow}</thead>
+                    <tbody>${bodyHtml}</tbody>
+                </table>`;
+
+            // Update count
+            const countEl = document.getElementById('tableCount');
+            if (countEl) countEl.textContent = fmtInt(terms.length) + ' Suchbegriffe';
+
+            const wrap = document.getElementById('loadMoreWrap');
+            if (wrap) wrap.style.display = displayedCount < terms.length ? '' : 'none';
+        }
+
+        function restoreStandardTable(queryDiffs) {
+            const tableWrap = document.querySelector('.table-wrap');
+            if (!tableWrap) return;
+
+            tableWrap.innerHTML = `
+                <table>
+                    <thead><tr>
+                        ${thCol('Suchbegriff', 'query')}
+                        ${thCol('Suchvolumen', 'volume')}
+                        ${thCol('Impr. Marke', 'impr_brand')}
+                        ${thCol('Impr. Share', 'impr_share')}
+                        ${thCol('Klicks Marke', 'clicks_brand')}
+                        ${thCol('Click Share', 'click_share')}
+                        ${thCol('Warenk. Marke', 'cart_brand')}
+                        ${thCol('Cart Share', 'cart_share')}
+                        ${thCol('Käufe Marke', 'purchases_brand')}
+                        ${thCol('Purch. Share', 'purchase_share')}
+                        ${thCol('CTR %', 'ctr')}
+                        ${thCol('CVR %', 'cvr')}
+                    </tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>`;
+
+            renderTableRows(queryDiffs);
+
+            // Re-bind sort headers
+            document.querySelectorAll('thead th[data-col]').forEach(th => {
+                th.addEventListener('click', function () {
+                    const col = this.dataset.col;
+                    if (sortCol === col) {
+                        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortCol = col;
+                        sortDir = 'desc';
+                    }
+                    applyFilter();
+                    renderTableRows(queryDiffs);
+                    document.querySelectorAll('thead th').forEach(t => t.classList.remove('sorted'));
+                    this.classList.add('sorted');
+                    document.querySelectorAll('thead th .sort-icon').forEach(s => s.textContent = '');
+                    this.querySelector('.sort-icon').textContent = sortDir === 'asc' ? ' ▲' : ' ▼';
+                });
             });
         }
 
