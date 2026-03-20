@@ -70,7 +70,7 @@
 
         /* KPI Cards */
         .kpi-grid {
-            display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
             margin-bottom: 24px;
         }
         .kpi-card {
@@ -642,7 +642,6 @@
 
             // KPI Cards
             html += '<div class="kpi-grid">';
-            html += kpiCard('Suchbegriffe', fmtInt(kpis.count), diffs ? diffHtml(diffs.count, true) : '');
             html += kpiCard('Ø Impression Share', fmtPct(kpis.imprShare), diffs ? diffHtml(diffs.imprShare) : '');
             html += kpiCard('Ø Click Share', fmtPct(kpis.clickShare), diffs ? diffHtml(diffs.clickShare) : '');
             html += kpiCard('Ø Cart Share', fmtPct(kpis.cartShare), diffs ? diffHtml(diffs.cartShare) : '');
