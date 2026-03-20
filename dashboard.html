@@ -696,6 +696,38 @@
             clusters = data || [];
         }
 
+        // Match types: "keyword" = broad (contains), "[keyword]" = exact, "-keyword" = negative
+        function termMatchesCluster(query, rules) {
+            const q = query.toLowerCase();
+            const broadRules = [];
+            const exactRules = [];
+            const negativeRules = [];
+
+            (rules || []).forEach(r => {
+                const trimmed = r.trim().toLowerCase();
+                if (!trimmed) return;
+                if (trimmed.startsWith('-')) {
+                    negativeRules.push(trimmed.substring(1).trim());
+                } else if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                    exactRules.push(trimmed.slice(1, -1).trim());
+                } else {
+                    broadRules.push(trimmed);
+                }
+            });
+
+            // Check negatives first — if any negative matches, exclude
+            if (negativeRules.some(neg => q.includes(neg))) return false;
+
+            // Check exact matches
+            if (exactRules.length > 0 && exactRules.some(ex => q === ex)) return true;
+
+            // Check broad matches
+            if (broadRules.length > 0 && broadRules.some(br => q.includes(br))) return true;
+
+            // If only negatives were defined (no positive rules), don't match
+            return false;
+        }
+
         function matchTermsToClusters(rows, cls) {
             const map = new Map();
             cls.forEach(c => map.set(c.id, []));
@@ -704,8 +736,7 @@
                 const q = (row.search_query || '').toLowerCase();
                 let matched = false;
                 for (const c of cls) {
-                    const rules = c.rules || [];
-                    if (rules.some(kw => q.includes(kw.toLowerCase()))) {
+                    if (termMatchesCluster(q, c.rules)) {
                         map.get(c.id).push(row);
                         matched = true;
                         break;
@@ -744,8 +775,13 @@
                     <input type="text" id="clusterNameInput" value="${isEdit ? esc(cluster.name) : ''}" placeholder="z.B. Brand Keywords">
                     <div style="margin-top:12px;">
                         <label>Keywords</label>
-                        <textarea id="clusterKeywordsInput" placeholder="Ein Keyword pro Zeile...">${isEdit ? (cluster.rules || []).join('\n') : ''}</textarea>
-                        <div class="hint">Ein Keyword pro Zeile. Suchbegriffe die das Keyword enthalten werden zugeordnet.</div>
+                        <textarea id="clusterKeywordsInput" placeholder="red bull&#10;redbull&#10;-monster&#10;[energy drink]">${isEdit ? (cluster.rules || []).join('\n') : ''}</textarea>
+                        <div class="hint" style="line-height:1.6;">
+                            Ein Keyword pro Zeile:<br>
+                            <code style="background:#0d1117;padding:2px 6px;border-radius:3px;color:#3fb950;">bull</code> = Broad — enthält "bull"<br>
+                            <code style="background:#0d1117;padding:2px 6px;border-radius:3px;color:#3551FF;">[energy drink]</code> = Exact — exakter Suchbegriff<br>
+                            <code style="background:#0d1117;padding:2px 6px;border-radius:3px;color:#f85149;">-monster</code> = Negativ — ausschließen
+                        </div>
                     </div>
                     <div class="modal-actions">
                         ${isEdit ? '<button class="btn-modal btn-delete" id="clusterDeleteBtn">Löschen</button>' : ''}
