@@ -284,10 +284,8 @@
         }
 
         async function loadRows() {
+            // Always load ALL rows for this client (needed for comparisons)
             let query = sb.from('sqpr_rows').select('*').eq('client_id', client.id);
-            if (selectedReportId !== 'all') {
-                query = query.eq('report_id', selectedReportId);
-            }
 
             // Paginated fetch to avoid limits
             let all = [];
@@ -301,15 +299,27 @@
                 from += batchSize;
             }
             allRows = all;
+
+            // Filter display rows by selected period
+            if (selectedReportId !== 'all') {
+                filteredRows = allRows.filter(r => r.report_id === selectedReportId);
+            } else {
+                filteredRows = [...allRows];
+            }
             applyFilter();
         }
 
         function applyFilter() {
+            // Start with report-filtered rows
+            let base = allRows;
+            if (selectedReportId !== 'all') {
+                base = allRows.filter(r => r.report_id === selectedReportId);
+            }
             if (searchTerm) {
                 const lower = searchTerm.toLowerCase();
-                filteredRows = allRows.filter(r => r.search_query && r.search_query.toLowerCase().includes(lower));
+                filteredRows = base.filter(r => r.search_query && r.search_query.toLowerCase().includes(lower));
             } else {
-                filteredRows = [...allRows];
+                filteredRows = [...base];
             }
             applySorting();
         }
@@ -461,11 +471,13 @@
 
         function render() {
             const app = document.getElementById('app');
-            const kpis = computeKPIs(allRows);
+            // Use filtered rows (by selected period) for display, allRows stays complete for comparisons
+            const displayRows = selectedReportId !== 'all' ? allRows.filter(r => r.report_id === selectedReportId) : allRows;
+            const kpis = computeKPIs(displayRows);
             const diffs = getDiffs();
             const queryDiffs = buildQueryDiffs();
             const showTrend = reports.length >= 2;
-            const totals = computeTotals(allRows);
+            const totals = computeTotals(displayRows);
 
             // Period options
             let periodOptions = '<option value="all">Alle Zeiträume</option>';
