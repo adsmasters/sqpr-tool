@@ -903,7 +903,6 @@
             const aggs = cols.map(c => aggregateClusterKPIs(clMap.get(c.id) || []));
 
             const metrics = [
-                { label: 'Suchbegriffe', key: 'termCount', fmt: v => fmtInt(v) },
                 { label: 'Suchvolumen', key: 'volume', fmt: v => fmtInt(v) },
                 { label: 'Klicks Marke', key: 'clicksBrand', fmt: v => fmtInt(v) },
                 { label: 'Click Share', key: 'clickShare', fmt: v => fmtPct(v) },
