@@ -944,8 +944,9 @@
                 const pctChange = oldVal !== 0 ? (diff / oldVal * 100) : 0;
                 const dcls = diff > 0 ? 'positive' : 'negative';
                 const arrow = diff > 0 ? '▲' : '▼';
-                const sign = pctChange > 0 ? '+' : '';
-                diffHtmlStr = `<span class="share-diff ${dcls}">${arrow} ${sign}${pctChange.toFixed(1).replace('.', ',')}%</span>`;
+                const sign = diff > 0 ? '+' : '';
+                const signPct = pctChange > 0 ? '+' : '';
+                diffHtmlStr = `<span class="share-diff ${dcls}">${arrow} ${sign}${fmtInt(diff)} (${signPct}${pctChange.toFixed(1).replace('.', ',')}%)</span>`;
             }
             return `<td>${fmtInt(val)}${diffHtmlStr}</td>`;
         }
