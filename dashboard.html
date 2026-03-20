@@ -1175,6 +1175,10 @@
             return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
         }
 
+        // Sort mode for month comparison table
+        let monthSortCol = 'purchases_brand'; // default: sort by latest month purchases brand
+        let monthSortDir = 'desc';
+
         function renderMonthComparisonTable() {
             const tableWrap = document.querySelector('.table-wrap');
             if (!tableWrap) return;
@@ -1190,7 +1194,7 @@
                 reportMaps[r.id] = map;
             });
 
-            // Get unique search terms from filtered rows
+            // Get unique search terms
             let terms;
             if (searchTerm) {
                 const lower = searchTerm.toLowerCase();
@@ -1198,32 +1202,51 @@
             } else {
                 terms = [...new Set(allRows.map(r => r.search_query).filter(Boolean))];
             }
-            // Sort by latest report volume desc
+
+            // Sort by selected column in latest report
             const latestId = sortedReports[sortedReports.length - 1].id;
             terms.sort((a, b) => {
                 const ra = reportMaps[latestId][a];
                 const rb = reportMaps[latestId][b];
-                return ((rb ? rb.search_query_volume : 0) || 0) - ((ra ? ra.search_query_volume : 0) || 0);
+                const va = ra ? (ra[monthSortCol] || 0) : 0;
+                const vb = rb ? (rb[monthSortCol] || 0) : 0;
+                return monthSortDir === 'desc' ? vb - va : va - vb;
             });
 
             const displayTerms = terms.slice(0, displayedCount);
-            const metricCols = ['Suchvol.', 'Impr. %', 'Click %', 'Cart %', 'Purch. %'];
-            const totalCols = 1 + months.length * 5;
+            // Columns: Suchvol. | Klicks (Share) | Cart (Share) | Käufe (Share)
+            const metricCols = [
+                { label: 'Suchvol.', key: 'search_query_volume' },
+                { label: 'Klicks', key: 'clicks_brand' },
+                { label: 'Warenkorb', key: 'cart_adds_brand' },
+                { label: 'Käufe', key: 'purchases_brand' },
+            ];
+            const colsPerMonth = metricCols.length;
+            const totalCols = 1 + months.length * colsPerMonth;
 
             // Build header rows
             let groupHeaderRow = '<tr><th class="month-group-header" rowspan="2" style="text-align:left;min-width:200px;position:sticky;left:0;z-index:2;background:#1c2333;">Suchbegriff</th>';
             months.forEach(m => {
-                groupHeaderRow += `<th class="month-group-header" colspan="5">${esc(m.label)}</th>`;
+                groupHeaderRow += `<th class="month-group-header" colspan="${colsPerMonth}">${esc(m.label)}</th>`;
             });
             groupHeaderRow += '</tr>';
 
             let subHeaderRow = '<tr>';
-            months.forEach(() => {
+            months.forEach(m => {
                 metricCols.forEach(mc => {
-                    subHeaderRow += `<th>${mc}</th>`;
+                    const isSorted = monthSortCol === mc.key;
+                    const arrow = isSorted ? (monthSortDir === 'desc' ? ' ▼' : ' ▲') : '';
+                    subHeaderRow += `<th class="month-sort-col ${isSorted ? 'sorted' : ''}" data-sort-key="${mc.key}" style="cursor:pointer;">${mc.label}${arrow}</th>`;
                 });
             });
             subHeaderRow += '</tr>';
+
+            // Helper: format value with share in parentheses
+            function fmtWithShare(count, share) {
+                if (count == null) return '–';
+                const shareStr = share != null ? ` (${fmtPct(share)})` : '';
+                return `${fmtInt(count)}<span style="color:#8b949e;font-size:11px;">${shareStr}</span>`;
+            }
 
             // Build body rows
             let bodyHtml = '';
@@ -1234,22 +1257,35 @@
                     const row = reportMaps[m.id][term];
                     if (row) {
                         bodyHtml += `<td>${fmtInt(row.search_query_volume)}</td>`;
-                        bodyHtml += `<td>${fmtPct(row.impressions_brand_share)}</td>`;
-                        bodyHtml += `<td>${fmtPct(row.clicks_brand_share)}</td>`;
-                        bodyHtml += `<td>${fmtPct(row.cart_adds_brand_share)}</td>`;
-                        bodyHtml += `<td>${fmtPct(row.purchases_brand_share)}</td>`;
+                        bodyHtml += `<td>${fmtWithShare(row.clicks_brand, row.clicks_brand_share)}</td>`;
+                        bodyHtml += `<td>${fmtWithShare(row.cart_adds_brand, row.cart_adds_brand_share)}</td>`;
+                        bodyHtml += `<td>${fmtWithShare(row.purchases_brand, row.purchases_brand_share)}</td>`;
                     } else {
-                        bodyHtml += '<td>–</td><td>–</td><td>–</td><td>–</td><td>–</td>';
+                        bodyHtml += '<td>–</td>'.repeat(colsPerMonth);
                     }
                 });
                 bodyHtml += '</tr>';
             });
 
             tableWrap.innerHTML = `
-                <table class="month-table" style="min-width:${Math.max(1200, totalCols * 80)}px;">
+                <table class="month-table" style="min-width:${Math.max(900, totalCols * 100)}px;">
                     <thead>${groupHeaderRow}${subHeaderRow}</thead>
                     <tbody>${bodyHtml}</tbody>
                 </table>`;
+
+            // Bind sort on sub-header columns
+            tableWrap.querySelectorAll('.month-sort-col').forEach(th => {
+                th.addEventListener('click', function () {
+                    const key = this.dataset.sortKey;
+                    if (monthSortCol === key) {
+                        monthSortDir = monthSortDir === 'desc' ? 'asc' : 'desc';
+                    } else {
+                        monthSortCol = key;
+                        monthSortDir = 'desc';
+                    }
+                    renderMonthComparisonTable();
+                });
+            });
 
             // Update count
             const countEl = document.getElementById('tableCount');
