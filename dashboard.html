@@ -300,6 +300,7 @@
         let selectedTrendTerms = [];
         let trendMetric = 'volume';
         let tableViewMode = 'standard'; // 'standard' or 'month'
+        let chartMode = 'share'; // 'share' or 'absolute'
         const trendColors = ['#3551FF', '#3fb950', '#eab308', '#f85149', '#a855f7'];
 
         // Helpers
@@ -649,14 +650,18 @@
             html += kpiCard('Ø CTR', fmtPct(kpis.ctr), diffs ? diffHtml(diffs.ctr) : '');
             html += '</div>';
 
-            // Charts row
+            // Chart section - full width trend chart with metric toggle
             if (showTrend) {
-                html += '<div class="charts-row">';
-                html += '<div class="chart-card"><div class="chart-title">Funnel: Gesamt vs. Marke</div><div class="chart-container"><canvas id="funnelChart" height="200"></canvas></div></div>';
-                html += '<div class="chart-card"><div class="chart-title">Brand Share Trend</div><div class="chart-container"><canvas id="trendChart" height="200"></canvas></div></div>';
-                html += '</div>';
-            } else {
-                html += '<div class="charts-row"><div class="chart-card full"><div class="chart-title">Funnel: Gesamt vs. Marke</div><div class="chart-container"><canvas id="funnelChart" height="180"></canvas></div></div></div>';
+                html += `<div class="chart-card" style="margin-bottom:24px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <div class="chart-title" style="margin-bottom:0;">Brand Trend</div>
+                        <div class="table-view-toggle" id="chartModeToggle">
+                            <button class="table-view-btn active" data-mode="share">Share %</button>
+                            <button class="table-view-btn" data-mode="absolute">Absolut</button>
+                        </div>
+                    </div>
+                    <div class="chart-container"><canvas id="trendChart" height="220"></canvas></div>
+                </div>`;
             }
 
             // Trend Analyse section
@@ -871,8 +876,18 @@
             }
 
             // Charts
-            renderFunnelChart(totals);
-            if (showTrend) renderTrendChart();
+            if (showTrend) {
+                renderTrendChart();
+                // Chart mode toggle
+                document.querySelectorAll('#chartModeToggle .table-view-btn').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        chartMode = this.dataset.mode;
+                        document.querySelectorAll('#chartModeToggle .table-view-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        renderTrendChart();
+                    });
+                });
+            }
         }
 
         function renderTableRows(queryDiffs) {
@@ -967,80 +982,55 @@
         }
 
         // Charts
-        function renderFunnelChart(totals) {
-            const ctx = document.getElementById('funnelChart');
-            if (!ctx) return;
-            if (funnelChart) funnelChart.destroy();
-
-            const labels = ['Impressionen', 'Klicks', 'Warenkorb', 'Käufe'];
-            const totalVals = [totals.impressions, totals.clicks, totals.cartAdds, totals.purchases];
-            const brandVals = [totals.impressionsBrand, totals.clicksBrand, totals.cartAddsBrand, totals.purchasesBrand];
-
-            funnelChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Gesamt', data: totalVals, backgroundColor: '#30363d', borderRadius: 4 },
-                        { label: 'Marke', data: brandVals, backgroundColor: '#3551FF', borderRadius: 4 },
-                    ]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top', labels: { color: '#8b949e', font: { size: 12 } } },
-                        tooltip: {
-                            callbacks: {
-                                label: function (ctx) {
-                                    return ctx.dataset.label + ': ' + ctx.raw.toLocaleString('de-DE');
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: { color: '#8b949e', callback: v => v >= 1000 ? (v / 1000).toLocaleString('de-DE') + 'k' : v },
-                            grid: { color: '#21262d' }
-                        },
-                        y: {
-                            ticks: { color: '#e6edf3', font: { size: 12 } },
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-        }
-
         function renderTrendChart() {
             const ctx = document.getElementById('trendChart');
             if (!ctx) return;
             if (trendChart) trendChart.destroy();
 
-            const labels = reports.map(r => formatDateRange(r.report_date_start, r.report_date_end));
-            const imprData = [], clickData = [], cartData = [], purchData = [];
-
-            reports.forEach(r => {
-                const rows = getReportRows(r.id);
-                const kpis = computeKPIs(rows);
-                imprData.push(+kpis.imprShare.toFixed(2));
-                clickData.push(+kpis.clickShare.toFixed(2));
-                cartData.push(+kpis.cartShare.toFixed(2));
-                purchData.push(+kpis.purchaseShare.toFixed(2));
+            const sortedReps = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
+            const labels = sortedReps.map(r => {
+                const d = new Date(r.report_date_start);
+                return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
             });
+
+            let datasets, isPercent;
+
+            if (chartMode === 'share') {
+                isPercent = true;
+                const imprData = [], clickData = [], cartData = [], purchData = [];
+                sortedReps.forEach(r => {
+                    const rows = getReportRows(r.id);
+                    const kpis = computeKPIs(rows);
+                    imprData.push(+kpis.imprShare.toFixed(2));
+                    clickData.push(+kpis.clickShare.toFixed(2));
+                    cartData.push(+kpis.cartShare.toFixed(2));
+                    purchData.push(+kpis.purchaseShare.toFixed(2));
+                });
+                datasets = [
+                    { label: 'Impression Share', data: imprData, borderColor: '#3551FF', backgroundColor: '#3551FF20', tension: 0.3, fill: false, pointRadius: 4 },
+                    { label: 'Click Share', data: clickData, borderColor: '#3fb950', backgroundColor: '#3fb95020', tension: 0.3, fill: false, pointRadius: 4 },
+                    { label: 'Cart Share', data: cartData, borderColor: '#eab308', backgroundColor: '#eab30820', tension: 0.3, fill: false, pointRadius: 4 },
+                    { label: 'Purchase Share', data: purchData, borderColor: '#f85149', backgroundColor: '#f8514920', tension: 0.3, fill: false, pointRadius: 4 },
+                ];
+            } else {
+                isPercent = false;
+                const clicksData = [], cartData = [], purchData = [];
+                sortedReps.forEach(r => {
+                    const rows = getReportRows(r.id);
+                    clicksData.push(rows.reduce((s, row) => s + (row.clicks_brand || 0), 0));
+                    cartData.push(rows.reduce((s, row) => s + (row.cart_adds_brand || 0), 0));
+                    purchData.push(rows.reduce((s, row) => s + (row.purchases_brand || 0), 0));
+                });
+                datasets = [
+                    { label: 'Klicks Marke', data: clicksData, borderColor: '#3fb950', backgroundColor: '#3fb95020', tension: 0.3, fill: false, pointRadius: 4 },
+                    { label: 'Warenkorb Marke', data: cartData, borderColor: '#eab308', backgroundColor: '#eab30820', tension: 0.3, fill: false, pointRadius: 4 },
+                    { label: 'Käufe Marke', data: purchData, borderColor: '#f85149', backgroundColor: '#f8514920', tension: 0.3, fill: false, pointRadius: 4 },
+                ];
+            }
 
             trendChart = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Impression Share', data: imprData, borderColor: '#3551FF', backgroundColor: '#3551FF20', tension: 0.3, fill: false, pointRadius: 4 },
-                        { label: 'Click Share', data: clickData, borderColor: '#3fb950', backgroundColor: '#3fb95020', tension: 0.3, fill: false, pointRadius: 4 },
-                        { label: 'Cart Share', data: cartData, borderColor: '#eab308', backgroundColor: '#eab30820', tension: 0.3, fill: false, pointRadius: 4 },
-                        { label: 'Purchase Share', data: purchData, borderColor: '#f85149', backgroundColor: '#f8514920', tension: 0.3, fill: false, pointRadius: 4 },
-                    ]
-                },
+                data: { labels, datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -1049,7 +1039,8 @@
                         tooltip: {
                             callbacks: {
                                 label: function (ctx) {
-                                    return ctx.dataset.label + ': ' + ctx.raw.toFixed(2).replace('.', ',') + ' %';
+                                    if (isPercent) return ctx.dataset.label + ': ' + ctx.raw.toFixed(2).replace('.', ',') + ' %';
+                                    return ctx.dataset.label + ': ' + Math.round(ctx.raw).toLocaleString('de-DE');
                                 }
                             }
                         }
@@ -1060,7 +1051,10 @@
                             grid: { color: '#21262d' }
                         },
                         y: {
-                            ticks: { color: '#8b949e', callback: v => v.toFixed(1).replace('.', ',') + ' %' },
+                            ticks: {
+                                color: '#8b949e',
+                                callback: v => isPercent ? v.toFixed(1).replace('.', ',') + ' %' : v.toLocaleString('de-DE')
+                            },
                             grid: { color: '#21262d' }
                         }
                     }
