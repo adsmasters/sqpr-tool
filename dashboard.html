@@ -215,6 +215,7 @@
         let sortDir = 'desc';
         let searchTerm = '';
         let selectedReportId = 'all';
+        let compareReportId = 'auto'; // 'auto' = previous period, 'none' = no comparison, or a report ID
         let funnelChart = null;
         let trendChart = null;
 
@@ -382,55 +383,76 @@
             return allRows.filter(r => r.report_id === reportId);
         }
 
-        function hasMultipleReports() {
-            if (selectedReportId !== 'all') return false;
-            return reports.length >= 2;
+        function getCompareReport() {
+            if (compareReportId === 'none') return null;
+            if (compareReportId === 'auto') {
+                // Auto: if specific period selected, find the one before it; if "all", use second-to-last
+                if (selectedReportId === 'all') {
+                    return reports.length >= 2 ? reports[reports.length - 2] : null;
+                } else {
+                    const idx = reports.findIndex(r => r.id === selectedReportId);
+                    return idx > 0 ? reports[idx - 1] : null;
+                }
+            }
+            return reports.find(r => r.id === compareReportId) || null;
+        }
+
+        function getCurrentReport() {
+            if (selectedReportId === 'all') {
+                return reports.length >= 1 ? reports[reports.length - 1] : null;
+            }
+            return reports.find(r => r.id === selectedReportId) || null;
+        }
+
+        function canCompare() {
+            return getCompareReport() !== null && getCurrentReport() !== null;
         }
 
         function getDiffs() {
-            if (!hasMultipleReports()) return null;
-            const latest = reports[reports.length - 1];
-            const prev = reports[reports.length - 2];
-            const latestRows = getReportRows(latest.id);
-            const prevRows = getReportRows(prev.id);
-            const kpiLatest = computeKPIs(latestRows);
-            const kpiPrev = computeKPIs(prevRows);
+            if (!canCompare()) return null;
+            const current = getCurrentReport();
+            const compare = getCompareReport();
+            const currentRows = getReportRows(current.id);
+            const compareRows = getReportRows(compare.id);
+            const kpiCurrent = computeKPIs(currentRows);
+            const kpiCompare = computeKPIs(compareRows);
             return {
-                count: kpiLatest.count - kpiPrev.count,
-                imprShare: kpiLatest.imprShare - kpiPrev.imprShare,
-                clickShare: kpiLatest.clickShare - kpiPrev.clickShare,
-                cartShare: kpiLatest.cartShare - kpiPrev.cartShare,
-                purchaseShare: kpiLatest.purchaseShare - kpiPrev.purchaseShare,
-                ctr: kpiLatest.ctr - kpiPrev.ctr,
+                count: kpiCurrent.count - kpiCompare.count,
+                imprShare: kpiCurrent.imprShare - kpiCompare.imprShare,
+                clickShare: kpiCurrent.clickShare - kpiCompare.clickShare,
+                cartShare: kpiCurrent.cartShare - kpiCompare.cartShare,
+                purchaseShare: kpiCurrent.purchaseShare - kpiCompare.purchaseShare,
+                ctr: kpiCurrent.ctr - kpiCompare.ctr,
             };
         }
 
-        // Build per-query diffs for table share columns
+        // Build per-query diffs for table columns
         function buildQueryDiffs() {
-            if (!hasMultipleReports()) return null;
-            const latest = reports[reports.length - 1];
-            const prev = reports[reports.length - 2];
-            const prevRows = getReportRows(prev.id);
+            if (!canCompare()) return null;
+            const current = getCurrentReport();
+            const compare = getCompareReport();
+            const compareRows = getReportRows(compare.id);
             const map = {};
-            prevRows.forEach(r => {
+            compareRows.forEach(r => {
                 map[r.search_query] = {
+                    volume: r.search_query_volume || 0,
                     imprShare: r.impressions_brand_share || 0,
                     clickShare: r.clicks_brand_share || 0,
                     cartShare: r.cart_adds_brand_share || 0,
                     purchaseShare: r.purchases_brand_share || 0,
                 };
             });
-            // Latest rows diffs
-            const latestRows = getReportRows(latest.id);
+            const currentRows = getReportRows(current.id);
             const diffs = {};
-            latestRows.forEach(r => {
-                const prevQ = map[r.search_query];
-                if (prevQ) {
+            currentRows.forEach(r => {
+                const prev = map[r.search_query];
+                if (prev) {
                     diffs[r.search_query] = {
-                        imprShare: (r.impressions_brand_share || 0) - prevQ.imprShare,
-                        clickShare: (r.clicks_brand_share || 0) - prevQ.clickShare,
-                        cartShare: (r.cart_adds_brand_share || 0) - prevQ.cartShare,
-                        purchaseShare: (r.purchases_brand_share || 0) - prevQ.purchaseShare,
+                        volume: (r.search_query_volume || 0) - prev.volume,
+                        imprShare: (r.impressions_brand_share || 0) - prev.imprShare,
+                        clickShare: (r.clicks_brand_share || 0) - prev.clickShare,
+                        cartShare: (r.cart_adds_brand_share || 0) - prev.cartShare,
+                        purchaseShare: (r.purchases_brand_share || 0) - prev.purchaseShare,
                     };
                 }
             });
@@ -442,7 +464,7 @@
             const kpis = computeKPIs(allRows);
             const diffs = getDiffs();
             const queryDiffs = buildQueryDiffs();
-            const showTrend = hasMultipleReports();
+            const showTrend = reports.length >= 2;
             const totals = computeTotals(allRows);
 
             // Period options
@@ -450,6 +472,14 @@
             reports.forEach(r => {
                 const label = formatDateRange(r.report_date_start, r.report_date_end) + (r.reporting_range ? ' (' + r.reporting_range + ')' : '');
                 periodOptions += `<option value="${r.id}" ${selectedReportId === r.id ? 'selected' : ''}>${label}</option>`;
+            });
+
+            // Compare options
+            let compareOptions = '<option value="none">Kein Vergleich</option>';
+            compareOptions += `<option value="auto" ${compareReportId === 'auto' ? 'selected' : ''}>Vorperiode (automatisch)</option>`;
+            reports.forEach(r => {
+                const label = formatDateRange(r.report_date_start, r.report_date_end);
+                compareOptions += `<option value="${r.id}" ${compareReportId === r.id ? 'selected' : ''}>${label}</option>`;
             });
 
             let html = '';
@@ -461,7 +491,16 @@
                         <span class="client-name">${esc(client.name)}</span>
                         <span class="marketplace-badge">${esc(client.marketplace || 'DE')}</span>
                     </div>
-                    <select class="period-select" id="periodSelect">${periodOptions}</select>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                            <span style="font-size:11px;color:#8b949e;">Zeitraum</span>
+                            <select class="period-select" id="periodSelect">${periodOptions}</select>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                            <span style="font-size:11px;color:#8b949e;">Vergleich mit</span>
+                            <select class="period-select" id="compareSelect">${compareOptions}</select>
+                        </div>
+                    </div>
                 </div>`;
 
             // KPI Cards
@@ -529,6 +568,11 @@
                 render();
             });
 
+            document.getElementById('compareSelect').addEventListener('change', function () {
+                compareReportId = this.value;
+                render();
+            });
+
             document.getElementById('searchInput').addEventListener('input', function () {
                 searchTerm = this.value;
                 displayedCount = 100;
@@ -569,7 +613,7 @@
 
         function renderTableRows(queryDiffs) {
             const tbody = document.getElementById('tableBody');
-            const showDiffs = hasMultipleReports() && queryDiffs;
+            const showDiffs = canCompare() && queryDiffs;
             const rows = filteredRows.slice(0, displayedCount);
 
             let html = '';
@@ -585,7 +629,7 @@
 
                 html += '<tr>';
                 html += `<td title="${esc(r.search_query || '')}">${esc(r.search_query || '')}</td>`;
-                html += `<td>${fmtInt(r.search_query_volume)}</td>`;
+                html += volumeTd(r.search_query_volume, qd ? qd.volume : null);
                 html += `<td>${fmtInt(r.impressions_brand)}</td>`;
                 html += shareTd(imprShare, qd ? qd.imprShare : null);
                 html += `<td>${fmtInt(r.clicks_brand)}</td>`;
@@ -613,6 +657,16 @@
                 diffHtmlStr = `<span class="share-diff ${dcls}">${arrow} ${diff > 0 ? '+' : ''}${diff.toFixed(2).replace('.', ',')}%</span>`;
             }
             return `<td><span class="share-badge ${cls}">${fmtPct(val)}</span>${diffHtmlStr}</td>`;
+        }
+
+        function volumeTd(val, diff) {
+            let diffHtmlStr = '';
+            if (diff != null && diff !== 0) {
+                const dcls = diff > 0 ? 'positive' : 'negative';
+                const arrow = diff > 0 ? '▲' : '▼';
+                diffHtmlStr = `<span class="share-diff ${dcls}">${arrow} ${diff > 0 ? '+' : ''}${fmtInt(diff)}</span>`;
+            }
+            return `<td>${fmtInt(val)}${diffHtmlStr}</td>`;
         }
 
         function kpiCard(label, value, diffStr) {
