@@ -214,7 +214,7 @@
             background-repeat: no-repeat; background-position: right 10px center;
             padding-right: 32px;
         }
-        .trend-chart-wrap { position: relative; width: 100%; min-height: 260px; }
+        .trend-chart-wrap { position: relative; width: 100%; max-height: 300px; }
         .trend-chart-wrap canvas { width: 100% !important; }
         .trend-empty { color: #484f58; font-size: 13px; text-align: center; padding: 40px 0; }
 
@@ -683,7 +683,7 @@
                         </div>
                         <div class="trend-chart-wrap" id="termTrendChartWrap">
                             <div class="trend-empty" id="trendEmpty">Wähle mindestens einen Suchbegriff aus, um den Trend zu sehen.</div>
-                            <canvas id="termTrendChart" height="260" style="display:none;"></canvas>
+                            <canvas id="termTrendChart" height="160" style="display:none;"></canvas>
                         </div>
                     </div>
                 </div>`;
