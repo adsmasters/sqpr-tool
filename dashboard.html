@@ -939,10 +939,13 @@
 
         function volumeTd(val, diff) {
             let diffHtmlStr = '';
-            if (diff != null && diff !== 0) {
+            if (diff != null && diff !== 0 && val != null) {
+                const oldVal = val - diff;
+                const pctChange = oldVal !== 0 ? (diff / oldVal * 100) : 0;
                 const dcls = diff > 0 ? 'positive' : 'negative';
                 const arrow = diff > 0 ? '▲' : '▼';
-                diffHtmlStr = `<span class="share-diff ${dcls}">${arrow} ${diff > 0 ? '+' : ''}${fmtInt(diff)}</span>`;
+                const sign = pctChange > 0 ? '+' : '';
+                diffHtmlStr = `<span class="share-diff ${dcls}">${arrow} ${sign}${pctChange.toFixed(1).replace('.', ',')}%</span>`;
             }
             return `<td>${fmtInt(val)}${diffHtmlStr}</td>`;
         }
