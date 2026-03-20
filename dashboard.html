@@ -393,15 +393,39 @@
             return allRows.filter(r => r.report_id === reportId);
         }
 
+        function findClosestReport(targetDate, excludeId) {
+            let best = null;
+            let bestDiff = Infinity;
+            reports.forEach(r => {
+                if (r.id === excludeId) return;
+                const d = new Date(r.report_date_start);
+                const diff = Math.abs(d - targetDate);
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    best = r;
+                }
+            });
+            // Only match if within 45 days (for monthly) or 60 days (reasonable range)
+            return best && bestDiff < 60 * 24 * 60 * 60 * 1000 ? best : null;
+        }
+
         function getCompareReport() {
             if (compareReportId === 'none') return null;
-            if (compareReportId === 'auto') {
-                // Auto: if specific period selected, find the one before it; if "all", use second-to-last
-                if (selectedReportId === 'all') {
-                    return reports.length >= 2 ? reports[reports.length - 2] : null;
+            if (compareReportId === 'auto' || compareReportId === 'auto_year') {
+                const current = getCurrentReport();
+                if (!current) return null;
+                const currentStart = new Date(current.report_date_start);
+
+                if (compareReportId === 'auto') {
+                    // Vormonat: find report ~1 month before
+                    const targetDate = new Date(currentStart);
+                    targetDate.setMonth(targetDate.getMonth() - 1);
+                    return findClosestReport(targetDate, current.id);
                 } else {
-                    const idx = reports.findIndex(r => r.id === selectedReportId);
-                    return idx > 0 ? reports[idx - 1] : null;
+                    // Vorjahr: find report ~12 months before
+                    const targetDate = new Date(currentStart);
+                    targetDate.setFullYear(targetDate.getFullYear() - 1);
+                    return findClosestReport(targetDate, current.id);
                 }
             }
             return reports.find(r => r.id === compareReportId) || null;
@@ -488,7 +512,9 @@
 
             // Compare options
             let compareOptions = '<option value="none">Kein Vergleich</option>';
-            compareOptions += `<option value="auto" ${compareReportId === 'auto' ? 'selected' : ''}>Vorperiode (automatisch)</option>`;
+            compareOptions += `<option value="auto" ${compareReportId === 'auto' ? 'selected' : ''}>Vormonat</option>`;
+            compareOptions += `<option value="auto_year" ${compareReportId === 'auto_year' ? 'selected' : ''}>Vorjahr</option>`;
+            compareOptions += '<option disabled>──────────</option>';
             reports.forEach(r => {
                 const label = formatDateRange(r.report_date_start, r.report_date_end);
                 compareOptions += `<option value="${r.id}" ${compareReportId === r.id ? 'selected' : ''}>${label}</option>`;
