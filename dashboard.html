@@ -218,6 +218,96 @@
         .trend-chart-wrap canvas { width: 100% !important; }
         .trend-empty { color: #484f58; font-size: 13px; text-align: center; padding: 40px 0; }
 
+        /* Cluster Analyse section */
+        .cluster-section {
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+            margin-bottom: 24px; overflow: hidden;
+        }
+        .cluster-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; cursor: pointer; user-select: none;
+        }
+        .cluster-header:hover { background: #1c2333; }
+        .cluster-header h3 { font-size: 14px; font-weight: 600; color: #e6edf3; }
+        .cluster-header .chevron { color: #8b949e; transition: transform 0.2s; font-size: 12px; }
+        .cluster-header.open .chevron { transform: rotate(180deg); }
+        .cluster-body { padding: 0 20px 20px; }
+        .cluster-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+        .cluster-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 14px; border-radius: 16px; font-size: 12px; font-weight: 600;
+            color: #e6edf3; cursor: pointer; border: 1px solid #30363d; background: #21262d;
+            transition: background 0.2s;
+        }
+        .cluster-badge:hover { background: #30363d; }
+        .cluster-badge .cluster-color-dot {
+            width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+        }
+        .cluster-badge .cluster-count { color: #8b949e; font-size: 11px; font-weight: 400; }
+        .cluster-add-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; border-radius: 50%; font-size: 18px; font-weight: 600;
+            color: #8b949e; background: #21262d; border: 1px solid #30363d; cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .cluster-add-btn:hover { background: #30363d; color: #e6edf3; }
+        .cluster-controls { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+        .cluster-metric-select {
+            background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+            padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
+            appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b949e' viewBox='0 0 16 16'%3E%3Cpath d='M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center;
+            padding-right: 32px;
+        }
+        .cluster-chart-wrap { position: relative; width: 100%; max-height: 300px; margin-bottom: 20px; }
+        .cluster-chart-wrap canvas { width: 100% !important; }
+        .cluster-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: auto !important; }
+        .cluster-table thead th {
+            background: #0d1117; border-bottom: 2px solid #30363d;
+            padding: 8px 12px; text-align: right; color: #8b949e; font-weight: 600;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+        }
+        .cluster-table thead th:first-child { text-align: left; }
+        .cluster-table tbody tr { border-bottom: 1px solid #21262d; }
+        .cluster-table tbody tr:nth-child(odd) { background: #0d1117; }
+        .cluster-table tbody tr:nth-child(even) { background: #161b22; }
+        .cluster-table tbody td { padding: 6px 12px; text-align: right; white-space: nowrap; }
+        .cluster-table tbody td:first-child { text-align: left; font-weight: 500; color: #e6edf3; }
+
+        /* Cluster Modal */
+        .cluster-modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); z-index: 200; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .cluster-modal {
+            background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+            padding: 24px; width: 440px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+        }
+        .cluster-modal h3 { font-size: 16px; font-weight: 600; color: #e6edf3; margin-bottom: 16px; }
+        .cluster-modal label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; font-weight: 600; }
+        .cluster-modal input[type="text"],
+        .cluster-modal textarea {
+            width: 100%; background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+            padding: 8px 12px; border-radius: 6px; font-size: 13px; font-family: inherit;
+        }
+        .cluster-modal input[type="text"]:focus,
+        .cluster-modal textarea:focus { outline: none; border-color: #3551FF; }
+        .cluster-modal textarea { min-height: 120px; resize: vertical; }
+        .cluster-modal .hint { font-size: 11px; color: #484f58; margin-top: 4px; margin-bottom: 16px; }
+        .cluster-modal .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .cluster-modal .btn-modal {
+            padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: 1px solid #30363d; transition: background 0.2s;
+        }
+        .cluster-modal .btn-save { background: #3551FF; color: #fff; border-color: #3551FF; }
+        .cluster-modal .btn-save:hover { background: #2a43cc; }
+        .cluster-modal .btn-cancel { background: #21262d; color: #e6edf3; }
+        .cluster-modal .btn-cancel:hover { background: #30363d; }
+        .cluster-modal .btn-delete { background: transparent; color: #f85149; border-color: #f85149; margin-right: auto; }
+        .cluster-modal .btn-delete:hover { background: #f8514920; }
+
         /* Table view toggle */
         .table-view-toggle {
             display: inline-flex; border: 1px solid #30363d; border-radius: 6px; overflow: hidden;
@@ -303,6 +393,12 @@
         let chartMode = 'share'; // 'share' or 'absolute'
         const trendColors = ['#3551FF', '#3fb950', '#eab308', '#f85149', '#a855f7'];
 
+        // Cluster state
+        let clusters = [];
+        let clusterChart = null;
+        let clusterMetric = 'volume';
+        const clusterColors = ['#3551FF','#3fb950','#eab308','#f85149','#a855f7','#ec4899','#06b6d4','#f97316'];
+
         // Helpers
         function fmtInt(n) {
             if (n == null) return '0';
@@ -362,6 +458,9 @@
 
             // Load all rows
             await loadRows();
+
+            // Load clusters
+            await loadClusters();
 
             // Render
             render();
@@ -592,6 +691,215 @@
             return diffs;
         }
 
+        async function loadClusters() {
+            const { data } = await sb.from('sqpr_clusters').select('*').eq('client_id', client.id).order('sort_order', { ascending: true });
+            clusters = data || [];
+        }
+
+        function matchTermsToClusters(rows, cls) {
+            const map = new Map();
+            cls.forEach(c => map.set(c.id, []));
+            map.set('_unmatched', []);
+            rows.forEach(row => {
+                const q = (row.search_query || '').toLowerCase();
+                let matched = false;
+                for (const c of cls) {
+                    const rules = c.rules || [];
+                    if (rules.some(kw => q.includes(kw.toLowerCase()))) {
+                        map.get(c.id).push(row);
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) map.get('_unmatched').push(row);
+            });
+            return map;
+        }
+
+        function aggregateClusterKPIs(rows) {
+            const termCount = rows.length;
+            const volume = rows.reduce((s, r) => s + (r.search_query_volume || 0), 0);
+            const clicksBrand = rows.reduce((s, r) => s + (r.clicks_brand || 0), 0);
+            const clicksTotal = rows.reduce((s, r) => s + (r.clicks_total || 0), 0);
+            const cartAddsBrand = rows.reduce((s, r) => s + (r.cart_adds_brand || 0), 0);
+            const cartAddsTotal = rows.reduce((s, r) => s + (r.cart_adds_total || 0), 0);
+            const purchasesBrand = rows.reduce((s, r) => s + (r.purchases_brand || 0), 0);
+            const purchasesTotal = rows.reduce((s, r) => s + (r.purchases_total || 0), 0);
+            return {
+                termCount, volume,
+                clicksBrand, clickShare: safeDiv(clicksBrand, clicksTotal),
+                cartAddsBrand, cartShare: safeDiv(cartAddsBrand, cartAddsTotal),
+                purchasesBrand, purchaseShare: safeDiv(purchasesBrand, purchasesTotal)
+            };
+        }
+
+        function openClusterModal(cluster) {
+            const isEdit = !!cluster;
+            const overlay = document.createElement('div');
+            overlay.className = 'cluster-modal-overlay';
+            overlay.innerHTML = `
+                <div class="cluster-modal">
+                    <h3>${isEdit ? 'Cluster bearbeiten' : 'Neues Cluster'}</h3>
+                    <label>Name</label>
+                    <input type="text" id="clusterNameInput" value="${isEdit ? esc(cluster.name) : ''}" placeholder="z.B. Brand Keywords">
+                    <div style="margin-top:12px;">
+                        <label>Keywords</label>
+                        <textarea id="clusterKeywordsInput" placeholder="Ein Keyword pro Zeile...">${isEdit ? (cluster.rules || []).join('\n') : ''}</textarea>
+                        <div class="hint">Ein Keyword pro Zeile. Suchbegriffe die das Keyword enthalten werden zugeordnet.</div>
+                    </div>
+                    <div class="modal-actions">
+                        ${isEdit ? '<button class="btn-modal btn-delete" id="clusterDeleteBtn">Löschen</button>' : ''}
+                        <button class="btn-modal btn-cancel" id="clusterCancelBtn">Abbrechen</button>
+                        <button class="btn-modal btn-save" id="clusterSaveBtn">Speichern</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+            document.getElementById('clusterCancelBtn').addEventListener('click', () => overlay.remove());
+
+            document.getElementById('clusterSaveBtn').addEventListener('click', async () => {
+                const name = document.getElementById('clusterNameInput').value.trim();
+                const keywords = document.getElementById('clusterKeywordsInput').value.split('\n').map(k => k.trim()).filter(Boolean);
+                if (!name) return alert('Bitte einen Namen eingeben.');
+                if (keywords.length === 0) return alert('Bitte mindestens ein Keyword eingeben.');
+
+                if (isEdit) {
+                    await sb.from('sqpr_clusters').update({ name, rules: keywords }).eq('id', cluster.id);
+                } else {
+                    const maxSort = clusters.length > 0 ? Math.max(...clusters.map(c => c.sort_order || 0)) + 1 : 0;
+                    await sb.from('sqpr_clusters').insert({ client_id: client.id, name, rules: keywords, sort_order: maxSort });
+                }
+                overlay.remove();
+                await loadClusters();
+                render();
+            });
+
+            if (isEdit) {
+                document.getElementById('clusterDeleteBtn').addEventListener('click', async () => {
+                    if (!confirm('Cluster "' + cluster.name + '" wirklich löschen?')) return;
+                    await sb.from('sqpr_clusters').delete().eq('id', cluster.id);
+                    overlay.remove();
+                    await loadClusters();
+                    render();
+                });
+            }
+        }
+
+        function renderClusterChart() {
+            const canvas = document.getElementById('clusterChart');
+            if (!canvas || clusters.length === 0) return;
+            if (clusterChart) clusterChart.destroy();
+
+            const sortedReports = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
+            const labels = sortedReports.map(r => {
+                const d = new Date(r.report_date_start);
+                return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+            });
+
+            const datasets = clusters.map((c, i) => {
+                const data = sortedReports.map(r => {
+                    const rows = getReportRows(r.id);
+                    const clMap = matchTermsToClusters(rows, clusters);
+                    const matched = clMap.get(c.id) || [];
+                    const agg = aggregateClusterKPIs(matched);
+                    switch (clusterMetric) {
+                        case 'volume': return agg.volume;
+                        case 'click_share': return agg.clickShare;
+                        case 'cart_share': return agg.cartShare;
+                        case 'purchase_share': return agg.purchaseShare;
+                        default: return agg.volume;
+                    }
+                });
+                return {
+                    label: c.name,
+                    data,
+                    borderColor: clusterColors[i % clusterColors.length],
+                    backgroundColor: clusterColors[i % clusterColors.length] + '20',
+                    tension: 0.3, fill: false, pointRadius: 4, spanGaps: true
+                };
+            });
+
+            const isPercent = clusterMetric !== 'volume';
+            clusterChart = new Chart(canvas, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    if (isPercent) return ctx.dataset.label + ': ' + ctx.raw.toFixed(2).replace('.', ',') + ' %';
+                                    return ctx.dataset.label + ': ' + Math.round(ctx.raw).toLocaleString('de-DE');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#8b949e', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#21262d' } },
+                        y: {
+                            ticks: {
+                                color: '#8b949e',
+                                callback: v => isPercent ? v.toFixed(1).replace('.', ',') + ' %' : v.toLocaleString('de-DE')
+                            },
+                            grid: { color: '#21262d' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderClusterTable() {
+            const container = document.getElementById('clusterTableWrap');
+            if (!container) return;
+
+            // Use latest report rows for comparison table
+            const latestReport = reports.length > 0 ? [...reports].sort((a, b) => new Date(b.report_date_start) - new Date(a.report_date_start))[0] : null;
+            if (!latestReport) return;
+            const rows = getReportRows(latestReport.id);
+            const clMap = matchTermsToClusters(rows, clusters);
+
+            const cols = [...clusters, { id: '_unmatched', name: 'Nicht zugeordnet' }];
+            const aggs = cols.map(c => aggregateClusterKPIs(clMap.get(c.id) || []));
+
+            const metrics = [
+                { label: 'Suchbegriffe', key: 'termCount', fmt: v => fmtInt(v) },
+                { label: 'Suchvolumen', key: 'volume', fmt: v => fmtInt(v) },
+                { label: 'Klicks Marke', key: 'clicksBrand', fmt: v => fmtInt(v) },
+                { label: 'Click Share', key: 'clickShare', fmt: v => fmtPct(v) },
+                { label: 'Warenkorb Marke', key: 'cartAddsBrand', fmt: v => fmtInt(v) },
+                { label: 'Cart Share', key: 'cartShare', fmt: v => fmtPct(v) },
+                { label: 'Käufe Marke', key: 'purchasesBrand', fmt: v => fmtInt(v) },
+                { label: 'Purchase Share', key: 'purchaseShare', fmt: v => fmtPct(v) },
+            ];
+
+            let thHtml = '<th>Metrik</th>';
+            cols.forEach((c, i) => {
+                const color = c.id === '_unmatched' ? '#484f58' : clusterColors[i % clusterColors.length];
+                thHtml += `<th><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;vertical-align:middle;"></span>${esc(c.name)}</th>`;
+            });
+
+            let bodyHtml = '';
+            metrics.forEach(m => {
+                bodyHtml += '<tr>';
+                bodyHtml += `<td>${m.label}</td>`;
+                aggs.forEach(a => {
+                    bodyHtml += `<td>${m.fmt(a[m.key])}</td>`;
+                });
+                bodyHtml += '</tr>';
+            });
+
+            container.innerHTML = `
+                <table class="cluster-table">
+                    <thead><tr>${thHtml}</tr></thead>
+                    <tbody>${bodyHtml}</tbody>
+                </table>`;
+        }
+
         function render() {
             const app = document.getElementById('app');
             // Use filtered rows (by selected period) for display, allRows stays complete for comparisons
@@ -689,6 +997,41 @@
                             <div class="trend-empty" id="trendEmpty">Wähle mindestens einen Suchbegriff aus, um den Trend zu sehen.</div>
                             <canvas id="termTrendChart" height="160" style="display:none;"></canvas>
                         </div>
+                    </div>
+                </div>`;
+
+            // Cluster Analyse section
+            const clusterMatchMap = clusters.length > 0 ? matchTermsToClusters(allRows, clusters) : null;
+            html += `
+                <div class="cluster-section" id="clusterSection">
+                    <div class="cluster-header" id="clusterToggle">
+                        <h3>Cluster Analyse</h3>
+                        <span class="chevron">▼</span>
+                    </div>
+                    <div class="cluster-body" id="clusterBody" style="display:none;">
+                        <div class="cluster-badges" id="clusterBadges">
+                            ${clusters.map((c, i) => {
+                                const count = clusterMatchMap ? (clusterMatchMap.get(c.id) || []).length : 0;
+                                return `<span class="cluster-badge" data-cluster-id="${c.id}">
+                                    <span class="cluster-color-dot" style="background:${clusterColors[i % clusterColors.length]};"></span>
+                                    ${esc(c.name)}
+                                    <span class="cluster-count">(${count})</span>
+                                </span>`;
+                            }).join('')}
+                            <button class="cluster-add-btn" id="clusterAddBtn" title="Cluster hinzufügen">+</button>
+                        </div>
+                        ${clusters.length > 0 ? `
+                        <div class="cluster-controls">
+                            <select class="cluster-metric-select" id="clusterMetricSelect">
+                                <option value="volume" ${clusterMetric === 'volume' ? 'selected' : ''}>Suchvolumen</option>
+                                <option value="click_share" ${clusterMetric === 'click_share' ? 'selected' : ''}>Click Share %</option>
+                                <option value="cart_share" ${clusterMetric === 'cart_share' ? 'selected' : ''}>Cart Share %</option>
+                                <option value="purchase_share" ${clusterMetric === 'purchase_share' ? 'selected' : ''}>Purchase Share %</option>
+                            </select>
+                        </div>
+                        <div class="cluster-chart-wrap"><canvas id="clusterChart" height="160"></canvas></div>
+                        <div id="clusterTableWrap"></div>
+                        ` : '<div class="trend-empty">Erstelle ein Cluster, um die Analyse zu starten.</div>'}
                     </div>
                 </div>`;
 
@@ -895,6 +1238,40 @@
                     });
                 });
             }
+
+            // Cluster Analyse events
+            document.getElementById('clusterToggle').addEventListener('click', function () {
+                const body = document.getElementById('clusterBody');
+                const isOpen = body.style.display !== 'none';
+                body.style.display = isOpen ? 'none' : 'block';
+                this.classList.toggle('open', !isOpen);
+                if (!isOpen && clusters.length > 0) {
+                    renderClusterChart();
+                    renderClusterTable();
+                }
+            });
+
+            document.getElementById('clusterAddBtn').addEventListener('click', function () {
+                openClusterModal(null);
+            });
+
+            document.querySelectorAll('.cluster-badge[data-cluster-id]').forEach(badge => {
+                badge.addEventListener('click', function () {
+                    const cId = this.dataset.clusterId;
+                    const cluster = clusters.find(c => c.id === cId);
+                    if (cluster) openClusterModal(cluster);
+                });
+            });
+
+            const clusterMetricSelect = document.getElementById('clusterMetricSelect');
+            if (clusterMetricSelect) {
+                clusterMetricSelect.addEventListener('change', function () {
+                    clusterMetric = this.value;
+                    renderClusterChart();
+                });
+            }
+
+            // Initial cluster render if section is open (it starts closed, but render if clusters exist for when toggled)
         }
 
         function renderTableRows(queryDiffs) {
