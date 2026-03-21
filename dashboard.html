@@ -1386,7 +1386,7 @@
             if (moverTopNSel) {
                 moverTopNSel.addEventListener('change', function() {
                     window._moverTopN = parseInt(this.value) || 5;
-                    renderDashboard();
+                    render();
                 });
             }
             // Mover metric select
@@ -1394,7 +1394,7 @@
             if (moverMetricSel) {
                 moverMetricSel.addEventListener('change', function() {
                     window._moverMetric = this.value;
-                    renderDashboard();
+                    render();
                 });
             }
             const moverMinInput = document.getElementById('moverMinInput');
@@ -1404,7 +1404,7 @@
                     clearTimeout(moverDebounce);
                     moverDebounce = setTimeout(() => {
                         window._moverMinThreshold = parseInt(this.value) || 0;
-                        renderDashboard();
+                        render();
                     }, 500);
                 });
             }
