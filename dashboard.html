@@ -694,6 +694,10 @@
                     clickShare: r.clicks_brand_share || 0,
                     cartShare: r.cart_adds_brand_share || 0,
                     purchaseShare: r.purchases_brand_share || 0,
+                    impressions_brand: r.impressions_brand || 0,
+                    clicks_brand: r.clicks_brand || 0,
+                    cart_adds_brand: r.cart_adds_brand || 0,
+                    purchases_brand: r.purchases_brand || 0,
                 };
             });
             const currentRows = getReportRows(current.id);
@@ -707,6 +711,10 @@
                         clickShare: (r.clicks_brand_share || 0) - prev.clickShare,
                         cartShare: (r.cart_adds_brand_share || 0) - prev.cartShare,
                         purchaseShare: (r.purchases_brand_share || 0) - prev.purchaseShare,
+                        impressions_brand_diff: (r.impressions_brand || 0) - prev.impressions_brand,
+                        clicks_brand_diff: (r.clicks_brand || 0) - prev.clicks_brand,
+                        cart_adds_brand_diff: (r.cart_adds_brand || 0) - prev.cart_adds_brand,
+                        purchases_brand_diff: (r.purchases_brand || 0) - prev.purchases_brand,
                     };
                 }
             });
@@ -1016,49 +1024,50 @@
 
             // Top Mover section (only when comparison is active)
             if (canCompare() && queryDiffs) {
-                const moverMetricKey = window._moverMetric || 'purchaseShare';
+                const moverMetricKey = window._moverMetric || 'purchases_brand';
                 const moverMetricLabels = {
-                    impressionShare: 'Impression Share',
-                    clickShare: 'Click Share',
-                    cartShare: 'Cart Share',
-                    purchaseShare: 'Purchase Share'
+                    purchases_brand: 'Käufe Marke',
+                    clicks_brand: 'Klicks Marke',
+                    cart_adds_brand: 'Warenkorb Marke',
+                    impressions_brand: 'Impressionen Marke'
+                };
+                const moverDiffFields = {
+                    purchases_brand: 'purchases_brand_diff',
+                    clicks_brand: 'clicks_brand_diff',
+                    cart_adds_brand: 'cart_adds_brand_diff',
+                    impressions_brand: 'impressions_brand_diff'
                 };
                 const moverShareFields = {
-                    impressionShare: 'impressions_brand_share',
-                    clickShare: 'clicks_brand_share',
-                    cartShare: 'cart_adds_brand_share',
-                    purchaseShare: 'purchases_brand_share'
-                };
-                const moverAbsFields = {
-                    impressionShare: 'impressions_brand',
-                    clickShare: 'clicks_brand',
-                    cartShare: 'cart_adds_brand',
-                    purchaseShare: 'purchases_brand'
+                    purchases_brand: 'purchases_brand_share',
+                    clicks_brand: 'clicks_brand_share',
+                    cart_adds_brand: 'cart_adds_brand_share',
+                    impressions_brand: 'impressions_brand_share'
                 };
                 const moverMinThreshold = window._moverMinThreshold ?? 10;
+                const diffField = moverDiffFields[moverMetricKey];
+                const absField = moverMetricKey;
                 const shareField = moverShareFields[moverMetricKey];
-                const absField = moverAbsFields[moverMetricKey];
 
                 const currentMap = {};
                 filteredRows.forEach(r => {
                     currentMap[r.search_query] = {
-                        share: r[shareField] || 0,
                         abs: r[absField] || 0,
+                        share: r[shareField] || 0,
                         volume: r.search_query_volume || 0
                     };
                 });
                 const entries = Object.entries(queryDiffs)
                     .filter(([q]) => currentMap[q] !== undefined)
-                    .filter(([q]) => currentMap[q].abs >= moverMinThreshold || (currentMap[q].abs + Math.abs(queryDiffs[q][moverMetricKey] || 0)) >= moverMinThreshold)
+                    .filter(([q]) => currentMap[q].abs >= moverMinThreshold)
                     .map(([q, d]) => ({
                         term: q,
-                        share: currentMap[q].share,
                         abs: currentMap[q].abs,
+                        share: currentMap[q].share,
                         volume: currentMap[q].volume,
-                        diff: d[moverMetricKey] || 0
+                        absDiff: d[diffField] || 0
                     }));
-                const winners = [...entries].sort((a, b) => b.diff - a.diff).filter(e => e.diff > 0).slice(0, 5);
-                const losers = [...entries].sort((a, b) => a.diff - b.diff).filter(e => e.diff < 0).slice(0, 5);
+                const winners = [...entries].sort((a, b) => b.absDiff - a.absDiff).filter(e => e.absDiff > 0).slice(0, 5);
+                const losers = [...entries].sort((a, b) => a.absDiff - b.absDiff).filter(e => e.absDiff < 0).slice(0, 5);
 
                 // Metric selector + threshold
                 const metricSelect = Object.entries(moverMetricLabels).map(([k, v]) =>
@@ -1080,12 +1089,13 @@
                     const moverRow = (e, isPos) => {
                         const arrow = isPos ? '▲' : '▼';
                         const cls = isPos ? 'positive' : 'negative';
+                        const sign = isPos ? '+' : '';
                         return `<div class="top-mover-row" data-mover-term="${esc(e.term)}" title="${esc(e.term)}">
                             <span class="top-mover-term">${esc(e.term)}</span>
                             <span class="top-mover-vals">
-                                <span style="color:#8b949e;font-size:11px;">${fmtNum(e.abs)}</span>
+                                <span style="color:#e6edf3;font-size:12px;font-weight:600;">${fmtNum(e.abs)}</span>
+                                <span class="top-mover-diff ${cls}">${arrow} ${sign}${fmtNum(e.absDiff)}</span>
                                 <span class="top-mover-share">${fmtPct(e.share)}</span>
-                                <span class="top-mover-diff ${cls}">${arrow} ${fmtPct(Math.abs(e.diff))}</span>
                             </span>
                         </div>`;
                     };
