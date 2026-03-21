@@ -469,7 +469,7 @@
             },
             trendAnalyse: {
                 title: 'Trend Analyse',
-                text: 'Vergleiche bis zu 5 Suchbegriffe im Zeitverlauf. Gib einen Begriff ein oder klicke auf einen Top Mover.<br><br>Wähle die Metrik rechts: Suchvolumen, Klicks, Warenkorb, Käufe oder Shares.<br><br>Die Suchbegriffe werden nach Suchvolumen sortiert vorgeschlagen.'
+                text: 'Vergleiche bis zu 5 Suchbegriffe oder Cluster im Zeitverlauf. Gib einen Begriff ein, klicke auf einen Top Mover, oder wähle ein gespeichertes Cluster.<br><br><b>Purchase Share + Markt</b> zeigt euren Marktanteil (Linie) und das Gesamtmarktvolumen (Balken) gleichzeitig.<br><br>Cluster werden gewichtet berechnet: Summe(Käufe Marke) / Summe(Käufe Gesamt).'
             },
             table: {
                 title: 'Suchbegriff-Tabelle',
@@ -1227,7 +1227,13 @@
                     <div class="trend-body" id="trendBody" style="display:none;">
                         <div class="trend-controls">
                             <div class="trend-search-wrap">
-                                <input type="text" class="trend-search-input" id="trendSearchInput" placeholder="Suchbegriff suchen (max. 5)..." autocomplete="off">
+                                <div style="display:flex;gap:8px;align-items:center;width:100%;">
+                                    <input type="text" class="trend-search-input" id="trendSearchInput" placeholder="Suchbegriff suchen (max. 5)..." autocomplete="off" style="flex:1;">
+                                    ${clusters.length > 0 ? `<select id="trendClusterSelect" class="period-select" style="width:auto;min-width:140px;">
+                                        <option value="">+ Cluster</option>
+                                        ${clusters.map(c => `<option value="cluster:${c.id}">${esc(c.name)}</option>`).join('')}
+                                    </select>` : ''}
+                                </div>
                                 <div class="trend-suggestions" id="trendSuggestions"></div>
                                 <div class="trend-tags" id="trendTags"></div>
                             </div>
@@ -1453,6 +1459,20 @@
 
             renderTrendTags();
             if (selectedTrendTerms.length > 0) renderTermTrendChart();
+
+            // Cluster select in Trend Analyse
+            const trendClusterSel = document.getElementById('trendClusterSelect');
+            if (trendClusterSel) {
+                trendClusterSel.addEventListener('change', function() {
+                    const val = this.value;
+                    if (val && selectedTrendTerms.length < 5 && !selectedTrendTerms.includes(val)) {
+                        selectedTrendTerms.push(val);
+                        renderTrendTags();
+                        renderTermTrendChart();
+                    }
+                    this.value = '';
+                });
+            }
 
             // Top Mover click -> add to Trend Analyse
             // Mover Top N select
@@ -1759,12 +1779,22 @@
         }
 
         // Trend Analyse functions
+        function getClusterById(id) {
+            return clusters.find(c => c.id === id);
+        }
+        function getTrendLabel(term) {
+            if (term.startsWith('cluster:')) {
+                const c = getClusterById(term.replace('cluster:', ''));
+                return c ? '📊 ' + c.name : term;
+            }
+            return term;
+        }
         function renderTrendTags() {
             const container = document.getElementById('trendTags');
             if (!container) return;
             container.innerHTML = selectedTrendTerms.map((term, i) =>
-                `<span class="trend-tag" style="background:${trendColors[i]}">
-                    ${esc(term)}
+                `<span class="trend-tag" style="background:${trendColors[i]}${term.startsWith('cluster:') ? ';border:2px dashed rgba(255,255,255,0.4)' : ''}">
+                    ${esc(getTrendLabel(term))}
                     <span class="remove-tag" data-idx="${i}">&times;</span>
                 </span>`
             ).join('');
@@ -1823,13 +1853,45 @@
             const effectiveMetric = isDualAxis ? 'purchase_share' : trendMetric;
             const isPercent = effectiveMetric !== 'volume';
 
+            // Helper to get rows for a term (single keyword or cluster)
+            function getTermRows(term, reportId) {
+                if (term.startsWith('cluster:')) {
+                    const c = getClusterById(term.replace('cluster:', ''));
+                    if (!c) return [];
+                    return allRows.filter(row => row.report_id === reportId && termMatchesCluster(row.search_query, c.rules));
+                }
+                const row = allRows.find(row => row.report_id === reportId && row.search_query === term);
+                return row ? [row] : [];
+            }
+            function getAggregatedMetric(term, reportId, metric) {
+                const rows = getTermRows(term, reportId);
+                if (rows.length === 0) return null;
+                if (metric === 'volume') return rows.reduce((s, r) => s + (r.search_query_volume || 0), 0);
+                // For share metrics, calculate weighted average: sum(brand) / sum(total) * 100
+                const shareMap = {
+                    'impr_share': ['impressions_brand', 'impressions_total'],
+                    'click_share': ['clicks_brand', 'clicks_total'],
+                    'cart_share': ['cart_adds_brand', 'cart_adds_total'],
+                    'purchase_share': ['purchases_brand', 'purchases_total'],
+                };
+                if (shareMap[metric]) {
+                    const [brandField, totalField] = shareMap[metric];
+                    const brandSum = rows.reduce((s, r) => s + (r[brandField] || 0), 0);
+                    const totalSum = rows.reduce((s, r) => s + (r[totalField] || 0), 0);
+                    return totalSum > 0 ? (brandSum / totalSum) * 100 : 0;
+                }
+                return rows.reduce((s, r) => s + (getTermMetricValue(r, metric) || 0), 0) / rows.length;
+            }
+            function getAggregatedTotal(term, reportId, field) {
+                const rows = getTermRows(term, reportId);
+                return rows.reduce((s, r) => s + (r[field] || 0), 0);
+            }
+
             const datasets = selectedTrendTerms.map((term, i) => {
-                const data = sortedReports.map(r => {
-                    const row = allRows.find(row => row.report_id === r.id && row.search_query === term);
-                    return row ? getTermMetricValue(row, effectiveMetric) : null;
-                });
+                const label = getTrendLabel(term);
+                const data = sortedReports.map(r => getAggregatedMetric(term, r.id, effectiveMetric));
                 return {
-                    label: term + ' (Share)',
+                    label: isDualAxis ? label + ' (Share)' : label,
                     data: data,
                     borderColor: trendColors[i],
                     backgroundColor: trendColors[i] + '20',
@@ -1846,12 +1908,10 @@
                 const barColors = ['rgba(99,102,241,0.15)', 'rgba(251,146,60,0.15)', 'rgba(52,211,153,0.15)', 'rgba(251,113,133,0.15)', 'rgba(167,139,250,0.15)'];
                 const barBorders = ['rgba(99,102,241,0.4)', 'rgba(251,146,60,0.4)', 'rgba(52,211,153,0.4)', 'rgba(251,113,133,0.4)', 'rgba(167,139,250,0.4)'];
                 selectedTrendTerms.forEach((term, i) => {
-                    const data = sortedReports.map(r => {
-                        const row = allRows.find(row => row.report_id === r.id && row.search_query === term);
-                        return row ? (row.purchases_total || 0) : null;
-                    });
+                    const label = getTrendLabel(term);
+                    const data = sortedReports.map(r => getAggregatedTotal(term, r.id, 'purchases_total'));
                     datasets.push({
-                        label: term + ' (Käufe Gesamt)',
+                        label: label + ' (Käufe Gesamt)',
                         data: data,
                         type: 'bar',
                         backgroundColor: barColors[i] || barColors[0],
