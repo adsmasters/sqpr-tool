@@ -1066,24 +1066,38 @@
                         volume: currentMap[q].volume,
                         absDiff: d[diffField] || 0
                     }));
-                const winners = [...entries].sort((a, b) => b.absDiff - a.absDiff).filter(e => e.absDiff > 0).slice(0, 5);
-                const losers = [...entries].sort((a, b) => a.absDiff - b.absDiff).filter(e => e.absDiff < 0).slice(0, 5);
+                const moverTopN = window._moverTopN || 5;
+                const winners = [...entries].sort((a, b) => b.absDiff - a.absDiff).filter(e => e.absDiff > 0).slice(0, moverTopN);
+                const losers = [...entries].sort((a, b) => a.absDiff - b.absDiff).filter(e => e.absDiff < 0).slice(0, moverTopN);
 
-                // Metric selector + threshold
+                // Metric selector + threshold + top N
                 const metricSelect = Object.entries(moverMetricLabels).map(([k, v]) =>
                     `<option value="${k}" ${k === moverMetricKey ? 'selected' : ''}>${v}</option>`
                 ).join('');
+                const currentMetricLabel = moverMetricLabels[moverMetricKey] || 'Käufe Marke';
 
-                html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
                     <div style="display:flex;align-items:center;gap:12px;">
                         <span style="font-size:13px;color:#8b949e;">Top Mover nach:</span>
                         <select id="moverMetricSelect" class="period-select" style="width:auto;">${metricSelect}</select>
                     </div>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-size:12px;color:#8b949e;">Min. Anzahl:</span>
-                        <input type="number" id="moverMinInput" value="${moverMinThreshold}" min="0" style="width:60px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;padding:4px 8px;font-size:12px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="font-size:12px;color:#8b949e;">Min. Anzahl:</span>
+                            <input type="number" id="moverMinInput" value="${moverMinThreshold}" min="0" style="width:60px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;padding:4px 8px;font-size:12px;">
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="font-size:12px;color:#8b949e;">Anzeigen:</span>
+                            <select id="moverTopNSelect" class="period-select" style="width:auto;">
+                                <option value="5" ${moverTopN===5?'selected':''}>Top 5</option>
+                                <option value="10" ${moverTopN===10?'selected':''}>Top 10</option>
+                                <option value="15" ${moverTopN===15?'selected':''}>Top 15</option>
+                                <option value="25" ${moverTopN===25?'selected':''}>Top 25</option>
+                            </select>
+                        </div>
                     </div>
                 </div>`;
+                html += `<div style="font-size:11px;color:#8b949e;margin-bottom:10px;">Zeigt Suchbegriffe mit der größten absoluten Veränderung bei <strong style="color:#e6edf3;">${esc(currentMetricLabel)}</strong> im Vergleichszeitraum. Spalten: aktuelle Anzahl | Veränderung | Brand Share.</div>`;
 
                 if (winners.length || losers.length) {
                     const moverRow = (e, isPos) => {
@@ -1360,6 +1374,14 @@
             if (selectedTrendTerms.length > 0) renderTermTrendChart();
 
             // Top Mover click -> add to Trend Analyse
+            // Mover Top N select
+            const moverTopNSel = document.getElementById('moverTopNSelect');
+            if (moverTopNSel) {
+                moverTopNSel.addEventListener('change', function() {
+                    window._moverTopN = parseInt(this.value) || 5;
+                    renderDashboard();
+                });
+            }
             // Mover metric select
             const moverMetricSel = document.getElementById('moverMetricSelect');
             if (moverMetricSel) {
