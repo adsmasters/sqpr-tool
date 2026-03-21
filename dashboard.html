@@ -1383,7 +1383,8 @@
             });
 
             // Trend Analyse events
-            document.getElementById('trendToggle').addEventListener('click', function () {
+            document.getElementById('trendToggle').addEventListener('click', function (e) {
+                if (e.target.closest('.info-icon')) return;
                 const body = document.getElementById('trendBody');
                 const isOpen = body.style.display !== 'none';
                 body.style.display = isOpen ? 'none' : 'block';
@@ -1545,7 +1546,8 @@
             }
 
             // Cluster Analyse events
-            document.getElementById('clusterToggle').addEventListener('click', function () {
+            document.getElementById('clusterToggle').addEventListener('click', function (e) {
+                if (e.target.closest('.info-icon')) return;
                 const body = document.getElementById('clusterBody');
                 const isOpen = body.style.display !== 'none';
                 body.style.display = isOpen ? 'none' : 'block';
