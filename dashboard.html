@@ -1394,6 +1394,11 @@
             if (moverMetricSel) {
                 moverMetricSel.addEventListener('change', function() {
                     window._moverMetric = this.value;
+                    // Save current period selections before re-render
+                    const ps = document.getElementById('periodSelect');
+                    const cs = document.getElementById('compareSelect');
+                    if (ps) selectedReportId = ps.value;
+                    if (cs) compareReportId = cs.value;
                     render();
                 });
             }
@@ -1404,6 +1409,10 @@
                     clearTimeout(moverDebounce);
                     moverDebounce = setTimeout(() => {
                         window._moverMinThreshold = parseInt(this.value) || 0;
+                        const ps = document.getElementById('periodSelect');
+                        const cs = document.getElementById('compareSelect');
+                        if (ps) selectedReportId = ps.value;
+                        if (cs) compareReportId = cs.value;
                         render();
                     }, 500);
                 });
