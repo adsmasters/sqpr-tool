@@ -1237,6 +1237,7 @@
                                 <option value="click_share">Click Share %</option>
                                 <option value="cart_share">Cart Share %</option>
                                 <option value="purchase_share">Purchase Share %</option>
+                                <option value="purchase_share_market">Purchase Share + Markt</option>
                             </select>
                         </div>
                         <div class="trend-chart-wrap" id="termTrendChartWrap">
@@ -1818,15 +1819,17 @@
                 return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
             });
 
-            const isPercent = trendMetric !== 'volume';
+            const isDualAxis = trendMetric === 'purchase_share_market';
+            const effectiveMetric = isDualAxis ? 'purchase_share' : trendMetric;
+            const isPercent = effectiveMetric !== 'volume';
 
             const datasets = selectedTrendTerms.map((term, i) => {
                 const data = sortedReports.map(r => {
                     const row = allRows.find(row => row.report_id === r.id && row.search_query === term);
-                    return row ? getTermMetricValue(row, trendMetric) : null;
+                    return row ? getTermMetricValue(row, effectiveMetric) : null;
                 });
                 return {
-                    label: term,
+                    label: term + ' (Share)',
                     data: data,
                     borderColor: trendColors[i],
                     backgroundColor: trendColors[i] + '20',
@@ -1834,8 +1837,29 @@
                     fill: false,
                     pointRadius: 4,
                     spanGaps: true,
+                    yAxisID: 'y',
                 };
             });
+
+            // Add total market bars for dual axis mode
+            if (isDualAxis) {
+                selectedTrendTerms.forEach((term, i) => {
+                    const data = sortedReports.map(r => {
+                        const row = allRows.find(row => row.report_id === r.id && row.search_query === term);
+                        return row ? (row.purchases_total || 0) : null;
+                    });
+                    datasets.push({
+                        label: term + ' (Käufe Gesamt)',
+                        data: data,
+                        type: 'bar',
+                        backgroundColor: trendColors[i] + '30',
+                        borderColor: trendColors[i] + '60',
+                        borderWidth: 1,
+                        yAxisID: 'y1',
+                        order: 1,
+                    });
+                });
+            }
 
             if (termTrendChart) termTrendChart.destroy();
             termTrendChart = new Chart(canvas, {
@@ -1850,6 +1874,7 @@
                             callbacks: {
                                 label: function (ctx) {
                                     if (ctx.raw == null) return ctx.dataset.label + ': –';
+                                    if (ctx.dataset.yAxisID === 'y1') return ctx.dataset.label + ': ' + Math.round(ctx.raw).toLocaleString('de-DE');
                                     if (isPercent) return ctx.dataset.label + ': ' + ctx.raw.toFixed(2).replace('.', ',') + ' %';
                                     return ctx.dataset.label + ': ' + Math.round(ctx.raw).toLocaleString('de-DE');
                                 }
@@ -1862,12 +1887,24 @@
                             grid: { color: '#21262d' }
                         },
                         y: {
+                            position: 'left',
                             ticks: {
                                 color: '#8b949e',
                                 callback: v => isPercent ? v.toFixed(1).replace('.', ',') + ' %' : v.toLocaleString('de-DE')
                             },
                             grid: { color: '#21262d' }
-                        }
+                        },
+                        ...(isDualAxis ? {
+                            y1: {
+                                position: 'right',
+                                title: { display: true, text: 'Käufe Gesamt', color: '#8b949e', font: { size: 11 } },
+                                ticks: {
+                                    color: '#8b949e',
+                                    callback: v => v.toLocaleString('de-DE')
+                                },
+                                grid: { display: false }
+                            }
+                        } : {})
                     }
                 }
             });
