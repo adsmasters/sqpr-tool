@@ -1903,33 +1903,26 @@
                 };
             });
 
-            // Add total market bars for dual axis mode
+            // Add total market lines for dual axis mode
             if (isDualAxis) {
-                const barColors = ['rgba(99,102,241,0.15)', 'rgba(251,146,60,0.15)', 'rgba(52,211,153,0.15)', 'rgba(251,113,133,0.15)', 'rgba(167,139,250,0.15)'];
-                const barBorders = ['rgba(99,102,241,0.4)', 'rgba(251,146,60,0.4)', 'rgba(52,211,153,0.4)', 'rgba(251,113,133,0.4)', 'rgba(167,139,250,0.4)'];
+                const redTones = ['#f85149', '#ff6b6b', '#e5484d', '#ff8787', '#d93636'];
                 selectedTrendTerms.forEach((term, i) => {
                     const label = getTrendLabel(term);
                     const data = sortedReports.map(r => getAggregatedTotal(term, r.id, 'purchases_total'));
                     datasets.push({
                         label: label + ' (Käufe Gesamt)',
                         data: data,
-                        type: 'bar',
-                        backgroundColor: barColors[i] || barColors[0],
-                        borderColor: barBorders[i] || barBorders[0],
-                        borderWidth: 1,
-                        borderRadius: 4,
+                        borderColor: redTones[i] || redTones[0],
+                        backgroundColor: (redTones[i] || redTones[0]) + '20',
+                        borderWidth: 2,
+                        borderDash: [6, 3],
+                        tension: 0.3,
+                        fill: false,
+                        pointRadius: 4,
+                        pointStyle: 'rect',
+                        spanGaps: true,
                         yAxisID: 'y1',
-                        order: 1,
                     });
-                });
-                // Make share lines thicker and more prominent
-                datasets.forEach(ds => {
-                    if (ds.yAxisID === 'y') {
-                        ds.borderWidth = 3;
-                        ds.pointRadius = 5;
-                        ds.pointBackgroundColor = ds.borderColor;
-                        ds.order = 0;
-                    }
                 });
             }
 
