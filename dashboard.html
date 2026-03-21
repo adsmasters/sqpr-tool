@@ -422,6 +422,10 @@
             if (n == null) return '0';
             return Math.round(n).toLocaleString('de-DE');
         }
+        function fmtNum(n) {
+            if (n == null || isNaN(n)) return '0';
+            return n.toLocaleString('de-DE');
+        }
         function fmtPct(n) {
             if (n == null || isNaN(n)) return '0,00 %';
             return n.toFixed(2).replace('.', ',') + ' %';
@@ -1012,13 +1016,66 @@
 
             // Top Mover section (only when comparison is active)
             if (canCompare() && queryDiffs) {
+                const moverMetricKey = window._moverMetric || 'purchaseShare';
+                const moverMetricLabels = {
+                    impressionShare: 'Impression Share',
+                    clickShare: 'Click Share',
+                    cartShare: 'Cart Share',
+                    purchaseShare: 'Purchase Share'
+                };
+                const moverShareFields = {
+                    impressionShare: 'impressions_brand_share',
+                    clickShare: 'clicks_brand_share',
+                    cartShare: 'cart_adds_brand_share',
+                    purchaseShare: 'purchases_brand_share'
+                };
+                const moverAbsFields = {
+                    impressionShare: 'impressions_brand',
+                    clickShare: 'clicks_brand',
+                    cartShare: 'cart_adds_brand',
+                    purchaseShare: 'purchases_brand'
+                };
+                const moverMinThreshold = window._moverMinThreshold ?? 10;
+                const shareField = moverShareFields[moverMetricKey];
+                const absField = moverAbsFields[moverMetricKey];
+
                 const currentMap = {};
-                filteredRows.forEach(r => { currentMap[r.search_query] = r.purchases_brand_share || 0; });
+                filteredRows.forEach(r => {
+                    currentMap[r.search_query] = {
+                        share: r[shareField] || 0,
+                        abs: r[absField] || 0,
+                        volume: r.search_query_volume || 0
+                    };
+                });
                 const entries = Object.entries(queryDiffs)
                     .filter(([q]) => currentMap[q] !== undefined)
-                    .map(([q, d]) => ({ term: q, share: currentMap[q], diff: d.purchaseShare }));
+                    .filter(([q]) => currentMap[q].abs >= moverMinThreshold || (currentMap[q].abs + Math.abs(queryDiffs[q][moverMetricKey] || 0)) >= moverMinThreshold)
+                    .map(([q, d]) => ({
+                        term: q,
+                        share: currentMap[q].share,
+                        abs: currentMap[q].abs,
+                        volume: currentMap[q].volume,
+                        diff: d[moverMetricKey] || 0
+                    }));
                 const winners = [...entries].sort((a, b) => b.diff - a.diff).filter(e => e.diff > 0).slice(0, 5);
                 const losers = [...entries].sort((a, b) => a.diff - b.diff).filter(e => e.diff < 0).slice(0, 5);
+
+                // Metric selector + threshold
+                const metricSelect = Object.entries(moverMetricLabels).map(([k, v]) =>
+                    `<option value="${k}" ${k === moverMetricKey ? 'selected' : ''}>${v}</option>`
+                ).join('');
+
+                html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:13px;color:#8b949e;">Top Mover nach:</span>
+                        <select id="moverMetricSelect" class="period-select" style="width:auto;">${metricSelect}</select>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:12px;color:#8b949e;">Min. Anzahl:</span>
+                        <input type="number" id="moverMinInput" value="${moverMinThreshold}" min="0" style="width:60px;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#e6edf3;padding:4px 8px;font-size:12px;">
+                    </div>
+                </div>`;
+
                 if (winners.length || losers.length) {
                     const moverRow = (e, isPos) => {
                         const arrow = isPos ? '▲' : '▼';
@@ -1026,6 +1083,7 @@
                         return `<div class="top-mover-row" data-mover-term="${esc(e.term)}" title="${esc(e.term)}">
                             <span class="top-mover-term">${esc(e.term)}</span>
                             <span class="top-mover-vals">
+                                <span style="color:#8b949e;font-size:11px;">${fmtNum(e.abs)}</span>
                                 <span class="top-mover-share">${fmtPct(e.share)}</span>
                                 <span class="top-mover-diff ${cls}">${arrow} ${fmtPct(Math.abs(e.diff))}</span>
                             </span>
@@ -1040,6 +1098,8 @@
                     if (losers.length) { losers.forEach(e => html += moverRow(e, false)); }
                     else { html += '<div style="padding:10px 14px;font-size:12px;color:#8b949e;">Keine Verlierer</div>'; }
                     html += '</div></div>';
+                } else {
+                    html += '<div style="padding:10px 14px;font-size:12px;color:#8b949e;">Keine signifikanten Änderungen mit Min. Anzahl ' + moverMinThreshold + '</div>';
                 }
             }
 
@@ -1290,6 +1350,26 @@
             if (selectedTrendTerms.length > 0) renderTermTrendChart();
 
             // Top Mover click -> add to Trend Analyse
+            // Mover metric select
+            const moverMetricSel = document.getElementById('moverMetricSelect');
+            if (moverMetricSel) {
+                moverMetricSel.addEventListener('change', function() {
+                    window._moverMetric = this.value;
+                    renderDashboard();
+                });
+            }
+            const moverMinInput = document.getElementById('moverMinInput');
+            if (moverMinInput) {
+                let moverDebounce;
+                moverMinInput.addEventListener('input', function() {
+                    clearTimeout(moverDebounce);
+                    moverDebounce = setTimeout(() => {
+                        window._moverMinThreshold = parseInt(this.value) || 0;
+                        renderDashboard();
+                    }, 500);
+                });
+            }
+
             document.querySelectorAll('.top-mover-row[data-mover-term]').forEach(el => {
                 el.addEventListener('click', function () {
                     const term = this.dataset.moverTerm;
