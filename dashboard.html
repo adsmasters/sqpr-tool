@@ -100,6 +100,24 @@
         .top-mover-diff.negative { color: #f85149; }
         @media (max-width: 700px) { .top-mover-grid { grid-template-columns: 1fr; } }
 
+        /* Info Tooltip */
+        .info-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px; border-radius: 50%; background: #30363d;
+            color: #8b949e; font-size: 11px; font-weight: 700; cursor: pointer;
+            margin-left: 6px; transition: background 0.2s, color 0.2s; user-select: none;
+            position: relative; flex-shrink: 0;
+        }
+        .info-icon:hover { background: #3551FF; color: #fff; }
+        .info-popup {
+            display: none; position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+            background: #1c2333; border: 1px solid #30363d; border-radius: 8px;
+            padding: 14px 16px; width: 320px; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            font-size: 12px; line-height: 1.6; color: #c9d1d9; font-weight: 400;
+        }
+        .info-popup.active { display: block; }
+        .info-popup-title { font-weight: 600; color: #e6edf3; margin-bottom: 6px; font-size: 13px; }
+
         /* Charts */
         .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
         .chart-card {
@@ -416,6 +434,56 @@
         let clusterChart = null;
         let clusterMetric = 'volume';
         const clusterColors = ['#3551FF','#3fb950','#eab308','#f85149','#a855f7','#ec4899','#06b6d4','#f97316'];
+
+        // Info icon helper
+        function infoIcon(id, title, text) {
+            return `<span class="info-icon" data-info="${id}">i<div class="info-popup" id="info-${id}"><div class="info-popup-title">${title}</div>${text}</div></span>`;
+        }
+        function initInfoIcons() {
+            document.querySelectorAll('.info-icon[data-info]').forEach(icon => {
+                icon.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const popup = this.querySelector('.info-popup');
+                    const wasActive = popup.classList.contains('active');
+                    document.querySelectorAll('.info-popup.active').forEach(p => p.classList.remove('active'));
+                    if (!wasActive) popup.classList.add('active');
+                });
+            });
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.info-popup.active').forEach(p => p.classList.remove('active'));
+            });
+        }
+
+        const INFO = {
+            kpi: {
+                title: 'KPI Übersicht',
+                text: 'Zeigt den Durchschnitt der Brand Shares über alle Suchbegriffe. Die Diff-Werte (grün/rot) zeigen die Veränderung zum Vergleichszeitraum.<br><br><b>Impression Share</b> — Anteil eurer Marke an den Impressionen<br><b>Click Share</b> — Anteil an den Klicks<br><b>Cart Share</b> — Anteil an den Warenkörben<br><b>Purchase Share</b> — Anteil an den Käufen<br><b>CTR</b> — Klickrate (Klicks / Impressionen)'
+            },
+            topMover: {
+                title: 'Top Gewinner & Verlierer',
+                text: 'Suchbegriffe mit der größten absoluten Veränderung der gewählten Metrik im Vergleichszeitraum.<br><br><b>Anzahl</b> — Aktueller Wert (z.B. Käufe) im gewählten Zeitraum<br><b>Diff</b> — Absolute Veränderung zum Vergleichszeitraum<br><b>Share</b> — Euer aktueller Markenanteil bei diesem Suchbegriff<br><br>Klick auf einen Suchbegriff fügt ihn zur Trend Analyse hinzu.'
+            },
+            brandTrend: {
+                title: 'Brand Trend',
+                text: 'Zeigt die Entwicklung eurer Marke über alle Monate.<br><br><b>Share %</b> — Durchschnittlicher Brand Share pro Monat<br><b>Absolut</b> — Gesamtzahl (Klicks, Warenkörbe, Käufe) eurer Marke pro Monat<br><br>Die Linien zeigen verschiedene Funnel-Stufen: Impressionen → Klicks → Warenkorb → Käufe.'
+            },
+            trendAnalyse: {
+                title: 'Trend Analyse',
+                text: 'Vergleiche bis zu 5 Suchbegriffe im Zeitverlauf. Gib einen Begriff ein oder klicke auf einen Top Mover.<br><br>Wähle die Metrik rechts: Suchvolumen, Klicks, Warenkorb, Käufe oder Shares.<br><br>Die Suchbegriffe werden nach Suchvolumen sortiert vorgeschlagen.'
+            },
+            table: {
+                title: 'Suchbegriff-Tabelle',
+                text: 'Alle Suchbegriffe sortierbar und filterbar.<br><br><b>Suchvolumen</b> — Anzahl Suchanfragen auf Amazon<br><b>Impr. Marke</b> — Impressionen eurer Marke<br><b>Impr. Share</b> — Euer Anteil an den Impressionen<br><b>Klicks/Share</b> — Klicks und euer Anteil<br><b>Warenk./Share</b> — Warenkörbe und euer Anteil<br><b>Käufe/Share</b> — Käufe und euer Anteil<br><b>CTR/CVR</b> — Klick- und Conversion-Rate<br><br>Grüne/rote Werte zeigen Veränderungen zum Vergleichszeitraum. Klick auf Spaltenköpfe zum Sortieren.'
+            },
+            monthCompare: {
+                title: 'Monatsvergleich',
+                text: 'Zeigt alle Monate nebeneinander für jeden Suchbegriff. So erkennst du saisonale Muster und langfristige Trends.<br><br>Klick auf Spaltenköpfe zum Sortieren (sortiert nach dem letzten Monat).'
+            },
+            cluster: {
+                title: 'Cluster Analyse',
+                text: 'Gruppiere Suchbegriffe in Cluster (z.B. "Eigenmarke", "Wettbewerber", "Generisch") und vergleiche deren Performance.<br><br><b>Keyword-Syntax:</b><br>• <code>red bull</code> — Broad Match (enthält)<br>• <code>[energy drink]</code> — Exact Match<br>• <code>-monster</code> — Negativ (ausschließen)<br><br>Cluster werden pro Kunde gespeichert.'
+            }
+        };
 
         // Helpers
         function fmtInt(n) {
@@ -1014,6 +1082,7 @@
                 </div>`;
 
             // KPI Cards
+            html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;"><span style="font-size:13px;font-weight:600;color:#8b949e;">KPIs</span>' + infoIcon('kpi', INFO.kpi.title, INFO.kpi.text) + '</div>';
             html += '<div class="kpi-grid">';
             html += kpiCard('Ø Impression Share', fmtPct(kpis.imprShare), diffs ? diffHtml(diffs.imprShare) : '');
             html += kpiCard('Ø Click Share', fmtPct(kpis.clickShare), diffs ? diffHtml(diffs.clickShare) : '');
@@ -1078,7 +1147,7 @@
 
                 html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <span style="font-size:13px;color:#8b949e;">Top Mover nach:</span>
+                        <span style="font-size:13px;color:#8b949e;">Top Mover nach:</span>${infoIcon('topMover', INFO.topMover.title, INFO.topMover.text)}
                         <select id="moverMetricSelect" class="period-select" style="width:auto;">${metricSelect}</select>
                     </div>
                     <div style="display:flex;align-items:center;gap:12px;">
@@ -1138,7 +1207,7 @@
             if (showTrend) {
                 html += `<div class="chart-card" style="margin-bottom:24px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                        <div class="chart-title" style="margin-bottom:0;">Brand Trend</div>
+                        <div class="chart-title" style="margin-bottom:0;display:flex;align-items:center;">Brand Trend${infoIcon('brandTrend', INFO.brandTrend.title, INFO.brandTrend.text)}</div>
                         <div class="table-view-toggle" id="chartModeToggle">
                             <button class="table-view-btn active" data-mode="share">Share %</button>
                             <button class="table-view-btn" data-mode="absolute">Absolut</button>
@@ -1152,7 +1221,7 @@
             html += `
                 <div class="trend-section" id="trendSection">
                     <div class="trend-header" id="trendToggle">
-                        <h3>Trend Analyse</h3>
+                        <h3 style="display:flex;align-items:center;">Trend Analyse${infoIcon('trendAnalyse', INFO.trendAnalyse.title, INFO.trendAnalyse.text)}</h3>
                         <span class="chevron">▼</span>
                     </div>
                     <div class="trend-body" id="trendBody" style="display:none;">
@@ -1182,7 +1251,7 @@
             html += `
                 <div class="cluster-section" id="clusterSection">
                     <div class="cluster-header" id="clusterToggle">
-                        <h3>Cluster Analyse</h3>
+                        <h3 style="display:flex;align-items:center;">Cluster Analyse${infoIcon('cluster', INFO.cluster.title, INFO.cluster.text)}</h3>
                         <span class="chevron">▼</span>
                     </div>
                     <div class="cluster-body" id="clusterBody" style="display:none;">
@@ -1217,7 +1286,7 @@
             html += `
                 <div class="table-section">
                     <div class="table-toolbar">
-                        <span class="table-count" id="tableCount">${fmtInt(filteredRows.length)} Suchbegriffe</span>
+                        <span class="table-count" id="tableCount" style="display:flex;align-items:center;">${fmtInt(filteredRows.length)} Suchbegriffe${infoIcon('table', INFO.table.title, INFO.table.text)}</span>
                         <div style="display:flex;gap:10px;align-items:center;">
                             <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern..." value="${esc(searchTerm)}">
                             ${showMonthToggle ? `<div class="table-view-toggle">
@@ -1255,6 +1324,9 @@
 
             // Render table rows
             renderTableRows(queryDiffs);
+
+            // Init info icons
+            initInfoIcons();
 
             // Events
             document.getElementById('periodSelect').addEventListener('change', async function () {
