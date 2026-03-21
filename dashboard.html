@@ -1286,7 +1286,7 @@
             html += `
                 <div class="table-section">
                     <div class="table-toolbar">
-                        <span class="table-count" id="tableCount" style="display:flex;align-items:center;">${fmtInt(filteredRows.length)} Suchbegriffe${infoIcon('table', INFO.table.title, INFO.table.text)}</span>
+                        <span class="table-count" id="tableCount" style="display:flex;align-items:center;">${infoIcon('table', INFO.table.title, INFO.table.text)}</span>
                         <div style="display:flex;gap:10px;align-items:center;">
                             <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern..." value="${esc(searchTerm)}">
                             ${showMonthToggle ? `<div class="table-view-toggle">
