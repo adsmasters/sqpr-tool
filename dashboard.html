@@ -1106,16 +1106,18 @@
                         return `<div class="top-mover-row" data-mover-term="${esc(e.term)}" title="${esc(e.term)}">
                             <span class="top-mover-term">${esc(e.term)}</span>
                             <span class="top-mover-vals">
-                                <span style="color:#e6edf3;font-size:12px;font-weight:600;">${fmtNum(e.abs)}</span>
-                                <span class="top-mover-diff ${cls}">${arrow} ${sign}${fmtNum(e.absDiff)}</span>
-                                <span class="top-mover-share">${fmtPct(e.share)}</span>
+                                <span style="color:#e6edf3;font-size:12px;font-weight:600;min-width:45px;text-align:right;">${fmtNum(e.abs)}</span>
+                                <span class="top-mover-diff ${cls}" style="min-width:55px;text-align:right;">${arrow} ${sign}${fmtNum(e.absDiff)}</span>
+                                <span class="top-mover-share" style="min-width:55px;text-align:right;">${fmtPct(e.share)}</span>
                             </span>
                         </div>`;
                     };
-                    const colHeader = `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #30363d;">
-                        <span style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;">Suchbegriff</span>
-                        <span style="display:flex;gap:10px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;">
-                            <span>Anzahl</span><span>Diff</span><span>Share</span>
+                    const colHeader = `<div class="top-mover-row" style="height:24px;cursor:default;border-bottom:1px solid #30363d;">
+                        <span class="top-mover-term" style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;">Suchbegriff</span>
+                        <span class="top-mover-vals" style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;">
+                            <span style="min-width:45px;text-align:right;">Anzahl</span>
+                            <span style="min-width:55px;text-align:right;">Diff</span>
+                            <span style="min-width:55px;text-align:right;">Share</span>
                         </span>
                     </div>`;
                     html += '<div class="top-mover-grid">';
