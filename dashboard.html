@@ -1097,7 +1097,6 @@
                         </div>
                     </div>
                 </div>`;
-                html += `<div style="font-size:11px;color:#8b949e;margin-bottom:10px;">Zeigt Suchbegriffe mit der größten absoluten Veränderung bei <strong style="color:#e6edf3;">${esc(currentMetricLabel)}</strong> im Vergleichszeitraum. Spalten: aktuelle Anzahl | Veränderung | Brand Share.</div>`;
 
                 if (winners.length || losers.length) {
                     const moverRow = (e, isPos) => {
@@ -1113,12 +1112,18 @@
                             </span>
                         </div>`;
                     };
+                    const colHeader = `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #30363d;">
+                        <span style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;">Suchbegriff</span>
+                        <span style="display:flex;gap:10px;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;">
+                            <span>Anzahl</span><span>Diff</span><span>Share</span>
+                        </span>
+                    </div>`;
                     html += '<div class="top-mover-grid">';
-                    html += '<div class="top-mover-card"><div class="top-mover-title winners">Top Gewinner</div>';
+                    html += '<div class="top-mover-card"><div class="top-mover-title winners">Top Gewinner</div>' + colHeader;
                     if (winners.length) { winners.forEach(e => html += moverRow(e, true)); }
                     else { html += '<div style="padding:10px 14px;font-size:12px;color:#8b949e;">Keine Gewinner</div>'; }
                     html += '</div>';
-                    html += '<div class="top-mover-card"><div class="top-mover-title losers">Top Verlierer</div>';
+                    html += '<div class="top-mover-card"><div class="top-mover-title losers">Top Verlierer</div>' + colHeader;
                     if (losers.length) { losers.forEach(e => html += moverRow(e, false)); }
                     else { html += '<div style="padding:10px 14px;font-size:12px;color:#8b949e;">Keine Verlierer</div>'; }
                     html += '</div></div>';
