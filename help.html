@@ -179,8 +179,9 @@
                 <a href="#section-4" class="toc-link"><span class="toc-num">4</span> Vergleich</a>
                 <a href="#section-10" class="toc-link"><span class="toc-num">10</span> CSV Export &amp; Datenformat</a>
                 <a href="#section-5" class="toc-link"><span class="toc-num">5</span> Top Mover</a>
-                <a href="#section-11" class="toc-link"><span class="toc-num">11</span> Zugang</a>
+                <a href="#section-11" class="toc-link"><span class="toc-num">11</span> Info-Icons</a>
                 <a href="#section-6" class="toc-link"><span class="toc-num">6</span> Brand Trend Chart</a>
+                <a href="#section-12" class="toc-link"><span class="toc-num">12</span> Zugang</a>
             </div>
         </div>
 
@@ -242,10 +243,22 @@
                 <div class="section-badge">5</div>
                 <div class="section-title">Top Mover</div>
             </div>
-            <p>Zeigt automatisch die Suchbegriffe mit den gr&ouml;&szlig;ten Ver&auml;nderungen:</p>
+            <p>Zeigt die Suchbegriffe mit den gr&ouml;&szlig;ten <strong>absoluten</strong> Ver&auml;nderungen im Vergleichszeitraum:</p>
             <ul>
-                <li><strong>Top Gewinner</strong>: Gr&ouml;&szlig;ter Purchase Share Zuwachs</li>
-                <li><strong>Top Verlierer</strong>: Gr&ouml;&szlig;ter Purchase Share R&uuml;ckgang</li>
+                <li><strong>Top Gewinner</strong>: Gr&ouml;&szlig;ter Zuwachs bei der gew&auml;hlten Metrik</li>
+                <li><strong>Top Verlierer</strong>: Gr&ouml;&szlig;ter R&uuml;ckgang bei der gew&auml;hlten Metrik</li>
+            </ul>
+            <p><strong>Spalten:</strong></p>
+            <ul class="kpi-list">
+                <li><div class="kpi-item"><span class="kpi-label">Anzahl</span><span class="kpi-desc">— Aktueller Wert im gew&auml;hlten Zeitraum (z.B. 203 K&auml;ufe)</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">Diff</span><span class="kpi-desc">— Absolute Ver&auml;nderung zum Vergleichszeitraum (z.B. +47)</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">Share</span><span class="kpi-desc">— Aktueller Brand Share bei diesem Suchbegriff</span></div></li>
+            </ul>
+            <p><strong>Einstellungen:</strong></p>
+            <ul>
+                <li><strong>Metrik</strong>: W&auml;hlbar zwischen K&auml;ufe, Klicks, Warenkorb oder Impressionen</li>
+                <li><strong>Min. Anzahl</strong>: Filtert Suchbegriffe mit zu wenig Volumen heraus (vermeidet irref&uuml;hrende +100% bei 1 &rarr; 2)</li>
+                <li><strong>Anzeigen</strong>: Top 5, 10, 15 oder 25 (Default: 5)</li>
             </ul>
             <div class="hint-box">Klick auf einen Suchbegriff f&uuml;gt ihn automatisch zur Trend Analyse hinzu.</div>
         </div>
@@ -268,12 +281,25 @@
                 <div class="section-badge">7</div>
                 <div class="section-title">Trend Analyse</div>
             </div>
+            <p>Vergleiche bis zu 5 <strong>Suchbegriffe und/oder Cluster</strong> im Zeitverlauf:</p>
             <ul>
-                <li>Suche nach Suchbegriffen und w&auml;hle bis zu 5 aus</li>
-                <li>Vorschl&auml;ge sortiert nach Suchvolumen</li>
-                <li>W&auml;hle die Metrik: Suchvolumen, Impression/Click/Cart/Purchase Share</li>
-                <li>Line Chart zeigt den Verlauf pro Suchbegriff</li>
+                <li>Suchbegriffe &uuml;ber das Suchfeld eingeben (Vorschl&auml;ge sortiert nach Suchvolumen)</li>
+                <li>Cluster &uuml;ber das <strong>&bdquo;+ Cluster&ldquo;</strong> Dropdown hinzuf&uuml;gen</li>
+                <li>Cluster-Tags werden mit gestricheltem Rahmen dargestellt</li>
+                <li>Klick auf einen Top Mover f&uuml;gt ihn ebenfalls hinzu</li>
             </ul>
+            <p><strong>Verf&uuml;gbare Metriken:</strong></p>
+            <ul>
+                <li><strong>Suchvolumen</strong> — Anzahl Suchanfragen auf Amazon</li>
+                <li><strong>Impression/Click/Cart/Purchase Share %</strong> — Euer Markenanteil</li>
+                <li><strong>Purchase Share + Markt</strong> — Dual-Axis Chart:
+                    <ul style="margin-top:4px;">
+                        <li>Durchgezogene farbige Linie = euer Purchase Share % (linke Achse)</li>
+                        <li>Gestrichelte rote Linie = Gesamtk&auml;ufe im Markt (rechte Achse)</li>
+                    </ul>
+                </li>
+            </ul>
+            <div class="hint-box"><strong>Tipp:</strong> &bdquo;Purchase Share + Markt&ldquo; zeigt ob euer Marktanteil stabil ist w&auml;hrend der Gesamtmarkt w&auml;chst oder schrumpft — das ist aussagekr&auml;ftiger als der Share allein.</div>
         </div>
 
         <!-- Section 8 -->
@@ -282,19 +308,27 @@
                 <div class="section-badge">8</div>
                 <div class="section-title">Cluster Analyse</div>
             </div>
-            <p>Gruppiere Suchbegriffe in Cluster (z.B. Brand, Wettbewerber, Generisch) und vergleiche sie.</p>
+            <p>Gruppiere Suchbegriffe in Cluster (z.B. Brand, Wettbewerber, Generisch) und vergleiche deren aggregierte Performance.</p>
             <p><strong>Cluster erstellen:</strong></p>
             <ol>
                 <li>Cluster Analyse aufklappen &rarr; &bdquo;+&ldquo; klicken</li>
                 <li>Name eingeben (z.B. &bdquo;Eigenmarke&ldquo;)</li>
-                <li>Keywords eingeben (ein pro Zeile):
-                    <ul style="margin-top: 6px; margin-bottom: 2px;">
-                        <li><code>red bull</code> = Broad — enth&auml;lt &bdquo;red bull&ldquo;</li>
-                        <li><code>[energy drink]</code> = Exact — exakter Suchbegriff</li>
-                        <li><code>-monster</code> = Negativ — ausschlie&szlig;en</li>
-                    </ul>
-                </li>
+                <li>Keywords eingeben (ein pro Zeile)</li>
             </ol>
+            <p><strong>Keyword-Syntax:</strong></p>
+            <ul>
+                <li><code>red bull</code> = <strong>Broad Match</strong> — enth&auml;lt &bdquo;red bull&ldquo; irgendwo im Suchbegriff</li>
+                <li><code>[energy drink]</code> = <strong>Exact Match</strong> — nur der exakte Suchbegriff &bdquo;energy drink&ldquo;</li>
+                <li><code>-monster</code> = <strong>Negativ</strong> — schlie&szlig;t alle Suchbegriffe mit &bdquo;monster&ldquo; aus</li>
+            </ul>
+            <p><strong>Beispiel &bdquo;Generisch&ldquo; Cluster:</strong></p>
+            <ul>
+                <li><code>energy drink</code> — matcht alle mit &bdquo;energy drink&ldquo;</li>
+                <li><code>-red bull</code> — schlie&szlig;t Brand-Begriffe aus</li>
+                <li><code>-monster</code> — schlie&szlig;t Wettbewerber aus</li>
+            </ul>
+            <p><strong>Berechnung:</strong> Share-Werte werden gewichtet berechnet: Summe(K&auml;ufe Marke) / Summe(K&auml;ufe Gesamt) &times; 100. Ein Keyword mit 1.000 K&auml;ufen wiegt mehr als eines mit 2 K&auml;ufen.</p>
+            <p>Cluster werden <strong>pro Kunde gespeichert</strong> und k&ouml;nnen auch in der Trend Analyse verwendet werden.</p>
             <div class="hint-box"><strong>Reihenfolge wichtig:</strong> Ein Suchbegriff wird dem ersten passenden Cluster zugeordnet. Brand-Cluster sollten vor Generisch-Clustern stehen.</div>
         </div>
 
@@ -304,9 +338,28 @@
                 <div class="section-badge">9</div>
                 <div class="section-title">Tabellen-Ansichten</div>
             </div>
+            <p><strong>Standard-Tabelle:</strong></p>
             <ul>
-                <li><strong>Standard</strong>: Alle Suchbegriffe mit Marken-KPIs, sortierbar und filterbar</li>
-                <li><strong>Monatsvergleich</strong>: Alle Monate nebeneinander pro Suchbegriff, sortierbar nach Klicks/Warenkorb/K&auml;ufe</li>
+                <li>Alle Suchbegriffe mit Marken-KPIs, default sortiert nach <strong>K&auml;ufe Marke</strong></li>
+                <li>Klick auf Spaltenk&ouml;pfe zum Sortieren (aufsteigend/absteigend)</li>
+                <li>Suchfeld zum Filtern nach Suchbegriffen</li>
+                <li>Diff-Werte in gr&uuml;n/rot zeigen Ver&auml;nderungen zum Vergleichszeitraum</li>
+            </ul>
+            <p><strong>Spalten:</strong></p>
+            <ul class="kpi-list">
+                <li><div class="kpi-item"><span class="kpi-label">Suchvolumen</span><span class="kpi-desc">— Anzahl Suchanfragen auf Amazon</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">Impr. Marke / Share</span><span class="kpi-desc">— Impressionen eurer Marke und Markenanteil</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">Klicks / Share</span><span class="kpi-desc">— Klicks auf eure Marke und Markenanteil</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">Warenk. / Share</span><span class="kpi-desc">— Warenkorbaktionen und Markenanteil</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">K&auml;ufe / Share</span><span class="kpi-desc">— K&auml;ufe und Markenanteil</span></div></li>
+                <li><div class="kpi-item"><span class="kpi-label">CTR / CVR</span><span class="kpi-desc">— Klickrate und Conversion Rate</span></div></li>
+            </ul>
+            <p><strong>Monatsvergleich-Tabelle:</strong></p>
+            <ul>
+                <li>Alle Monate nebeneinander pro Suchbegriff</li>
+                <li>Zeigt Suchvolumen, Klicks (Anzahl + Share), Warenkorb und K&auml;ufe pro Monat</li>
+                <li>Sortierbar nach dem letzten Monat</li>
+                <li>Ideal f&uuml;r saisonale Muster und langfristige Trends</li>
             </ul>
         </div>
 
@@ -327,6 +380,16 @@
         <div class="section-card" id="section-11">
             <div class="section-header">
                 <div class="section-badge">11</div>
+                <div class="section-title">Info-Icons im Dashboard</div>
+            </div>
+            <p>Jede Sektion im Dashboard hat ein blaues <strong>(i)</strong> Icon. Klick darauf zeigt eine Kurzerkl&auml;rung direkt im Dashboard — ohne diese Hilfe-Seite &ouml;ffnen zu m&uuml;ssen.</p>
+            <p>Verf&uuml;gbar bei: KPIs, Top Mover, Brand Trend, Trend Analyse, Suchbegriff-Tabelle und Cluster Analyse.</p>
+        </div>
+
+        <!-- Section 12 -->
+        <div class="section-card" id="section-12">
+            <div class="section-header">
+                <div class="section-badge">12</div>
                 <div class="section-title">Zugang</div>
             </div>
             <div class="access-box">
