@@ -1,10 +1,46 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SQPR Tool — Upload</title>
     <style>
+        /* Theme variables — Light (default) */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f6f8fa;
+            --bg-hover: #eef1f5;
+            --border: #d0d7de;
+            --text-primary: #1f2328;
+            --text-secondary: #656d76;
+            --text-muted: #8b949e;
+            --accent: #3551FF;
+            --accent-hover: #2a41cc;
+            --error: #cf222e;
+            --success: #1a7f37;
+            --row-border: #d8dee4;
+            --modal-overlay: rgba(0,0,0,0.3);
+            --placeholder: #8b949e;
+        }
+
+        /* Dark mode */
+        [data-theme="dark"] {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-hover: #1c2129;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #8b949e;
+            --accent: #3551FF;
+            --accent-hover: #2a44dd;
+            --error: #f85149;
+            --success: #3fb950;
+            --row-border: #21262d;
+            --modal-overlay: rgba(0,0,0,0.6);
+            --placeholder: #484f58;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,15 +49,16 @@
 
         body {
             font-family: Arial, sans-serif;
-            background-color: #0d1117;
-            color: #e6edf3;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
+            transition: background 0.2s, color 0.2s;
         }
 
         /* Top Bar */
         .topbar {
-            background: #161b22;
-            border-bottom: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
             padding: 0 32px;
             height: 56px;
             display: flex;
@@ -41,7 +78,7 @@
         .topbar-logo {
             font-size: 18px;
             font-weight: 700;
-            color: #3551FF;
+            color: var(--accent);
             text-decoration: none;
         }
 
@@ -51,7 +88,7 @@
         }
 
         .topbar-nav a {
-            color: #8b949e;
+            color: var(--text-secondary);
             text-decoration: none;
             font-size: 14px;
             padding: 8px 14px;
@@ -60,19 +97,33 @@
         }
 
         .topbar-nav a:hover {
-            color: #e6edf3;
-            background: #21262d;
+            color: var(--text-primary);
+            background: var(--bg-hover);
         }
 
         .topbar-nav a.active {
-            color: #e6edf3;
-            background: #30363d;
+            color: var(--text-primary);
+            background: var(--bg-hover);
         }
 
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-theme-toggle {
+            background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+            width: 34px; height: 34px; border-radius: 6px; cursor: pointer; font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+            transition: color 0.2s, border-color 0.2s, background 0.2s;
+        }
+        .btn-theme-toggle:hover { color: var(--text-primary); border-color: var(--text-secondary); background: var(--bg-hover); }
+
         .logout-btn {
-            color: #8b949e;
+            color: var(--text-secondary);
             background: none;
-            border: 1px solid #30363d;
+            border: 1px solid var(--border);
             padding: 6px 16px;
             border-radius: 6px;
             font-size: 13px;
@@ -82,8 +133,8 @@
         }
 
         .logout-btn:hover {
-            color: #f85149;
-            border-color: #f85149;
+            color: var(--error);
+            border-color: var(--error);
         }
 
         /* Main Content */
@@ -104,8 +155,8 @@
 
         /* Cards */
         .card {
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 24px;
@@ -115,7 +166,7 @@
             font-size: 15px;
             font-weight: 700;
             margin-bottom: 18px;
-            color: #e6edf3;
+            color: var(--text-primary);
         }
 
         /* Form elements */
@@ -134,7 +185,7 @@
         .form-group label {
             display: block;
             font-size: 13px;
-            color: #8b949e;
+            color: var(--text-secondary);
             margin-bottom: 6px;
             font-weight: 600;
         }
@@ -143,10 +194,10 @@
         .form-group select {
             width: 100%;
             padding: 10px 14px;
-            background: #0d1117;
-            border: 1px solid #30363d;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
             border-radius: 8px;
-            color: #e6edf3;
+            color: var(--text-primary);
             font-size: 14px;
             font-family: Arial, sans-serif;
             outline: none;
@@ -155,16 +206,16 @@
 
         .form-group input:focus,
         .form-group select:focus {
-            border-color: #3551FF;
+            border-color: var(--accent);
         }
 
         .form-group select option {
-            background: #161b22;
+            background: var(--bg-secondary);
         }
 
         /* Drop zone */
         .drop-zone {
-            border: 2px dashed #30363d;
+            border: 2px dashed var(--border);
             border-radius: 12px;
             padding: 48px 24px;
             text-align: center;
@@ -174,25 +225,25 @@
 
         .drop-zone:hover,
         .drop-zone.dragover {
-            border-color: #3551FF;
+            border-color: var(--accent);
             background: rgba(53, 81, 255, 0.05);
         }
 
         .drop-zone-icon {
             font-size: 40px;
             margin-bottom: 12px;
-            color: #8b949e;
+            color: var(--text-secondary);
         }
 
         .drop-zone-text {
             font-size: 15px;
-            color: #8b949e;
+            color: var(--text-secondary);
             margin-bottom: 8px;
         }
 
         .drop-zone-hint {
             font-size: 12px;
-            color: #484f58;
+            color: var(--placeholder);
         }
 
         .drop-zone input[type="file"] {
@@ -206,7 +257,7 @@
             gap: 10px;
             padding: 14px;
             background: rgba(53, 81, 255, 0.08);
-            border: 1px solid #3551FF;
+            border: 1px solid var(--accent);
             border-radius: 8px;
             margin-top: 12px;
         }
@@ -214,13 +265,13 @@
         .file-selected .file-name {
             font-size: 14px;
             font-weight: 600;
-            color: #e6edf3;
+            color: var(--text-primary);
         }
 
         .file-selected .remove-file {
             background: none;
             border: none;
-            color: #8b949e;
+            color: var(--text-secondary);
             cursor: pointer;
             font-size: 18px;
             padding: 0 4px;
@@ -229,7 +280,7 @@
         }
 
         .file-selected .remove-file:hover {
-            color: #f85149;
+            color: var(--error);
         }
 
         /* Preview */
@@ -239,8 +290,8 @@
 
         .badge {
             display: inline-block;
-            background: #21262d;
-            color: #8b949e;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
             padding: 4px 12px;
             border-radius: 12px;
             font-size: 13px;
@@ -250,7 +301,7 @@
 
         .badge.success {
             background: rgba(63, 185, 80, 0.15);
-            color: #3fb950;
+            color: var(--success);
         }
 
         .columns-validation {
@@ -272,17 +323,17 @@
 
         .col-tag.found {
             background: rgba(63, 185, 80, 0.12);
-            color: #3fb950;
+            color: var(--success);
         }
 
         .col-tag.missing {
             background: rgba(248, 81, 73, 0.12);
-            color: #f85149;
+            color: var(--error);
         }
 
         .preview-table-wrap {
             overflow-x: auto;
-            border: 1px solid #30363d;
+            border: 1px solid var(--border);
             border-radius: 8px;
         }
 
@@ -298,15 +349,15 @@
             padding: 10px 14px;
             font-size: 11px;
             font-weight: 600;
-            color: #8b949e;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.3px;
-            border-bottom: 1px solid #30363d;
-            background: #0d1117;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-primary);
         }
 
         .preview-table-wrap tbody tr {
-            border-bottom: 1px solid #21262d;
+            border-bottom: 1px solid var(--row-border);
         }
 
         .preview-table-wrap tbody tr:last-child {
@@ -320,7 +371,7 @@
 
         /* Upload button */
         .btn-primary {
-            background: #3551FF;
+            background: var(--accent);
             color: #fff;
             border: none;
             padding: 10px 20px;
@@ -333,7 +384,7 @@
         }
 
         .btn-primary:hover {
-            background: #2a44e0;
+            background: var(--accent-hover);
         }
 
         .btn-primary:disabled {
@@ -357,14 +408,14 @@
         .progress-bar-outer {
             width: 100%;
             height: 8px;
-            background: #21262d;
+            background: var(--bg-hover);
             border-radius: 4px;
             overflow: hidden;
         }
 
         .progress-bar-inner {
             height: 100%;
-            background: #3551FF;
+            background: var(--accent);
             border-radius: 4px;
             width: 0%;
             transition: width 0.3s;
@@ -372,7 +423,7 @@
 
         .progress-text {
             font-size: 13px;
-            color: #8b949e;
+            color: var(--text-secondary);
             margin-top: 6px;
         }
 
@@ -384,7 +435,7 @@
             background: rgba(63, 185, 80, 0.1);
             border: 1px solid rgba(63, 185, 80, 0.3);
             border-radius: 8px;
-            color: #3fb950;
+            color: var(--success);
             font-size: 14px;
             font-weight: 600;
         }
@@ -396,14 +447,14 @@
             background: rgba(248, 81, 73, 0.1);
             border: 1px solid rgba(248, 81, 73, 0.3);
             border-radius: 8px;
-            color: #f85149;
+            color: var(--error);
             font-size: 14px;
         }
 
         /* Upload history table */
         .table-card {
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
             border-radius: 12px;
             overflow: hidden;
         }
@@ -418,15 +469,15 @@
             padding: 14px 20px;
             font-size: 12px;
             font-weight: 600;
-            color: #8b949e;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            border-bottom: 1px solid #30363d;
-            background: #0d1117;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-primary);
         }
 
         .table-card tbody tr {
-            border-bottom: 1px solid #21262d;
+            border-bottom: 1px solid var(--row-border);
             transition: background 0.15s;
         }
 
@@ -435,7 +486,7 @@
         }
 
         .table-card tbody tr:hover {
-            background: #1c2128;
+            background: var(--bg-hover);
         }
 
         .table-card tbody td {
@@ -446,7 +497,7 @@
         .action-btn {
             background: none;
             border: none;
-            color: #8b949e;
+            color: var(--text-secondary);
             cursor: pointer;
             font-size: 13px;
             font-family: Arial, sans-serif;
@@ -456,18 +507,18 @@
         }
 
         .action-btn:hover {
-            color: #e6edf3;
-            background: #21262d;
+            color: var(--text-primary);
+            background: var(--bg-hover);
         }
 
         .action-btn.delete:hover {
-            color: #f85149;
+            color: var(--error);
         }
 
         .empty-state {
             text-align: center;
             padding: 40px 20px;
-            color: #8b949e;
+            color: var(--text-secondary);
         }
 
         .empty-state p {
@@ -478,7 +529,7 @@
         .loading {
             text-align: center;
             padding: 40px;
-            color: #8b949e;
+            color: var(--text-secondary);
         }
 
         @keyframes spin {
@@ -489,8 +540,8 @@
             display: inline-block;
             width: 24px;
             height: 24px;
-            border: 3px solid #30363d;
-            border-top-color: #3551FF;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.7s linear infinite;
             margin-bottom: 12px;
@@ -500,7 +551,7 @@
         .confirm-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.6);
+            background: var(--modal-overlay);
             display: none;
             align-items: center;
             justify-content: center;
@@ -512,8 +563,8 @@
         }
 
         .confirm-dialog {
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 28px 32px;
             max-width: 400px;
@@ -535,9 +586,9 @@
         }
 
         .btn-secondary {
-            background: #21262d;
-            color: #e6edf3;
-            border: 1px solid #30363d;
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
             padding: 10px 20px;
             border-radius: 8px;
             font-size: 14px;
@@ -547,7 +598,7 @@
         }
 
         .btn-secondary:hover {
-            background: #30363d;
+            background: var(--border);
         }
 
         .btn-danger {
@@ -588,7 +639,10 @@
                 <a href="help.html">Hilfe</a>
             </nav>
         </div>
-        <button class="logout-btn" id="logoutBtn">Logout</button>
+        <div class="topbar-right">
+            <button class="btn-theme-toggle" id="themeToggle" title="Theme wechseln" onclick="toggleTheme()">&#9789;</button>
+            <button class="logout-btn" id="logoutBtn">Logout</button>
+        </div>
     </div>
 
     <!-- Main Content -->
@@ -711,6 +765,26 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script>
+        // Theme init — apply before render to avoid flash
+        (function() {
+            const saved = localStorage.getItem('sqpr_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+            updateThemeIcon(saved);
+        })();
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('sqpr_theme', next);
+            updateThemeIcon(next);
+        }
+
+        function updateThemeIcon(theme) {
+            const btn = document.getElementById('themeToggle');
+            if (btn) btn.innerHTML = theme === 'dark' ? '&#9728;' : '&#9789;';
+        }
+
         // Auth check
         if (sessionStorage.getItem('sqpr_auth') !== 'true') {
             window.location.href = 'index.html';
@@ -879,7 +953,6 @@
         // --- CSV Parsing ---
 
         function detectDelimiter(text) {
-            // Check first few lines for semicolons vs commas
             const lines = text.split('\n').slice(0, 20);
             let semiCount = 0;
             let commaCount = 0;
@@ -916,7 +989,6 @@
         }
 
         function findHeaderRow(lines, delimiter) {
-            // Search for a line containing query/impressions keywords (EN or DE)
             for (let i = 0; i < Math.min(lines.length, 30); i++) {
                 const lower = lines[i].toLowerCase();
                 const hasQuery = lower.includes('search query') || lower.includes('suchabfrage');
@@ -925,23 +997,19 @@
                     return i;
                 }
             }
-            // Fallback: first non-empty line
             return 0;
         }
 
         function findColumnIndex(headers, expected) {
-            // Find the COLUMN_DEF for this expected name
             const def = COLUMN_DEFS.find(d => d.name === expected);
             if (!def) return -1;
 
-            // Pass 1: exact match
             for (let i = 0; i < headers.length; i++) {
                 const hLower = headers[i].toLowerCase().trim();
                 for (const term of def.match) {
                     if (hLower === term) return i;
                 }
             }
-            // Pass 2: header contains term (term must be in header, NOT the reverse)
             for (let i = 0; i < headers.length; i++) {
                 const hLower = headers[i].toLowerCase().trim();
                 for (const term of def.match) {
@@ -959,42 +1027,29 @@
             const isPercent = s.includes('%');
             s = s.replace('%', '').trim();
 
-            // Detect German vs English number format
-            // German: 1.234,56 or 1.234 (thousands sep = dot, decimal = comma)
-            // English: 1,234.56 or 1,234 (thousands sep = comma, decimal = dot)
             const lastDot = s.lastIndexOf('.');
             const lastComma = s.lastIndexOf(',');
 
             let num;
             if (lastComma > lastDot) {
-                // German format: dots are thousands, comma is decimal
                 s = s.replace(/\./g, '').replace(',', '.');
             } else if (lastDot > lastComma) {
-                // English format: commas are thousands, dot is decimal
                 s = s.replace(/,/g, '');
             } else if (lastComma >= 0 && lastDot < 0) {
-                // Only commas - could be German decimal
-                // If there's exactly one comma, treat as decimal separator
                 const commaCount = (s.match(/,/g) || []).length;
                 if (commaCount === 1) {
                     s = s.replace(',', '.');
                 } else {
-                    // Multiple commas = thousands separators
                     s = s.replace(/,/g, '');
                 }
             } else if (lastDot >= 0 && lastComma < 0) {
-                // Only dots
                 const dotCount = (s.match(/\./g) || []).length;
                 if (dotCount === 1) {
-                    // Could be decimal or thousands. Check digits after dot.
                     const afterDot = s.split('.')[1];
                     if (afterDot.length === 3 && !isPercent) {
-                        // Likely German thousands separator: "1.234" = 1234
                         s = s.replace('.', '');
                     }
-                    // else keep as decimal: "5.23" = 5.23
                 } else {
-                    // Multiple dots = thousands separators
                     s = s.replace(/\./g, '');
                 }
             }
@@ -1017,13 +1072,11 @@
             const headers = splitCSVLine(lines[headerIdx], delimiter);
             const dataLines = lines.slice(headerIdx + 1);
 
-            // Parse data rows
             const rows = [];
             for (const line of dataLines) {
                 if (line.trim() === '') continue;
                 const cells = splitCSVLine(line, delimiter);
                 if (cells.length < 2) continue;
-                // Skip rows that look like summary/metadata
                 if (cells[0].toLowerCase().startsWith('total') || cells[0].trim() === '') continue;
                 rows.push(cells);
             }
@@ -1037,10 +1090,8 @@
         function showPreview(headers, rows) {
             previewSection.style.display = 'block';
 
-            // Row count badge
             rowBadge.textContent = rows.length + ' Zeilen erkannt';
 
-            // Column validation
             columnsValidation.innerHTML = '';
             const columnMapping = {};
 
@@ -1058,7 +1109,6 @@
                 columnsValidation.appendChild(tag);
             });
 
-            // Preview table (first 5 rows)
             previewHead.innerHTML = '<tr>' + headers.map(h => '<th>' + escapeHtml(h) + '</th>').join('') + '</tr>';
             previewBody.innerHTML = '';
             const previewRows = rows.slice(0, 5);
@@ -1068,7 +1118,6 @@
                 previewBody.appendChild(tr);
             });
 
-            // Enable upload if we have required columns
             const hasSearchQuery = findColumnIndex(headers, 'Search Query') >= 0;
             uploadBtn.disabled = !hasSearchQuery;
         }
@@ -1098,7 +1147,6 @@
             progressText.textContent = 'Report wird erstellt...';
 
             try {
-                // 1. Create report record
                 const { data: report, error: reportError } = await sb
                     .from('sqpr_reports')
                     .insert({
@@ -1115,14 +1163,12 @@
 
                 const reportId = report.id;
 
-                // 2. Build column index mapping
                 const colIdx = {};
                 EXPECTED_COLUMNS.forEach(expected => {
                     const idx = findColumnIndex(parsedHeaders, expected);
                     if (idx >= 0) colIdx[expected] = idx;
                 });
 
-                // 3. Build rows for batch insert
                 const dbRows = parsedData.map(row => {
                     const obj = { report_id: reportId, client_id: clientId };
 
@@ -1145,7 +1191,6 @@
                     return obj;
                 });
 
-                // 4. Batch insert in chunks of 500
                 const chunkSize = 500;
                 const totalChunks = Math.ceil(dbRows.length / chunkSize);
 
@@ -1156,7 +1201,6 @@
                         .insert(chunk);
 
                     if (insertError) {
-                        // Try to clean up report on failure
                         await sb.from('sqpr_reports').delete().eq('id', reportId);
                         throw new Error('Fehler beim Einfügen der Zeilen (Chunk ' + (i + 1) + '): ' + insertError.message);
                     }
@@ -1166,13 +1210,11 @@
                     progressText.textContent = pct + '% — ' + Math.min((i + 1) * chunkSize, dbRows.length) + ' / ' + dbRows.length + ' Zeilen';
                 }
 
-                // Success
                 progressBar.style.width = '100%';
                 progressText.textContent = '100%';
                 successMsg.textContent = 'Erfolgreich hochgeladen: ' + dbRows.length + ' Zeilen eingefügt.';
                 successMsg.style.display = 'block';
 
-                // Reset file state and reload history
                 setTimeout(() => {
                     resetFileState();
                     loadHistory();
@@ -1269,7 +1311,6 @@
             btn.disabled = true;
             btn.textContent = 'Löschen...';
 
-            // Delete rows first, then report
             await sb.from('sqpr_rows').delete().eq('report_id', deleteTargetId);
             await sb.from('sqpr_reports').delete().eq('id', deleteTargetId);
 
