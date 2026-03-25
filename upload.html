@@ -1249,7 +1249,7 @@
             const { data: reports, error } = await sb
                 .from('sqpr_reports')
                 .select('*')
-                .eq('client_id', parseInt(clientId))
+                .eq('client_id', clientId)
                 .order('created_at', { ascending: false });
 
             historyLoading.style.display = 'none';
