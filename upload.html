@@ -1246,11 +1246,25 @@
                 return;
             }
 
-            const { data: reports, error } = await sb
-                .from('sqpr_reports')
-                .select('*')
-                .eq('client_id', clientId)
-                .order('created_at', { ascending: false });
+            // Try multiple sort columns since schema may vary
+            let reports = null;
+            let error = null;
+            for (const sortCol of ['uploaded_at', 'created_at', 'report_date_start']) {
+                const res = await sb
+                    .from('sqpr_reports')
+                    .select('*')
+                    .eq('client_id', clientId)
+                    .order(sortCol, { ascending: false });
+                if (!res.error && res.data && res.data.length > 0) {
+                    reports = res.data;
+                    break;
+                }
+                if (!res.error && res.data && res.data.length === 0) {
+                    reports = [];
+                    break;
+                }
+                error = res.error;
+            }
 
             historyLoading.style.display = 'none';
 
@@ -1272,11 +1286,12 @@
                 const tr = document.createElement('tr');
                 const sDate = formatDate(report.report_date_start);
                 const eDate = formatDate(report.report_date_end);
+                const uploadDate = report.uploaded_at ? formatDateTime(report.uploaded_at) : (report.created_at ? formatDateTime(report.created_at) : '—');
                 tr.innerHTML = `
                     <td>${sDate} — ${eDate}</td>
-                    <td>${periodLabels[report.reporting_range] || report.reporting_range}</td>
+                    <td>${periodLabels[report.reporting_range] || report.reporting_range || '—'}</td>
                     <td>${report.row_count || 0}</td>
-                    <td>${formatDateTime(report.uploaded_at)}</td>
+                    <td>${uploadDate}</td>
                     <td><button class="action-btn delete delete-report-btn" data-id="${report.id}">Löschen</button></td>
                 `;
                 tr.querySelector('.delete-report-btn').addEventListener('click', () => {
