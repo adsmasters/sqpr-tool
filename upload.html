@@ -770,12 +770,12 @@
         </div>
 
         <div class="card">
-            <div class="card-title">Search Term Report CSV</div>
+            <div class="card-title">Search Term Report</div>
             <div class="drop-zone" id="strDropZone">
                 <div class="drop-zone-icon">&#128196;</div>
-                <div class="drop-zone-text">CSV-Datei hierher ziehen oder klicken</div>
-                <div class="drop-zone-hint">SP Search Term Report (.csv) — Spalte "Customer Search Term" / "Kundensuchanfrage"</div>
-                <input type="file" id="strFileInput" accept=".csv">
+                <div class="drop-zone-text">Datei hierher ziehen oder klicken</div>
+                <div class="drop-zone-hint">SP Search Term Report (.csv oder .xlsx) — Spalte "Customer Search Term" / "Kundensuchanfrage"</div>
+                <input type="file" id="strFileInput" accept=".csv,.xlsx">
             </div>
             <div class="file-selected" id="strFileSelected" style="display:none;">
                 <span class="file-name" id="strFileName"></span>
@@ -835,6 +835,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         // Theme init — apply before render to avoid flash
         (function() {
@@ -1498,8 +1499,13 @@
             e.preventDefault();
             strDropZone.classList.remove('dragover');
             const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.csv')) strHandleFile(files[0]);
+            if (files.length > 0 && isStrFileValid(files[0].name)) strHandleFile(files[0]);
         });
+
+        function isStrFileValid(name) {
+            const lower = name.toLowerCase();
+            return lower.endsWith('.csv') || lower.endsWith('.xlsx');
+        }
         strFileInput.addEventListener('change', () => {
             if (strFileInput.files.length > 0) strHandleFile(strFileInput.files[0]);
         });
@@ -1523,12 +1529,26 @@
             strErrorMsg.style.display = 'none';
             strProgressWrap.style.display = 'none';
 
+            const isXlsx = file.name.toLowerCase().endsWith('.xlsx');
             const reader = new FileReader();
-            reader.onload = (e) => {
-                try { strParseCSV(e.target.result); }
-                catch (err) { strShowError('Fehler beim Parsen: ' + err.message); }
-            };
-            reader.readAsText(file, 'UTF-8');
+
+            if (isXlsx) {
+                reader.onload = (e) => {
+                    try {
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                        strParseRows(rows);
+                    } catch (err) { strShowError('Fehler beim Parsen der Excel-Datei: ' + err.message); }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.onload = (e) => {
+                    try { strParseCSV(e.target.result); }
+                    catch (err) { strShowError('Fehler beim Parsen: ' + err.message); }
+                };
+                reader.readAsText(file, 'UTF-8');
+            }
         }
 
         function strParseCSV(text) {
@@ -1544,7 +1564,24 @@
                 }
             }
 
-            const headers = splitCSVLine(lines[headerIdx], delimiter);
+            const rows = lines.map(l => splitCSVLine(l, delimiter));
+            strParseRows(rows, headerIdx);
+        }
+
+        function strParseRows(rows, headerIdx) {
+            // Auto-detect header row if not provided
+            if (headerIdx === undefined) {
+                headerIdx = 0;
+                for (let i = 0; i < Math.min(rows.length, 30); i++) {
+                    const rowStr = rows[i].join(' ').toLowerCase();
+                    if (STR_COLUMN_MATCH.some(m => rowStr.includes(m))) {
+                        headerIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            const headers = rows[headerIdx].map(h => String(h));
             const colIdx = findStrColumn(headers);
 
             strPreviewSection.style.display = 'block';
@@ -1566,11 +1603,9 @@
 
             // Extract unique terms
             const terms = new Set();
-            for (let i = headerIdx + 1; i < lines.length; i++) {
-                if (lines[i].trim() === '') continue;
-                const cells = splitCSVLine(lines[i], delimiter);
-                const term = cells[colIdx] ? cells[colIdx].trim().toLowerCase() : '';
-                if (term && term !== 'customer search term' && term !== 'kundensuchanfrage') {
+            for (let i = headerIdx + 1; i < rows.length; i++) {
+                const term = rows[i][colIdx] != null ? String(rows[i][colIdx]).trim().toLowerCase() : '';
+                if (term && !STR_COLUMN_MATCH.includes(term)) {
                     terms.add(term);
                 }
             }
