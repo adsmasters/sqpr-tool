@@ -189,6 +189,25 @@
         .chart-container { position: relative; width: 100%; }
         .chart-container canvas { width: 100% !important; }
 
+        /* PPC Analyse section */
+        .ppc-section { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 24px; overflow: hidden; }
+        .ppc-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer; user-select: none; }
+        .ppc-header:hover { background: var(--bg-hover); }
+        .ppc-header h3 { font-size: 15px; font-weight: 700; margin: 0; display: flex; align-items: center; }
+        .ppc-body { padding: 20px; }
+        .ppc-compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+        .ppc-group-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .ppc-group-title { font-size: 12px; font-weight: 700; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+        .ppc-group-title.covered { border-left: 3px solid var(--success); color: var(--success); }
+        .ppc-group-title.not-covered { border-left: 3px solid var(--text-muted); color: var(--text-secondary); }
+        .ppc-metrics { display: grid; grid-template-columns: 1fr 1fr; }
+        .ppc-metric { padding: 12px 16px; border-bottom: 1px solid var(--row-border); }
+        .ppc-metric:nth-last-child(-n+2) { border-bottom: none; }
+        .ppc-metric-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+        .ppc-metric-value { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .ppc-metric-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        @media (max-width: 700px) { .ppc-compare-grid { grid-template-columns: 1fr; } .ppc-metrics { grid-template-columns: 1fr 1fr; } }
+
         /* Table section */
         .table-section { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
         .table-toolbar {
@@ -1419,6 +1438,82 @@
                 </div>`;
             }
 
+            // PPC Analyse section (only when STR data is available)
+            if (strTermSet.size > 0) {
+                const ppcRows = filteredRows.filter(r => r.search_query && strTermSet.has(r.search_query.toLowerCase()));
+                const nonPpcRows = filteredRows.filter(r => !r.search_query || !strTermSet.has(r.search_query.toLowerCase()));
+
+                function ppcKpis(rows) {
+                    const n = rows.length;
+                    if (n === 0) return { count: 0, volume: 0, purchaseShare: 0, clickShare: 0, cartShare: 0, imprShare: 0 };
+                    return {
+                        count: n,
+                        volume: rows.reduce((s, r) => s + (r.search_query_volume || 0), 0),
+                        purchaseShare: rows.reduce((s, r) => s + (r.purchases_brand_share || 0), 0) / n,
+                        clickShare: rows.reduce((s, r) => s + (r.clicks_brand_share || 0), 0) / n,
+                        cartShare: rows.reduce((s, r) => s + (r.cart_adds_brand_share || 0), 0) / n,
+                        imprShare: rows.reduce((s, r) => s + (r.impressions_brand_share || 0), 0) / n,
+                    };
+                }
+
+                const kpiPpc = ppcKpis(ppcRows);
+                const kpiNon = ppcKpis(nonPpcRows);
+
+                function ppcMetricHtml(label, valPpc, valNon, fmt) {
+                    const diff = valPpc - valNon;
+                    const diffCls = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--error)' : 'var(--text-muted)';
+                    const diffArrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '';
+                    const diffStr = diff !== 0 ? `<span style="font-size:11px;color:${diffCls};margin-left:6px;">${diffArrow} ${diff > 0 ? '+' : ''}${fmt(Math.abs(diff))}</span>` : '';
+                    return `
+                        <div class="ppc-metric">
+                            <div class="ppc-metric-label">${label}</div>
+                            <div class="ppc-metric-value">${fmt(valPpc)}${diffStr}</div>
+                            <div class="ppc-metric-sub">vs. ${fmt(valNon)} ohne PPC</div>
+                        </div>`;
+                }
+
+                html += `
+                <div class="ppc-section" id="ppcSection">
+                    <div class="ppc-header" id="ppcToggle">
+                        <h3>PPC Analyse <span style="font-size:12px;font-weight:400;color:var(--text-secondary);margin-left:8px;">Abgedeckte vs. nicht-abgedeckte Queries</span></h3>
+                        <span class="chevron">▼</span>
+                    </div>
+                    <div class="ppc-body" id="ppcBody" style="display:none;">
+                        <div class="ppc-compare-grid">
+                            <div class="ppc-group-card">
+                                <div class="ppc-group-title covered">● PPC abgedeckt (${kpiPpc.count.toLocaleString('de-DE')} Queries)</div>
+                                <div class="ppc-metrics">
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø Purchase Share</div><div class="ppc-metric-value">${fmtPct(kpiPpc.purchaseShare)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø Click Share</div><div class="ppc-metric-value">${fmtPct(kpiPpc.clickShare)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø Cart Share</div><div class="ppc-metric-value">${fmtPct(kpiPpc.cartShare)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø Impr. Share</div><div class="ppc-metric-value">${fmtPct(kpiPpc.imprShare)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Suchvolumen</div><div class="ppc-metric-value">${fmtInt(kpiPpc.volume)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø pro Query</div><div class="ppc-metric-value">${kpiPpc.count > 0 ? fmtInt(Math.round(kpiPpc.volume / kpiPpc.count)) : '—'}</div></div>
+                                </div>
+                            </div>
+                            <div class="ppc-group-card">
+                                <div class="ppc-group-title not-covered">○ Nicht abgedeckt (${kpiNon.count.toLocaleString('de-DE')} Queries)</div>
+                                <div class="ppc-metrics">
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø Purchase Share</div><div class="ppc-metric-value">${fmtPct(kpiNon.purchaseShare)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø Click Share</div><div class="ppc-metric-value">${fmtPct(kpiNon.clickShare)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø Cart Share</div><div class="ppc-metric-value">${fmtPct(kpiNon.cartShare)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø Impr. Share</div><div class="ppc-metric-value">${fmtPct(kpiNon.imprShare)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Suchvolumen</div><div class="ppc-metric-value">${fmtInt(kpiNon.volume)}</div></div>
+                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø pro Query</div><div class="ppc-metric-value">${kpiNon.count > 0 ? fmtInt(Math.round(kpiNon.volume / kpiNon.count)) : '—'}</div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-card" style="padding:16px;">
+                            <div class="chart-title" style="margin-bottom:16px;">Ø Brand Share Vergleich</div>
+                            <div style="position:relative;height:220px;"><canvas id="ppcChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>`;
+
+                window._ppcKpiPpc = kpiPpc;
+                window._ppcKpiNon = kpiNon;
+            }
+
             // Trend Analyse section
             html += `
                 <div class="trend-section" id="trendSection">
@@ -1838,6 +1933,77 @@
             }
 
             // Initial cluster render if section is open (it starts closed, but render if clusters exist for when toggled)
+
+            // PPC Analyse toggle + chart
+            const ppcToggleEl = document.getElementById('ppcToggle');
+            if (ppcToggleEl) {
+                ppcToggleEl.addEventListener('click', function() {
+                    const body = document.getElementById('ppcBody');
+                    const isOpen = body.style.display !== 'none';
+                    body.style.display = isOpen ? 'none' : 'block';
+                    this.classList.toggle('open', !isOpen);
+                    if (!isOpen) renderPpcChart();
+                });
+            }
+        }
+
+        let ppcChart = null;
+        function renderPpcChart() {
+            const canvas = document.getElementById('ppcChart');
+            if (!canvas) return;
+            if (ppcChart) { ppcChart.destroy(); ppcChart = null; }
+
+            const kpiPpc = window._ppcKpiPpc;
+            const kpiNon = window._ppcKpiNon;
+            if (!kpiPpc || !kpiNon) return;
+
+            const labels = ['Purchase Share', 'Click Share', 'Cart Share', 'Impr. Share'];
+            const dataPpc = [kpiPpc.purchaseShare, kpiPpc.clickShare, kpiPpc.cartShare, kpiPpc.imprShare];
+            const dataNon = [kpiNon.purchaseShare, kpiNon.clickShare, kpiNon.cartShare, kpiNon.imprShare];
+
+            ppcChart = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'PPC abgedeckt',
+                            data: dataPpc,
+                            backgroundColor: 'rgba(31,185,80,0.7)',
+                            borderColor: '#1a7f37',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                        },
+                        {
+                            label: 'Nicht abgedeckt',
+                            data: dataNon,
+                            backgroundColor: 'rgba(139,148,158,0.4)',
+                            borderColor: 'rgba(139,148,158,0.8)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: getThemeColor('--text-secondary'), font: { size: 12 }, usePointStyle: true } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(2).replace('.', ',') + ' %'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: getThemeColor('--text-secondary'), font: { size: 12 } }, grid: { color: getThemeColor('--chart-grid') } },
+                        y: {
+                            ticks: { color: getThemeColor('--text-secondary'), callback: v => v.toFixed(1).replace('.', ',') + ' %' },
+                            grid: { color: getThemeColor('--chart-grid') }
+                        }
+                    }
+                }
+            });
         }
 
         function renderTableRows(queryDiffs) {
