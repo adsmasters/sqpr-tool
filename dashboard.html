@@ -1445,10 +1445,11 @@
 
                 function ppcKpis(rows) {
                     const n = rows.length;
-                    if (n === 0) return { count: 0, volume: 0, purchaseShare: 0, clickShare: 0, cartShare: 0, imprShare: 0 };
+                    if (n === 0) return { count: 0, volume: 0, purchases: 0, purchaseShare: 0, clickShare: 0, cartShare: 0, imprShare: 0 };
                     return {
                         count: n,
                         volume: rows.reduce((s, r) => s + (r.search_query_volume || 0), 0),
+                        purchases: rows.reduce((s, r) => s + (r.purchases_brand || 0), 0),
                         purchaseShare: rows.reduce((s, r) => s + (r.purchases_brand_share || 0), 0) / n,
                         clickShare: rows.reduce((s, r) => s + (r.clicks_brand_share || 0), 0) / n,
                         cartShare: rows.reduce((s, r) => s + (r.cart_adds_brand_share || 0), 0) / n,
@@ -1458,19 +1459,26 @@
 
                 const kpiPpc = ppcKpis(ppcRows);
                 const kpiNon = ppcKpis(nonPpcRows);
+                const totalPurchases = kpiPpc.purchases + kpiNon.purchases;
+                const ppcPurchasePct = totalPurchases > 0 ? (kpiPpc.purchases / totalPurchases * 100) : 0;
+                const totalVolume = kpiPpc.volume + kpiNon.volume;
+                const ppcVolumePct = totalVolume > 0 ? (kpiPpc.volume / totalVolume * 100) : 0;
 
-                function ppcMetricHtml(label, valPpc, valNon, fmt) {
-                    const diff = valPpc - valNon;
-                    const diffCls = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--error)' : 'var(--text-muted)';
-                    const diffArrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '';
-                    const diffStr = diff !== 0 ? `<span style="font-size:11px;color:${diffCls};margin-left:6px;">${diffArrow} ${diff > 0 ? '+' : ''}${fmt(Math.abs(diff))}</span>` : '';
-                    return `
-                        <div class="ppc-metric">
-                            <div class="ppc-metric-label">${label}</div>
-                            <div class="ppc-metric-value">${fmt(valPpc)}${diffStr}</div>
-                            <div class="ppc-metric-sub">vs. ${fmt(valNon)} ohne PPC</div>
-                        </div>`;
-                }
+                // Top opportunities: non-PPC queries sorted by volume desc
+                const topOpportunities = [...nonPpcRows]
+                    .filter(r => r.search_query_volume > 0)
+                    .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0))
+                    .slice(0, 20);
+
+                const oppRows = topOpportunities.map(r => `
+                    <tr>
+                        <td style="text-align:left;font-weight:500;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
+                        <td>${fmtInt(r.search_query_volume)}</td>
+                        <td>${fmtInt(r.purchases_brand)}</td>
+                        <td><span class="share-badge ${shareBadgeClass(r.purchases_brand_share)}">${fmtPct(r.purchases_brand_share)}</span></td>
+                        <td><span class="share-badge ${shareBadgeClass(r.clicks_brand_share)}">${fmtPct(r.clicks_brand_share)}</span></td>
+                        <td><span class="share-badge ${shareBadgeClass(r.impressions_brand_share)}">${fmtPct(r.impressions_brand_share)}</span></td>
+                    </tr>`).join('');
 
                 html += `
                 <div class="ppc-section" id="ppcSection">
@@ -1479,33 +1487,80 @@
                         <span class="chevron">▼</span>
                     </div>
                     <div class="ppc-body" id="ppcBody" style="display:none;">
-                        <div class="ppc-compare-grid">
+
+                        <!-- PPC-Anteil Übersicht -->
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+                            <div class="kpi-card" style="border-left:3px solid var(--success);">
+                                <div class="kpi-label">Käufe über PPC-Queries</div>
+                                <div class="kpi-value">${ppcPurchasePct.toFixed(1).replace('.',',')} %</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtInt(kpiPpc.purchases)} von ${fmtInt(totalPurchases)} Käufen</div>
+                            </div>
+                            <div class="kpi-card" style="border-left:3px solid var(--text-muted);">
+                                <div class="kpi-label">Käufe ohne PPC-Queries</div>
+                                <div class="kpi-value">${(100 - ppcPurchasePct).toFixed(1).replace('.',',')} %</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtInt(kpiNon.purchases)} Käufe (rein organisch)</div>
+                            </div>
+                            <div class="kpi-card" style="border-left:3px solid var(--accent);">
+                                <div class="kpi-label">Suchvolumen mit PPC</div>
+                                <div class="kpi-value">${ppcVolumePct.toFixed(1).replace('.',',')} %</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtInt(kpiPpc.volume)} von ${fmtInt(totalVolume)}</div>
+                            </div>
+                            <div class="kpi-card" style="border-left:3px solid var(--error);">
+                                <div class="kpi-label">Potenzial-Queries</div>
+                                <div class="kpi-value">${fmtInt(kpiNon.count)}</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtInt(kpiNon.volume)} Suchvolumen unabgedeckt</div>
+                            </div>
+                        </div>
+
+                        <!-- Share-Vergleich -->
+                        <div class="ppc-compare-grid" style="margin-bottom:20px;">
                             <div class="ppc-group-card">
-                                <div class="ppc-group-title covered">● PPC abgedeckt (${kpiPpc.count.toLocaleString('de-DE')} Queries)</div>
+                                <div class="ppc-group-title covered">● PPC abgedeckt — ${kpiPpc.count.toLocaleString('de-DE')} Queries</div>
                                 <div class="ppc-metrics">
                                     <div class="ppc-metric"><div class="ppc-metric-label">Ø Purchase Share</div><div class="ppc-metric-value">${fmtPct(kpiPpc.purchaseShare)}</div></div>
                                     <div class="ppc-metric"><div class="ppc-metric-label">Ø Click Share</div><div class="ppc-metric-value">${fmtPct(kpiPpc.clickShare)}</div></div>
                                     <div class="ppc-metric"><div class="ppc-metric-label">Ø Cart Share</div><div class="ppc-metric-value">${fmtPct(kpiPpc.cartShare)}</div></div>
                                     <div class="ppc-metric"><div class="ppc-metric-label">Ø Impr. Share</div><div class="ppc-metric-value">${fmtPct(kpiPpc.imprShare)}</div></div>
-                                    <div class="ppc-metric"><div class="ppc-metric-label">Suchvolumen</div><div class="ppc-metric-value">${fmtInt(kpiPpc.volume)}</div></div>
-                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø pro Query</div><div class="ppc-metric-value">${kpiPpc.count > 0 ? fmtInt(Math.round(kpiPpc.volume / kpiPpc.count)) : '—'}</div></div>
                                 </div>
                             </div>
                             <div class="ppc-group-card">
-                                <div class="ppc-group-title not-covered">○ Nicht abgedeckt (${kpiNon.count.toLocaleString('de-DE')} Queries)</div>
+                                <div class="ppc-group-title not-covered">○ Nicht abgedeckt — ${kpiNon.count.toLocaleString('de-DE')} Queries</div>
                                 <div class="ppc-metrics">
                                     <div class="ppc-metric"><div class="ppc-metric-label">Ø Purchase Share</div><div class="ppc-metric-value">${fmtPct(kpiNon.purchaseShare)}</div></div>
                                     <div class="ppc-metric"><div class="ppc-metric-label">Ø Click Share</div><div class="ppc-metric-value">${fmtPct(kpiNon.clickShare)}</div></div>
                                     <div class="ppc-metric"><div class="ppc-metric-label">Ø Cart Share</div><div class="ppc-metric-value">${fmtPct(kpiNon.cartShare)}</div></div>
                                     <div class="ppc-metric"><div class="ppc-metric-label">Ø Impr. Share</div><div class="ppc-metric-value">${fmtPct(kpiNon.imprShare)}</div></div>
-                                    <div class="ppc-metric"><div class="ppc-metric-label">Suchvolumen</div><div class="ppc-metric-value">${fmtInt(kpiNon.volume)}</div></div>
-                                    <div class="ppc-metric"><div class="ppc-metric-label">Ø pro Query</div><div class="ppc-metric-value">${kpiNon.count > 0 ? fmtInt(Math.round(kpiNon.volume / kpiNon.count)) : '—'}</div></div>
                                 </div>
                             </div>
                         </div>
-                        <div class="chart-card" style="padding:16px;">
-                            <div class="chart-title" style="margin-bottom:16px;">Ø Brand Share Vergleich</div>
+
+                        <!-- Chart -->
+                        <div class="chart-card" style="padding:16px;margin-bottom:20px;">
+                            <div class="chart-title" style="margin-bottom:16px;">Ø Brand Share Vergleich — PPC abgedeckt vs. nicht abgedeckt</div>
                             <div style="position:relative;height:220px;"><canvas id="ppcChart"></canvas></div>
+                        </div>
+
+                        <!-- Potenziale -->
+                        <div style="margin-bottom:8px;">
+                            <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Top Potenziale — Queries ohne PPC</div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Suchbegriffe mit dem höchsten Volumen, auf denen aktuell kein PPC läuft. Sortiert nach Suchvolumen.</div>
+                        </div>
+                        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
+                            <table style="min-width:600px;">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align:left;">Suchbegriff</th>
+                                        <th>Suchvolumen</th>
+                                        <th>Käufe Marke</th>
+                                        <th>Purch. Share</th>
+                                        <th>Click Share</th>
+                                        <th>Impr. Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${oppRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-secondary);">Keine Potenziale gefunden.</td></tr>'}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>`;
