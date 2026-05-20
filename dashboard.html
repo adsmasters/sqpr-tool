@@ -571,6 +571,11 @@
         let clusterMetric = 'volume';
         const clusterColors = ['#3551FF','#3fb950','#eab308','#f85149','#a855f7','#ec4899','#06b6d4','#f97316'];
 
+        // STR / PPC state
+        let strTermSet = new Set();
+        let weekCountMap = {};   // search_query -> count of distinct report_ids
+        let onlyEveryWeek = false;
+
         // Info icon helper
         function infoIcon(id, title, text) {
             return `<span class="info-icon" data-info="${id}">i<div class="info-popup" id="info-${id}"><div class="info-popup-title">${title}</div>${text}</div></span>`;
@@ -685,8 +690,9 @@
             // Load all rows
             await loadRows();
 
-            // Load clusters
-            await loadClusters();
+            // Load clusters + STR terms in parallel
+            await Promise.all([loadClusters(), loadStrTerms()]);
+            buildWeekCountMap();
 
             // Render
             render();
@@ -739,6 +745,11 @@
                     }
                 });
             }
+            // "Nur in allen Wochen" filter — only in "Alle Zeiträume" mode
+            if (onlyEveryWeek && selectedReportId === 'all' && reports.length > 1) {
+                base = base.filter(r => r.search_query && (weekCountMap[r.search_query] || 0) >= reports.length);
+            }
+
             if (searchTerm) {
                 const lower = searchTerm.toLowerCase();
                 filteredRows = base.filter(r => r.search_query && r.search_query.toLowerCase().includes(lower));
@@ -779,6 +790,7 @@
                 case 'purchases_brand': return row.purchases_brand || 0;
                 case 'ctr': return safeDiv(row.clicks_total, row.impressions_total);
                 case 'cvr': return safeDiv(row.purchases_total, row.clicks_total);
+                case 'weeks': return weekCountMap[row.search_query] || 0;
                 case 'impr_share': return row.impressions_brand_share || 0;
                 case 'click_share': return row.clicks_brand_share || 0;
                 case 'cart_share': return row.cart_adds_brand_share || 0;
@@ -928,6 +940,54 @@
         async function loadClusters() {
             const { data } = await sb.from('sqpr_clusters').select('*').eq('client_id', client.id).order('sort_order', { ascending: true });
             clusters = data || [];
+        }
+
+        async function loadStrTerms() {
+            strTermSet = new Set();
+            let terms = [];
+            if (selectedReportId !== 'all') {
+                // Only load terms for the specific report
+                let from = 0;
+                const batch = 1000;
+                while (true) {
+                    const { data, error } = await sb.from('sqpr_str_terms')
+                        .select('search_term')
+                        .eq('report_id', selectedReportId)
+                        .range(from, from + batch - 1);
+                    if (error || !data || data.length === 0) break;
+                    terms = terms.concat(data);
+                    if (data.length < batch) break;
+                    from += batch;
+                }
+            } else {
+                // All reports: load all STR terms for this client
+                let from = 0;
+                const batch = 1000;
+                while (true) {
+                    const { data, error } = await sb.from('sqpr_str_terms')
+                        .select('search_term')
+                        .eq('client_id', client.id)
+                        .range(from, from + batch - 1);
+                    if (error || !data || data.length === 0) break;
+                    terms = terms.concat(data);
+                    if (data.length < batch) break;
+                    from += batch;
+                }
+            }
+            terms.forEach(t => strTermSet.add(t.search_term.toLowerCase()));
+        }
+
+        function buildWeekCountMap() {
+            weekCountMap = {};
+            allRows.forEach(r => {
+                if (!r.search_query) return;
+                if (!weekCountMap[r.search_query]) weekCountMap[r.search_query] = new Set();
+                weekCountMap[r.search_query].add(r.report_id);
+            });
+            // Convert sets to counts
+            Object.keys(weekCountMap).forEach(k => {
+                weekCountMap[k] = weekCountMap[k].size;
+            });
         }
 
         // Match types: "keyword" = broad (contains), "[keyword]" = exact, "-keyword" = negative
@@ -1432,11 +1492,32 @@
 
             // Table section
             const showMonthToggle = reports.length >= 2;
+            const showWeeks = selectedReportId === 'all' && reports.length > 1;
+
+            // PPC coverage badge
+            let ppcBadgeHtml = '';
+            if (strTermSet.size > 0) {
+                const ppcMatched = filteredRows.filter(r => r.search_query && strTermSet.has(r.search_query.toLowerCase())).length;
+                const ppcTotal = filteredRows.length;
+                const ppcPct = ppcTotal > 0 ? Math.round((ppcMatched / ppcTotal) * 100) : 0;
+                ppcBadgeHtml = `<span id="ppcBadge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(53,81,255,0.1);color:var(--accent);border:1px solid rgba(53,81,255,0.25);">PPC abgedeckt: ${ppcMatched.toLocaleString('de-DE')}/${ppcTotal.toLocaleString('de-DE')} (${ppcPct}%)</span>`;
+            }
+
+            // Every-week filter checkbox (only in Alle Zeiträume with 2+ reports)
+            const everyWeekHtml = showWeeks ? `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer;white-space:nowrap;">
+                <input type="checkbox" id="everyWeekCheck" ${onlyEveryWeek ? 'checked' : ''} style="accent-color:var(--accent);">
+                Nur in allen Wochen
+            </label>` : '';
+
             html += `
                 <div class="table-section">
                     <div class="table-toolbar">
-                        <span class="table-count" id="tableCount" style="display:flex;align-items:center;">${infoIcon('table', INFO.table.title, INFO.table.text)}</span>
-                        <div style="display:flex;gap:10px;align-items:center;">
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <span class="table-count" id="tableCount" style="display:flex;align-items:center;">${fmtInt(filteredRows.length)} Suchbegriffe${infoIcon('table', INFO.table.title, INFO.table.text)}</span>
+                            ${ppcBadgeHtml}
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                            ${everyWeekHtml}
                             <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern..." value="${esc(searchTerm)}">
                             ${showMonthToggle ? `<div class="table-view-toggle">
                                 <button class="table-view-btn ${tableViewMode === 'standard' ? 'active' : ''}" data-view="standard">Standard</button>
@@ -1448,6 +1529,7 @@
                         <table>
                             <thead><tr>
                                 ${thCol('Suchbegriff', 'query')}
+                                ${showWeeks ? thCol('Wochen', 'weeks') : ''}
                                 ${thCol('Suchvolumen', 'volume')}
                                 ${thCol('Impr. Marke', 'impr_brand')}
                                 ${thCol('Impr. Share', 'impr_share')}
@@ -1481,7 +1563,7 @@
             document.getElementById('periodSelect').addEventListener('change', async function () {
                 selectedReportId = this.value;
                 displayedCount = 100;
-                await loadRows();
+                await Promise.all([loadRows(), loadStrTerms()]);
                 render();
             });
 
@@ -1489,6 +1571,18 @@
                 compareReportId = this.value;
                 render();
             });
+
+            const everyWeekCheck = document.getElementById('everyWeekCheck');
+            if (everyWeekCheck) {
+                everyWeekCheck.addEventListener('change', function () {
+                    onlyEveryWeek = this.checked;
+                    displayedCount = 100;
+                    applyFilter();
+                    renderTableRows(queryDiffs);
+                    const tc = document.getElementById('tableCount');
+                    if (tc) tc.innerHTML = fmtInt(filteredRows.length) + ' Suchbegriffe' + infoIcon('table', INFO.table.title, INFO.table.text);
+                });
+            }
 
             document.getElementById('searchInput').addEventListener('input', function () {
                 searchTerm = this.value;
@@ -1498,7 +1592,9 @@
                     renderMonthComparisonTable();
                 } else {
                     renderTableRows(queryDiffs);
-                    document.getElementById('tableCount').textContent = fmtInt(filteredRows.length) + ' Suchbegriffe';
+                    const tc = document.getElementById('tableCount');
+                    if (tc) tc.innerHTML = fmtInt(filteredRows.length) + ' Suchbegriffe' + infoIcon('table', INFO.table.title, INFO.table.text);
+                    initInfoIcons();
                 }
             });
 
@@ -1748,6 +1844,7 @@
             const tbody = document.getElementById('tableBody');
             const showDiffs = canCompare() && queryDiffs;
             const rows = filteredRows.slice(0, displayedCount);
+            const showWeekCol = selectedReportId === 'all' && reports.length > 1;
 
             let html = '';
             rows.forEach(r => {
@@ -1759,9 +1856,19 @@
                 const cvr = safeDiv(r.purchases_total, r.clicks_total);
 
                 const qd = showDiffs && queryDiffs[r.search_query] ? queryDiffs[r.search_query] : null;
+                const isPpcCovered = strTermSet.size > 0 && r.search_query && strTermSet.has(r.search_query.toLowerCase());
+                const ppcDot = strTermSet.size > 0
+                    ? `<span title="${isPpcCovered ? 'PPC abgedeckt' : 'Nicht in PPC'}" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${isPpcCovered ? 'var(--success)' : 'var(--border)'};margin-left:6px;vertical-align:middle;flex-shrink:0;"></span>`
+                    : '';
 
                 html += '<tr>';
-                html += `<td title="${esc(r.search_query || '')}">${esc(r.search_query || '')}</td>`;
+                html += `<td title="${esc(r.search_query || '')}"><div style="display:flex;align-items:center;">${esc(r.search_query || '')}${ppcDot}</div></td>`;
+                if (showWeekCol) {
+                    const wc = weekCountMap[r.search_query] || 0;
+                    const wcPct = reports.length > 0 ? wc / reports.length : 0;
+                    const wcColor = wcPct >= 1 ? 'var(--success)' : wcPct >= 0.5 ? 'var(--accent)' : 'var(--text-muted)';
+                    html += `<td style="color:${wcColor};font-size:12px;font-weight:600;">${wc}/${reports.length}</td>`;
+                }
                 html += volumeTd(r.search_query_volume, qd ? qd.volume : null);
                 html += `<td>${fmtInt(r.impressions_brand)}</td>`;
                 html += shareTd(imprShare, qd ? qd.imprShare : null);
@@ -2238,7 +2345,7 @@
 
             // Update count
             const countEl = document.getElementById('tableCount');
-            if (countEl) countEl.textContent = fmtInt(terms.length) + ' Suchbegriffe';
+            if (countEl) countEl.innerHTML = fmtInt(terms.length) + ' Suchbegriffe' + infoIcon('table', INFO.table.title, INFO.table.text);
 
             const wrap = document.getElementById('loadMoreWrap');
             if (wrap) wrap.style.display = displayedCount < terms.length ? '' : 'none';

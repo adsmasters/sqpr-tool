@@ -752,6 +752,77 @@
         </div>
     </div>
 
+    <!-- Search Term Report Section -->
+    <div style="margin-top:36px;">
+        <h2 class="section-title">Search Term Report Upload</h2>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">Amazon Ads → Berichte → Sponsored Products → Suchanfragebericht. Zeitraum muss zum SQPR-Report passen.</p>
+
+        <div class="card">
+            <div class="card-title">Verknüpfung</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="strReportSelect">SQPR-Report (Zeitraum)</label>
+                    <select id="strReportSelect">
+                        <option value="">Erst Kunden oben auswählen...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Search Term Report CSV</div>
+            <div class="drop-zone" id="strDropZone">
+                <div class="drop-zone-icon">&#128196;</div>
+                <div class="drop-zone-text">CSV-Datei hierher ziehen oder klicken</div>
+                <div class="drop-zone-hint">SP Search Term Report (.csv) — Spalte "Customer Search Term" / "Kundensuchanfrage"</div>
+                <input type="file" id="strFileInput" accept=".csv">
+            </div>
+            <div class="file-selected" id="strFileSelected" style="display:none;">
+                <span class="file-name" id="strFileName"></span>
+                <button class="remove-file" id="strRemoveFile" title="Datei entfernen">&times;</button>
+            </div>
+        </div>
+
+        <div class="card preview-section" id="strPreviewSection">
+            <div class="card-title">Vorschau</div>
+            <span class="badge success" id="strRowBadge"></span>
+            <div class="columns-validation" id="strColumnsValidation" style="margin-top:12px;"></div>
+            <div class="upload-actions">
+                <button class="btn-primary" id="strUploadBtn" disabled>Hochladen</button>
+            </div>
+            <div class="progress-wrap" id="strProgressWrap">
+                <div class="progress-bar-outer"><div class="progress-bar-inner" id="strProgressBar"></div></div>
+                <div class="progress-text" id="strProgressText">0%</div>
+            </div>
+            <div class="success-msg" id="strSuccessMsg"></div>
+            <div class="error-msg" id="strErrorMsg"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+            <h3 class="section-title" style="font-size:15px;">STR Upload-Verlauf</h3>
+            <div class="table-card">
+                <div class="loading" id="strHistoryLoading" style="display:none;">
+                    <div class="spinner"></div>
+                    <div>Verlauf wird geladen...</div>
+                </div>
+                <table id="strHistoryTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Verknüpfter SQPR-Zeitraum</th>
+                            <th>Suchbegriffe</th>
+                            <th>Hochgeladen am</th>
+                            <th>Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="strHistoryBody"></tbody>
+                </table>
+                <div class="empty-state" id="strHistoryEmpty">
+                    <p>Noch keine STR-Uploads für diesen Kunden.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation -->
     <div class="confirm-overlay" id="confirmDialog">
         <div class="confirm-dialog">
@@ -878,6 +949,7 @@
             if (activeClient) {
                 clientSelect.value = activeClient;
                 loadHistory();
+                loadStrReports();
             }
         }
 
@@ -1354,6 +1426,271 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        // --- STR Upload Section ---
+
+        const strDropZone = document.getElementById('strDropZone');
+        const strFileInput = document.getElementById('strFileInput');
+        const strFileSelected = document.getElementById('strFileSelected');
+        const strFileName = document.getElementById('strFileName');
+        const strRemoveFile = document.getElementById('strRemoveFile');
+        const strPreviewSection = document.getElementById('strPreviewSection');
+        const strRowBadge = document.getElementById('strRowBadge');
+        const strColumnsValidation = document.getElementById('strColumnsValidation');
+        const strUploadBtn = document.getElementById('strUploadBtn');
+        const strProgressWrap = document.getElementById('strProgressWrap');
+        const strProgressBar = document.getElementById('strProgressBar');
+        const strProgressText = document.getElementById('strProgressText');
+        const strSuccessMsg = document.getElementById('strSuccessMsg');
+        const strErrorMsg = document.getElementById('strErrorMsg');
+        const strReportSelect = document.getElementById('strReportSelect');
+        const strHistoryLoading = document.getElementById('strHistoryLoading');
+        const strHistoryTable = document.getElementById('strHistoryTable');
+        const strHistoryBody = document.getElementById('strHistoryBody');
+        const strHistoryEmpty = document.getElementById('strHistoryEmpty');
+
+        let strParsedTerms = null;
+
+        const STR_COLUMN_MATCH = ['customer search term', 'kundensuchanfrage', 'kundensuchanfragen', 'search term'];
+
+        function findStrColumn(headers) {
+            for (let i = 0; i < headers.length; i++) {
+                const h = headers[i].toLowerCase().trim();
+                if (STR_COLUMN_MATCH.some(m => h === m || h.includes(m))) return i;
+            }
+            return -1;
+        }
+
+        // Populate STR report select when client changes
+        clientSelect.addEventListener('change', loadStrReports);
+
+        async function loadStrReports() {
+            const clientId = clientSelect.value;
+            strReportSelect.innerHTML = '<option value="">Zeitraum wählen...</option>';
+            if (!clientId) return;
+
+            const { data } = await sb.from('sqpr_reports').select('id, report_date_start, report_date_end, reporting_range')
+                .eq('client_id', clientId).order('report_date_start', { ascending: false });
+            if (!data) return;
+
+            data.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                const s = formatDate(r.report_date_start);
+                const e = formatDate(r.report_date_end);
+                opt.textContent = s + ' — ' + e;
+                strReportSelect.appendChild(opt);
+            });
+
+            loadStrHistory();
+        }
+
+        strReportSelect.addEventListener('change', () => {
+            strResetFileState();
+        });
+
+        // Drop zone
+        strDropZone.addEventListener('click', () => strFileInput.click());
+        strDropZone.addEventListener('dragover', (e) => { e.preventDefault(); strDropZone.classList.add('dragover'); });
+        strDropZone.addEventListener('dragleave', () => strDropZone.classList.remove('dragover'));
+        strDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            strDropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.csv')) strHandleFile(files[0]);
+        });
+        strFileInput.addEventListener('change', () => {
+            if (strFileInput.files.length > 0) strHandleFile(strFileInput.files[0]);
+        });
+        strRemoveFile.addEventListener('click', strResetFileState);
+
+        function strResetFileState() {
+            strFileInput.value = '';
+            strFileSelected.style.display = 'none';
+            strPreviewSection.style.display = 'none';
+            strParsedTerms = null;
+            strUploadBtn.disabled = true;
+            strSuccessMsg.style.display = 'none';
+            strErrorMsg.style.display = 'none';
+            strProgressWrap.style.display = 'none';
+        }
+
+        function strHandleFile(file) {
+            strFileName.textContent = file.name;
+            strFileSelected.style.display = 'flex';
+            strSuccessMsg.style.display = 'none';
+            strErrorMsg.style.display = 'none';
+            strProgressWrap.style.display = 'none';
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try { strParseCSV(e.target.result); }
+                catch (err) { strShowError('Fehler beim Parsen: ' + err.message); }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function strParseCSV(text) {
+            const delimiter = detectDelimiter(text);
+            const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+
+            // Find header row
+            let headerIdx = 0;
+            for (let i = 0; i < Math.min(lines.length, 30); i++) {
+                if (STR_COLUMN_MATCH.some(m => lines[i].toLowerCase().includes(m))) {
+                    headerIdx = i;
+                    break;
+                }
+            }
+
+            const headers = splitCSVLine(lines[headerIdx], delimiter);
+            const colIdx = findStrColumn(headers);
+
+            strPreviewSection.style.display = 'block';
+            strColumnsValidation.innerHTML = '';
+
+            if (colIdx < 0) {
+                const tag = document.createElement('span');
+                tag.className = 'col-tag missing';
+                tag.innerHTML = '&#10007; Customer Search Term — Spalte nicht gefunden';
+                strColumnsValidation.appendChild(tag);
+                strUploadBtn.disabled = true;
+                return;
+            }
+
+            const tag = document.createElement('span');
+            tag.className = 'col-tag found';
+            tag.innerHTML = '&#10003; ' + escapeHtml(headers[colIdx]);
+            strColumnsValidation.appendChild(tag);
+
+            // Extract unique terms
+            const terms = new Set();
+            for (let i = headerIdx + 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                const cells = splitCSVLine(lines[i], delimiter);
+                const term = cells[colIdx] ? cells[colIdx].trim().toLowerCase() : '';
+                if (term && term !== 'customer search term' && term !== 'kundensuchanfrage') {
+                    terms.add(term);
+                }
+            }
+
+            strParsedTerms = Array.from(terms);
+            strRowBadge.textContent = strParsedTerms.length + ' einzigartige Suchbegriffe erkannt';
+            strUploadBtn.disabled = !strReportSelect.value;
+        }
+
+        strUploadBtn.addEventListener('click', async () => {
+            const clientId = clientSelect.value;
+            const reportId = strReportSelect.value;
+            if (!clientId) { strShowError('Bitte Kunden auswählen.'); return; }
+            if (!reportId) { strShowError('Bitte SQPR-Zeitraum auswählen.'); return; }
+            if (!strParsedTerms || strParsedTerms.length === 0) { strShowError('Keine Suchbegriffe gefunden.'); return; }
+
+            strUploadBtn.disabled = true;
+            strSuccessMsg.style.display = 'none';
+            strErrorMsg.style.display = 'none';
+            strProgressWrap.style.display = 'block';
+            strProgressBar.style.width = '0%';
+            strProgressText.textContent = 'Upload wird erstellt...';
+
+            try {
+                // Delete existing STR uploads for this report (replace)
+                const { data: existing } = await sb.from('sqpr_str_uploads').select('id').eq('report_id', reportId).eq('client_id', clientId);
+                if (existing && existing.length > 0) {
+                    for (const u of existing) {
+                        await sb.from('sqpr_str_terms').delete().eq('upload_id', u.id);
+                        await sb.from('sqpr_str_uploads').delete().eq('id', u.id);
+                    }
+                }
+
+                // Create upload record
+                const { data: upload, error: uploadError } = await sb.from('sqpr_str_uploads')
+                    .insert({ client_id: clientId, report_id: reportId, row_count: strParsedTerms.length })
+                    .select('id').single();
+                if (uploadError) throw new Error('Upload konnte nicht erstellt werden: ' + uploadError.message);
+
+                const uploadId = upload.id;
+                const rows = strParsedTerms.map(t => ({ upload_id: uploadId, client_id: clientId, report_id: reportId, search_term: t }));
+
+                const chunkSize = 500;
+                const totalChunks = Math.ceil(rows.length / chunkSize);
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = rows.slice(i * chunkSize, (i + 1) * chunkSize);
+                    const { error } = await sb.from('sqpr_str_terms').insert(chunk);
+                    if (error) throw new Error('Fehler beim Einfügen (Chunk ' + (i + 1) + '): ' + error.message);
+                    const pct = Math.round(((i + 1) / totalChunks) * 100);
+                    strProgressBar.style.width = pct + '%';
+                    strProgressText.textContent = pct + '%';
+                }
+
+                strProgressBar.style.width = '100%';
+                strSuccessMsg.textContent = 'Erfolgreich: ' + strParsedTerms.length + ' Suchbegriffe hochgeladen.';
+                strSuccessMsg.style.display = 'block';
+                setTimeout(() => { strResetFileState(); loadStrHistory(); }, 1500);
+
+            } catch (err) {
+                strShowError(err.message);
+                strUploadBtn.disabled = false;
+            }
+        });
+
+        function strShowError(msg) {
+            strErrorMsg.textContent = msg;
+            strErrorMsg.style.display = 'block';
+            strSuccessMsg.style.display = 'none';
+        }
+
+        async function loadStrHistory() {
+            const clientId = clientSelect.value;
+            if (!clientId) {
+                strHistoryEmpty.style.display = 'block';
+                strHistoryTable.style.display = 'none';
+                return;
+            }
+
+            strHistoryLoading.style.display = 'block';
+            strHistoryTable.style.display = 'none';
+            strHistoryEmpty.style.display = 'none';
+
+            const { data: uploads } = await sb.from('sqpr_str_uploads').select('id, report_id, row_count, uploaded_at')
+                .eq('client_id', clientId).order('uploaded_at', { ascending: false });
+
+            strHistoryLoading.style.display = 'none';
+
+            if (!uploads || uploads.length === 0) {
+                strHistoryEmpty.style.display = 'block';
+                return;
+            }
+
+            // Get report dates for display
+            const reportIds = [...new Set(uploads.map(u => u.report_id))];
+            const { data: reps } = await sb.from('sqpr_reports').select('id, report_date_start, report_date_end').in('id', reportIds);
+            const repMap = {};
+            (reps || []).forEach(r => { repMap[r.id] = r; });
+
+            strHistoryTable.style.display = 'table';
+            strHistoryBody.innerHTML = '';
+
+            uploads.forEach(u => {
+                const rep = repMap[u.report_id];
+                const periodLabel = rep ? formatDate(rep.report_date_start) + ' — ' + formatDate(rep.report_date_end) : u.report_id;
+                const uploadDate = u.uploaded_at ? formatDateTime(u.uploaded_at) : '—';
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${periodLabel}</td>
+                    <td>${(u.row_count || 0).toLocaleString('de-DE')}</td>
+                    <td>${uploadDate}</td>
+                    <td><button class="action-btn delete str-delete-btn" data-id="${u.id}">Löschen</button></td>
+                `;
+                tr.querySelector('.str-delete-btn').addEventListener('click', async () => {
+                    if (!confirm('STR-Upload wirklich löschen?')) return;
+                    await sb.from('sqpr_str_terms').delete().eq('upload_id', u.id);
+                    await sb.from('sqpr_str_uploads').delete().eq('id', u.id);
+                    loadStrHistory();
+                });
+                strHistoryBody.appendChild(tr);
+            });
         }
 
         // Init
