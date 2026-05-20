@@ -1471,12 +1471,11 @@
 
                 const oppRows = topOpportunities.map(r => `
                     <tr>
-                        <td style="text-align:left;font-weight:500;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
+                        <td style="text-align:left;font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
                         <td>${fmtInt(r.search_query_volume)}</td>
+                        <td>${fmtInt(r.purchases_total)}</td>
                         <td>${fmtInt(r.purchases_brand)}</td>
                         <td><span class="share-badge ${shareBadgeClass(r.purchases_brand_share)}">${fmtPct(r.purchases_brand_share)}</span></td>
-                        <td><span class="share-badge ${shareBadgeClass(r.clicks_brand_share)}">${fmtPct(r.clicks_brand_share)}</span></td>
-                        <td><span class="share-badge ${shareBadgeClass(r.impressions_brand_share)}">${fmtPct(r.impressions_brand_share)}</span></td>
                     </tr>`).join('');
 
                 html += `
@@ -1557,10 +1556,9 @@
                                     <tr>
                                         <th style="text-align:left;">Suchbegriff</th>
                                         <th>Suchvolumen</th>
+                                        <th>Marktgröße (Käufe gesamt)</th>
                                         <th>Käufe Marke</th>
-                                        <th>Purch. Share</th>
-                                        <th>Click Share</th>
-                                        <th>Impr. Share</th>
+                                        <th>Purchase Share</th>
                                     </tr>
                                 </thead>
                                 <tbody>
