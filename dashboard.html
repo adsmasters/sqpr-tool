@@ -592,6 +592,7 @@
 
         // STR / PPC state
         let strTermSet = new Set();
+        let strOrdersMap = new Map(); // search_term -> ppc attributed orders
         let weekCountMap = {};   // search_query -> count of distinct report_ids
         let onlyEveryWeek = false;
 
@@ -963,37 +964,27 @@
 
         async function loadStrTerms() {
             strTermSet = new Set();
+            strOrdersMap = new Map();
             let terms = [];
-            if (selectedReportId !== 'all') {
-                // Only load terms for the specific report
-                let from = 0;
-                const batch = 1000;
-                while (true) {
-                    const { data, error } = await sb.from('sqpr_str_terms')
-                        .select('search_term')
-                        .eq('report_id', selectedReportId)
-                        .range(from, from + batch - 1);
-                    if (error || !data || data.length === 0) break;
-                    terms = terms.concat(data);
-                    if (data.length < batch) break;
-                    from += batch;
-                }
-            } else {
-                // All reports: load all STR terms for this client
-                let from = 0;
-                const batch = 1000;
-                while (true) {
-                    const { data, error } = await sb.from('sqpr_str_terms')
-                        .select('search_term')
-                        .eq('client_id', client.id)
-                        .range(from, from + batch - 1);
-                    if (error || !data || data.length === 0) break;
-                    terms = terms.concat(data);
-                    if (data.length < batch) break;
-                    from += batch;
-                }
+            const query = selectedReportId !== 'all'
+                ? sb.from('sqpr_str_terms').select('search_term, orders').eq('report_id', selectedReportId)
+                : sb.from('sqpr_str_terms').select('search_term, orders').eq('client_id', client.id);
+
+            let from = 0;
+            const batch = 1000;
+            while (true) {
+                const { data, error } = await query.range(from, from + batch - 1);
+                if (error || !data || data.length === 0) break;
+                terms = terms.concat(data);
+                if (data.length < batch) break;
+                from += batch;
             }
-            terms.forEach(t => strTermSet.add(t.search_term.toLowerCase()));
+            terms.forEach(t => {
+                const key = t.search_term.toLowerCase();
+                strTermSet.add(key);
+                // Aggregate orders per term (multiple STR uploads may overlap)
+                strOrdersMap.set(key, (strOrdersMap.get(key) || 0) + (t.orders || 0));
+            });
         }
 
         function buildWeekCountMap() {
@@ -1464,6 +1455,14 @@
                 const totalVolume = kpiPpc.volume + kpiNon.volume;
                 const ppcVolumePct = totalVolume > 0 ? (kpiPpc.volume / totalVolume * 100) : 0;
 
+                // True PPC orders: sum from strOrdersMap for queries in filteredRows
+                const totalPpcOrders = filteredRows.reduce((s, r) => {
+                    if (!r.search_query) return s;
+                    return s + (strOrdersMap.get(r.search_query.toLowerCase()) || 0);
+                }, 0);
+                const truePpcPct = totalPurchases > 0 ? (totalPpcOrders / totalPurchases * 100) : 0;
+                const hasTrueOrders = totalPpcOrders > 0;
+
                 // Top opportunities: non-PPC queries sorted by volume desc
                 const topOpportunities = [...nonPpcRows]
                     .filter(r => r.search_query_volume > 0)
@@ -1489,14 +1488,21 @@
                     <div class="ppc-body" id="ppcBody" style="display:none;">
 
                         <!-- PPC-Anteil Übersicht -->
-                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+                        <div style="display:grid;grid-template-columns:repeat(${hasTrueOrders ? 5 : 4},1fr);gap:12px;margin-bottom:20px;">
+                            ${hasTrueOrders ? `<div class="kpi-card" style="border-left:3px solid #f97316;">
+                                <div class="kpi-label">Direkte PPC-Käufe</div>
+                                <div class="kpi-value">${truePpcPct.toFixed(1).replace('.',',')} %</div>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtInt(totalPpcOrders)} Aufträge (7-Tage-Attr.) von ${fmtInt(totalPurchases)}</div>
+                                <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Achtung: Attributionsfenster ≠ SQPR</div>
+                            </div>` : ''}
                             <div class="kpi-card" style="border-left:3px solid var(--success);">
-                                <div class="kpi-label">Käufe über PPC-Queries</div>
+                                <div class="kpi-label">Käufe auf PPC-Queries</div>
                                 <div class="kpi-value">${ppcPurchasePct.toFixed(1).replace('.',',')} %</div>
                                 <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtInt(kpiPpc.purchases)} von ${fmtInt(totalPurchases)} Käufen</div>
+                                <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Inkl. organische Käufe auf PPC-Queries</div>
                             </div>
                             <div class="kpi-card" style="border-left:3px solid var(--text-muted);">
-                                <div class="kpi-label">Käufe ohne PPC-Queries</div>
+                                <div class="kpi-label">Käufe ohne PPC</div>
                                 <div class="kpi-value">${(100 - ppcPurchasePct).toFixed(1).replace('.',',')} %</div>
                                 <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtInt(kpiNon.purchases)} Käufe (rein organisch)</div>
                             </div>

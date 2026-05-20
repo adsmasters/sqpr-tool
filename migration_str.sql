@@ -19,3 +19,6 @@ CREATE TABLE IF NOT EXISTS sqpr_str_terms (
 
 CREATE INDEX IF NOT EXISTS idx_sqpr_str_terms_report_id ON sqpr_str_terms(report_id);
 CREATE INDEX IF NOT EXISTS idx_sqpr_str_terms_client_id ON sqpr_str_terms(client_id);
+
+-- Orders-Spalte nachrüsten (einmalig ausführen)
+ALTER TABLE sqpr_str_terms ADD COLUMN IF NOT EXISTS orders integer DEFAULT 0;

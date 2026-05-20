@@ -1454,6 +1454,16 @@
         let strParsedTerms = null;
 
         const STR_COLUMN_MATCH = ['customer search term', 'kundensuchanfrage', 'kundensuchanfragen', 'suchbegriff des kunden', 'search term'];
+        const STR_ORDERS_MATCH = ['7 day total orders', '7 tage, auftr', 'aufträge gesamt', 'aufträge', 'total orders', 'orders (#)'];
+
+        function findStrOrdersColumn(headers) {
+            for (let i = 0; i < headers.length; i++) {
+                // Normalize: replace non-breaking spaces, lowercase
+                const h = headers[i].toLowerCase().replace(/ /g, ' ').trim();
+                if (STR_ORDERS_MATCH.some(m => h.includes(m))) return i;
+            }
+            return -1;
+        }
 
         function findStrColumn(headers) {
             for (let i = 0; i < headers.length; i++) {
@@ -1601,16 +1611,34 @@
             tag.innerHTML = '&#10003; ' + escapeHtml(headers[colIdx]);
             strColumnsValidation.appendChild(tag);
 
-            // Extract unique terms
-            const terms = new Set();
+            // Find orders column
+            const ordersIdx = findStrOrdersColumn(headers);
+            if (ordersIdx >= 0) {
+                const tagO = document.createElement('span');
+                tagO.className = 'col-tag found';
+                tagO.innerHTML = '&#10003; ' + escapeHtml(headers[ordersIdx]) + ' (Aufträge)';
+                strColumnsValidation.appendChild(tagO);
+            } else {
+                const tagO = document.createElement('span');
+                tagO.className = 'col-tag missing';
+                tagO.innerHTML = '&#10007; Aufträge-Spalte nicht gefunden — wird als 0 gespeichert';
+                strColumnsValidation.appendChild(tagO);
+            }
+
+            // Aggregate: search_term -> total orders
+            const termMap = new Map();
             for (let i = headerIdx + 1; i < rows.length; i++) {
                 const term = rows[i][colIdx] != null ? String(rows[i][colIdx]).trim().toLowerCase() : '';
-                if (term && !STR_COLUMN_MATCH.includes(term)) {
-                    terms.add(term);
+                if (!term || STR_COLUMN_MATCH.includes(term)) continue;
+                const orders = ordersIdx >= 0 ? (parseInt(String(rows[i][ordersIdx]).replace(/[^0-9]/g, '')) || 0) : 0;
+                if (termMap.has(term)) {
+                    termMap.set(term, termMap.get(term) + orders);
+                } else {
+                    termMap.set(term, orders);
                 }
             }
 
-            strParsedTerms = Array.from(terms);
+            strParsedTerms = Array.from(termMap.entries()).map(([term, orders]) => ({ term, orders }));
             strRowBadge.textContent = strParsedTerms.length + ' einzigartige Suchbegriffe erkannt';
             strUploadBtn.disabled = !strReportSelect.value;
         }
@@ -1646,7 +1674,7 @@
                 if (uploadError) throw new Error('Upload konnte nicht erstellt werden: ' + uploadError.message);
 
                 const uploadId = upload.id;
-                const rows = strParsedTerms.map(t => ({ upload_id: uploadId, client_id: clientId, report_id: reportId, search_term: t }));
+                const rows = strParsedTerms.map(({ term, orders }) => ({ upload_id: uploadId, client_id: clientId, report_id: reportId, search_term: term, orders }));
 
                 const chunkSize = 500;
                 const totalChunks = Math.ceil(rows.length / chunkSize);
