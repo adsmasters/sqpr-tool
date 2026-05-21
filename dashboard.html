@@ -671,6 +671,33 @@
             if (val >= 5) return 'share-yellow';
             return 'share-red';
         }
+        function buildPpcOppRows(rows) {
+            if (!rows || rows.length === 0) return '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-secondary);">Keine Potenziale gefunden.</td></tr>';
+            return rows.map(r => `
+                <tr>
+                    <td style="text-align:left;font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
+                    <td>${fmtInt(r.search_query_volume)}</td>
+                    <td>${fmtInt(r.purchases_total)}</td>
+                    <td>${fmtInt(r.purchases_brand)}</td>
+                    <td><span class="share-badge ${shareBadgeClass(r.purchases_brand_share)}">${fmtPct(r.purchases_brand_share)}</span></td>
+                </tr>`).join('');
+        }
+        function renderPpcOppRows(filter) {
+            const tbody = document.getElementById('ppcOppTbody');
+            const countEl = document.getElementById('ppcOppCount');
+            if (!tbody || !window._ppcAllOpportunities) return;
+            const lower = (filter || '').toLowerCase().trim();
+            const filtered = lower
+                ? window._ppcAllOpportunities.filter(r => (r.search_query || '').toLowerCase().includes(lower))
+                : window._ppcAllOpportunities.slice(0, 50);
+            tbody.innerHTML = buildPpcOppRows(filtered);
+            if (countEl) {
+                const total = window._ppcAllOpportunities.length;
+                countEl.textContent = lower
+                    ? filtered.length.toLocaleString('de-DE') + ' / ' + total.toLocaleString('de-DE') + ' Queries'
+                    : total.toLocaleString('de-DE') + ' Queries';
+            }
+        }
         function safeDiv(a, b) {
             return b ? (a / b) * 100 : 0;
         }
@@ -1464,19 +1491,11 @@
                 const hasTrueOrders = totalPpcOrders > 0;
 
                 // Top opportunities: non-PPC queries sorted by volume desc
-                const topOpportunities = [...nonPpcRows]
+                window._ppcAllOpportunities = [...nonPpcRows]
                     .filter(r => r.search_query_volume > 0)
-                    .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0))
-                    .slice(0, 20);
+                    .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0));
 
-                const oppRows = topOpportunities.map(r => `
-                    <tr>
-                        <td style="text-align:left;font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
-                        <td>${fmtInt(r.search_query_volume)}</td>
-                        <td>${fmtInt(r.purchases_total)}</td>
-                        <td>${fmtInt(r.purchases_brand)}</td>
-                        <td><span class="share-badge ${shareBadgeClass(r.purchases_brand_share)}">${fmtPct(r.purchases_brand_share)}</span></td>
-                    </tr>`).join('');
+                const oppRows = buildPpcOppRows(window._ppcAllOpportunities.slice(0, 50));
 
                 html += `
                 <div class="ppc-section" id="ppcSection">
@@ -1546,9 +1565,17 @@
                         </div>
 
                         <!-- Potenziale -->
-                        <div style="margin-bottom:8px;">
-                            <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Top Potenziale — Queries ohne PPC</div>
-                            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Suchbegriffe mit dem höchsten Volumen, auf denen aktuell kein PPC läuft. Sortiert nach Suchvolumen.</div>
+                        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px;gap:16px;flex-wrap:wrap;">
+                            <div>
+                                <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Top Potenziale — Queries ohne PPC</div>
+                                <div style="font-size:12px;color:var(--text-secondary);">Suchbegriffe ohne PPC, sortiert nach Suchvolumen.</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;max-width:360px;">
+                                <input type="text" id="ppcOppFilter" placeholder="Filtern, z.B. Becher…"
+                                       style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);font-size:13px;outline:none;"
+                                       oninput="renderPpcOppRows(this.value)">
+                                <span id="ppcOppCount" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">${window._ppcAllOpportunities.length.toLocaleString('de-DE')} Queries</span>
+                            </div>
                         </div>
                         <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
                             <table style="min-width:600px;">
@@ -1561,8 +1588,8 @@
                                         <th>Purchase Share</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    ${oppRows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-secondary);">Keine Potenziale gefunden.</td></tr>'}
+                                <tbody id="ppcOppTbody">
+                                    ${oppRows}
                                 </tbody>
                             </table>
                         </div>
