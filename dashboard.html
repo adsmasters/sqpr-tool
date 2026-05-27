@@ -346,6 +346,25 @@
             margin-left: 2px;
         }
         .trend-tag .remove-tag:hover { opacity: 1; }
+
+        /* Exclude filter */
+        .exclude-filter-wrap { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .exclude-input {
+            background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary);
+            padding: 6px 12px; border-radius: 6px; font-size: 13px; width: 190px;
+        }
+        .exclude-input::placeholder { color: var(--placeholder); }
+        .exclude-input:focus { outline: none; border-color: #f85149; }
+        .exclude-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 8px 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+            background: #f851491a; color: #f85149; border: 1px solid #f8514944; cursor: default;
+        }
+        .exclude-tag .remove-tag {
+            cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.7; margin-left: 2px;
+        }
+        .exclude-tag .remove-tag:hover { opacity: 1; }
+
         .trend-metric-select {
             background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary);
             padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
@@ -573,6 +592,7 @@
         let sortCol = 'purchases_brand';
         let sortDir = 'desc';
         let searchTerm = '';
+        let excludeTerms = []; // terms to hide from the table
         let selectedReportId = 'all';
         let compareReportId = 'auto'; // 'auto' = previous period, 'none' = no comparison, or a report ID
         let funnelChart = null;
@@ -799,10 +819,18 @@
 
             if (searchTerm) {
                 const lower = searchTerm.toLowerCase();
-                filteredRows = base.filter(r => r.search_query && r.search_query.toLowerCase().includes(lower));
-            } else {
-                filteredRows = [...base];
+                base = base.filter(r => r.search_query && r.search_query.toLowerCase().includes(lower));
             }
+
+            // Exclude terms filter
+            if (excludeTerms.length > 0) {
+                base = base.filter(r => {
+                    const q = (r.search_query || '').toLowerCase();
+                    return !excludeTerms.some(t => q.includes(t.toLowerCase()));
+                });
+            }
+
+            filteredRows = [...base];
             applySorting();
         }
 
@@ -1700,6 +1728,10 @@
                         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                             ${everyWeekHtml}
                             <input type="text" class="search-input" id="searchInput" placeholder="Suchbegriff filtern..." value="${esc(searchTerm)}">
+                            <div class="exclude-filter-wrap">
+                                <input type="text" class="exclude-input" id="excludeInput" placeholder="Begriff ausblenden…" title="Enter drücken um Begriff auszublenden">
+                                <div id="excludeTags" style="display:flex;gap:5px;flex-wrap:wrap;">${excludeTerms.map((t,i) => `<span class="exclude-tag">🚫 ${esc(t)}<span class="remove-tag" data-excl="${i}">&times;</span></span>`).join('')}</div>
+                            </div>
                             ${showMonthToggle ? `<div class="table-view-toggle">
                                 <button class="table-view-btn ${tableViewMode === 'standard' ? 'active' : ''}" data-view="standard">Standard</button>
                                 <button class="table-view-btn ${tableViewMode === 'month' ? 'active' : ''}" data-view="month">Monatsvergleich</button>
@@ -1778,6 +1810,55 @@
                     initInfoIcons();
                 }
             });
+
+            // Exclude filter — add term on Enter
+            document.getElementById('excludeInput').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    const val = this.value.trim();
+                    if (val && !excludeTerms.map(t => t.toLowerCase()).includes(val.toLowerCase())) {
+                        excludeTerms.push(val);
+                        this.value = '';
+                        refreshExcludeTags();
+                        displayedCount = 100;
+                        applyFilter();
+                        refreshTableAfterFilter();
+                    } else {
+                        this.value = '';
+                    }
+                }
+            });
+
+            function refreshExcludeTags() {
+                const container = document.getElementById('excludeTags');
+                if (!container) return;
+                container.innerHTML = excludeTerms.map((t, i) =>
+                    `<span class="exclude-tag">🚫 ${esc(t)}<span class="remove-tag" data-excl="${i}">&times;</span></span>`
+                ).join('');
+                container.querySelectorAll('.remove-tag').forEach(el => {
+                    el.addEventListener('click', function () {
+                        const idx = parseInt(this.dataset.excl);
+                        excludeTerms.splice(idx, 1);
+                        refreshExcludeTags();
+                        displayedCount = 100;
+                        applyFilter();
+                        refreshTableAfterFilter();
+                    });
+                });
+            }
+
+            function refreshTableAfterFilter() {
+                if (tableViewMode === 'month' && reports.length >= 2) {
+                    renderMonthComparisonTable();
+                } else {
+                    renderTableRows(queryDiffs);
+                    const tc = document.getElementById('tableCount');
+                    if (tc) tc.innerHTML = fmtInt(filteredRows.length) + ' Suchbegriffe' + infoIcon('table', INFO.table.title, INFO.table.text);
+                    initInfoIcons();
+                }
+            }
+
+            // Init exclude tags if any already set
+            refreshExcludeTags();
 
             document.getElementById('loadMoreBtn').addEventListener('click', function () {
                 displayedCount += 100;
