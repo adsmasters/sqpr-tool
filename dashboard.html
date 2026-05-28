@@ -410,7 +410,14 @@
             transition: background 0.2s, color 0.2s;
         }
         .cluster-add-btn:hover { background: var(--border); color: var(--text-primary); }
-        .cluster-controls { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+        .cluster-controls { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+        .cluster-csv-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            background: var(--bg-hover); border: 1px solid var(--border); color: var(--text-secondary);
+            cursor: pointer; transition: background 0.2s, color 0.2s; white-space: nowrap;
+        }
+        .cluster-csv-btn:hover { background: var(--border); color: var(--text-primary); }
         .cluster-metric-select {
             background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary);
             padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
@@ -1123,6 +1130,44 @@
             };
         }
 
+        function downloadClusterCSV() {
+            if (clusters.length === 0) return;
+            const sortedReports = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
+
+            // Header: Monat + one column per cluster
+            const header = ['Monat', ...clusters.map(c => c.name)];
+
+            // One row per report month, Suchvolumen per cluster
+            const dataRows = sortedReports.map(r => {
+                const d = new Date(r.report_date_start);
+                const monthLabel = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+                const reportRows = getReportRows(r.id);
+                const clMap = matchTermsToClusters(reportRows, clusters);
+                const values = clusters.map(c => {
+                    const matched = clMap.get(c.id) || [];
+                    const agg = aggregateClusterKPIs(matched);
+                    return Math.round(agg.volume);
+                });
+                return [monthLabel, ...values];
+            });
+
+            const escCsv = v => {
+                const s = String(v);
+                return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+            };
+            const csv = [header, ...dataRows].map(row => row.map(escCsv).join(',')).join('\r\n');
+
+            // BOM + download
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cluster-suchvolumen.csv';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+        }
+
         function openClusterModal(cluster) {
             const isEdit = !!cluster;
             const overlay = document.createElement('div');
@@ -1692,6 +1737,7 @@
                                 <option value="cart_share" ${clusterMetric === 'cart_share' ? 'selected' : ''}>Cart Share %</option>
                                 <option value="purchase_share" ${clusterMetric === 'purchase_share' ? 'selected' : ''}>Purchase Share %</option>
                             </select>
+                            <button class="cluster-csv-btn" id="clusterCsvBtn" title="Suchvolumen aller Cluster als CSV herunterladen">⬇ CSV herunterladen</button>
                         </div>
                         <div class="cluster-chart-wrap"><canvas id="clusterChart" height="160"></canvas></div>
                         <div id="clusterTableWrap"></div>
@@ -2097,6 +2143,11 @@
                     clusterMetric = this.value;
                     renderClusterChart();
                 });
+            }
+
+            const clusterCsvBtn = document.getElementById('clusterCsvBtn');
+            if (clusterCsvBtn) {
+                clusterCsvBtn.addEventListener('click', downloadClusterCSV);
             }
 
             // Initial cluster render if section is open (it starts closed, but render if clusters exist for when toggled)
