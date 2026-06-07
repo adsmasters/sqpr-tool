@@ -477,8 +477,6 @@
                         <td style="width:32px;text-align:center;"><input type="checkbox" class="gap-chk" data-asin="${esc(row.asin)}" data-term="${esc(r.search_query)}" ${isChk ? 'checked' : ''}></td>
                         <td style="text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
                         <td>${fmtInt(r.search_query_volume)}</td>
-                        <td>${fmtInt(r.purchases_total)}</td>
-                        <td>${fmtInt(r.purchases_brand)}</td>
                         <td>${r.purchases_brand_share != null ? (r.purchases_brand_share * 100).toFixed(1) + ' %' : '—'}</td>
                     </tr>`;
                 }).join('');
@@ -502,9 +500,7 @@
                             <th style="width:32px;text-align:center;"><input type="checkbox" class="gap-chk-all" data-asin="${esc(row.asin)}" ${allChecked ? 'checked' : ''} title="Alle auswählen"></th>
                             <th style="text-align:left;">Suchbegriff</th>
                             <th>Suchvolumen</th>
-                            <th>Käufe Markt</th>
-                            <th>Käufe Marke</th>
-                            <th>Purchase Share</th>
+                            <th>Purchase Share (Marke)</th>
                         </tr></thead>
                         <tbody>${gapTableRows}</tbody>
                     </table>
@@ -687,9 +683,9 @@
         const gapRows = sqprData.rows
             .filter(r => !coveredAds.has((r.search_query || '').toLowerCase().trim()))
             .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0));
-        const rows = [['Suchbegriff', 'Suchvolumen', 'Käufe Markt', 'Käufe Marke', 'Purchase Share']];
+        const rows = [['Suchbegriff', 'Suchvolumen', 'Purchase Share (Marke)']];
         for (const r of gapRows) {
-            rows.push([r.search_query, r.search_query_volume || 0, r.purchases_total || 0, r.purchases_brand || 0,
+            rows.push([r.search_query, r.search_query_volume || 0,
                 r.purchases_brand_share != null ? (r.purchases_brand_share * 100).toFixed(2) + '%' : '']);
         }
         downloadCsv(rows, `gaps_${asin}.csv`);
