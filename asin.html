@@ -844,56 +844,39 @@
 
         const rows = [];
 
-        // Campaign row
-        const camp = emptyRow();
-        camp['Product'] = 'Sponsored Products';
-        camp['Entity'] = 'Campaign';
-        camp['Operation'] = 'create';
-        camp['Campaign ID'] = campName;
-        camp['Campaign Name'] = campName;
-        camp['Targeting Type'] = 'Manual';
-        camp['State'] = 'enabled';
-        camp['Daily Budget'] = '10';
-        camp['Bidding Strategy'] = 'Dynamic bids - down only';
-        rows.push(camp);
+        // One campaign block per match type
+        rows.length = 0; // reset, rebuild per match type
+        for (const mt of matchTypes.length ? matchTypes : ['exact']) {
+            const mtLabel = mt.charAt(0).toUpperCase() + mt.slice(1);
+            const campNameMt = `${campName}_${mtLabel}`;
+            const adGroupMt  = `${adGroup}_${mtLabel}`;
 
-        // Ad group row
-        const ag = emptyRow();
-        ag['Product'] = 'Sponsored Products';
-        ag['Entity'] = 'Ad Group';
-        ag['Operation'] = 'create';
-        ag['Campaign ID'] = campName;
-        ag['Ad Group ID'] = adGroup;
-        ag['Ad Group Name'] = adGroup;
-        ag['State'] = 'enabled';
-        ag['Ad Group Default Bid'] = bid.toFixed(2);
-        rows.push(ag);
+            const c = emptyRow();
+            c['Product'] = 'Sponsored Products'; c['Entity'] = 'Campaign'; c['Operation'] = 'create';
+            c['Campaign ID'] = campNameMt; c['Campaign Name'] = campNameMt;
+            c['Targeting Type'] = 'Manual'; c['State'] = 'enabled';
+            c['Daily Budget'] = '10'; c['Bidding Strategy'] = 'Dynamic bids - down only';
+            rows.push(c);
 
-        // Product ad row
-        const pa = emptyRow();
-        pa['Product'] = 'Sponsored Products';
-        pa['Entity'] = 'Product Ad';
-        pa['Operation'] = 'create';
-        pa['Campaign ID'] = campName;
-        pa['Ad Group ID'] = adGroup;
-        pa['State'] = 'enabled';
-        if (isVendor) pa['ASIN'] = productId;
-        else pa['SKU'] = productId;
-        rows.push(pa);
+            const ag2 = emptyRow();
+            ag2['Product'] = 'Sponsored Products'; ag2['Entity'] = 'Ad Group'; ag2['Operation'] = 'create';
+            ag2['Campaign ID'] = campNameMt; ag2['Ad Group ID'] = adGroupMt;
+            ag2['Ad Group Name'] = adGroupMt; ag2['State'] = 'enabled';
+            ag2['Ad Group Default Bid'] = bid.toFixed(2);
+            rows.push(ag2);
 
-        // Keyword rows
-        for (const term of terms) {
-            for (const mt of matchTypes.length ? matchTypes : ['exact']) {
+            const pa2 = emptyRow();
+            pa2['Product'] = 'Sponsored Products'; pa2['Entity'] = 'Product Ad'; pa2['Operation'] = 'create';
+            pa2['Campaign ID'] = campNameMt; pa2['Ad Group ID'] = adGroupMt; pa2['State'] = 'enabled';
+            if (isVendor) pa2['ASIN'] = productId; else pa2['SKU'] = productId;
+            rows.push(pa2);
+
+            for (const term of terms) {
                 const kw = emptyRow();
-                kw['Product'] = 'Sponsored Products';
-                kw['Entity'] = 'Keyword';
-                kw['Operation'] = 'create';
-                kw['Campaign ID'] = campName;
-                kw['Ad Group ID'] = adGroup;
-                kw['State'] = 'enabled';
-                kw['Keyword Text'] = term;
-                kw['Match Type'] = mt;
-                kw['Bid'] = bid.toFixed(2);
+                kw['Product'] = 'Sponsored Products'; kw['Entity'] = 'Keyword'; kw['Operation'] = 'create';
+                kw['Campaign ID'] = campNameMt; kw['Ad Group ID'] = adGroupMt;
+                kw['State'] = 'enabled'; kw['Keyword Text'] = term;
+                kw['Match Type'] = mt; kw['Bid'] = bid.toFixed(2);
                 rows.push(kw);
             }
         }
