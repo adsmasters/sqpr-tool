@@ -331,8 +331,8 @@
         const acos = row.spend && row.sales ? (row.spend / row.sales * 100).toFixed(1) + ' %' : '—';
         const gapBadge = hasSqpr
             ? (gapCount > 0
-                ? `<span style="font-size:11px;background:#f851491a;color:#f85149;padding:2px 7px;border-radius:10px;font-weight:600;">⚠ ${gapCount} Lücken</span>`
-                : `<span style="font-size:11px;background:#1a7f371a;color:#1a7f37;padding:2px 7px;border-radius:10px;font-weight:600;">✓ Abgedeckt</span>`)
+                ? `<span style="font-size:11px;background:#f851491a;color:#f85149;padding:2px 7px;border-radius:10px;font-weight:600;">⚠ ${gapCount} PPC-Lücken</span>`
+                : `<span style="font-size:11px;background:#1a7f371a;color:#1a7f37;padding:2px 7px;border-radius:10px;font-weight:600;">✓ PPC vollständig</span>`)
             : `<span style="font-size:11px;background:var(--bg-hover);color:var(--text-muted);padding:2px 7px;border-radius:10px;">Kein SQPR</span>`;
         return `<tr class="${isExpanded ? 'expanded' : ''}" data-asin="${esc(row.asin)}">
             <td><div class="asin-code">${esc(row.asin)}</div><div class="sku-label">SKU: ${esc(row.sku)}</div></td>
@@ -376,7 +376,7 @@
         }
 
         const sqprNotice = asinsWithSqpr === 0
-            ? `<div style="font-size:12px;color:var(--text-secondary);padding:8px 0;">Noch kein ASIN-SQPR hochgeladen — <a href="upload.html" style="color:var(--accent);">jetzt hochladen</a> um Lücken zu sehen.</div>`
+            ? `<div style="font-size:12px;color:var(--text-secondary);padding:8px 0;">Noch kein ASIN-SQPR hochgeladen — <a href="upload.html" style="color:var(--accent);">jetzt hochladen</a> um PPC-Lücken zu sehen.</div>`
             : `<div style="font-size:12px;color:var(--text-secondary);padding:8px 0;">${asinsWithSqpr} von ${totalAsins} ASINs haben SQPR-Daten. <a href="upload.html" style="color:var(--accent);">Weitere hochladen →</a></div>`;
 
         app.innerHTML = `
@@ -400,7 +400,7 @@
             <div class="section-header">
                 <div>
                     <div class="section-title">ASINs — Übersicht</div>
-                    <div class="section-sub">Klick auf eine Zeile → alle Search Terms + SQPR-Lücken dieser ASIN</div>
+                    <div class="section-sub">Klick auf eine Zeile → alle Search Terms + PPC-Lücken dieser ASIN</div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     ${sqprNotice}
@@ -492,7 +492,7 @@
 
                 gapHtml = `
                 <div style="margin-bottom:8px;display:flex;align-items:center;gap:12px;">${repInfo}</div>
-                <div style="font-size:13px;font-weight:600;color:var(--error);margin-bottom:8px;">🔴 ${gapRows.length} Suchbegriffe aus ASIN-SQPR ohne Ads</div>
+                <div style="font-size:13px;font-weight:600;color:var(--error);margin-bottom:8px;">🔴 ${gapRows.length} relevante Suchbegriffe ohne PPC-Abdeckung</div>
                 ${actionBar}
                 <div style="overflow-x:auto;">
                     <table>
@@ -510,7 +510,7 @@
                     <button class="btn-csv" style="font-size:12px;padding:5px 12px;" data-export-gaps="${esc(row.asin)}">⬇ Alle Lücken als CSV</button>
                 </div>`;
             } else {
-                gapHtml = `<div style="padding:12px 0;font-size:13px;color:var(--success);">✅ Alle SQPR-Suchbegriffe dieser ASIN sind durch Ads abgedeckt.</div>`;
+                gapHtml = `<div style="padding:12px 0;font-size:13px;color:var(--success);">✅ Alle relevanten Suchbegriffe dieser ASIN sind im PPC-Setup abgedeckt.</div>`;
             }
         } else {
             gapHtml = `<div style="padding:12px 0;font-size:13px;color:var(--text-secondary);">
@@ -538,7 +538,7 @@
                     Aktive Search Terms (${terms.length})
                 </button>
                 ${hasGapData ? `<button class="tab-btn ${isGaps ? 'active' : ''}" data-tab="gaps" data-asin="${esc(row.asin)}">
-                    SQPR-Lücken
+                    PPC-Lücken
                 </button>` : ''}
                 <button class="btn-csv" style="margin-left:auto;font-size:12px;padding:5px 12px;" data-export-asin="${esc(row.asin)}">⬇ CSV</button>
             </div>
