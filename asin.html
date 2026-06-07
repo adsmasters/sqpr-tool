@@ -142,7 +142,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-    // Theme
     const saved = localStorage.getItem('sqpr_theme') || 'light';
     document.documentElement.setAttribute('data-theme', saved);
     function toggleTheme() {
@@ -150,8 +149,6 @@
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('sqpr_theme', next);
     }
-
-    // Auth
     if (sessionStorage.getItem('sqpr_auth') !== 'true') window.location.href = 'index.html';
 
     const SUPABASE_URL = 'https://lgrnmiszhhahfcmctmwo.supabase.co';
@@ -169,13 +166,15 @@
     let bulkReports = [];
     let selectedBulkId = null;
     let allBulkRows = [];
-    let asinData = []; // aggregated per ASIN
+    let asinData = [];
     let sortCol = 'spend';
     let sortDir = 'desc';
     let searchTerm = '';
     let expandedAsin = null;
-    let activeTab = 'terms'; // 'terms' | 'gaps'
-    let sqprTermSet = new Set(); // search terms from SQPR STR upload (for gap analysis)
+    let activeTab = 'terms';
+    // ASIN-SQPR state: map of asin -> Set of search_query strings
+    let asinSqprMap = {}; // { [asin]: { terms: Set<string>, report: {id, date_start, date_end} } }
+    let asinSqprReports = []; // all sqpr_asin_reports for this client
 
     const fmtInt = (v) => (v || 0).toLocaleString('de-DE');
     const fmtEur = (v) => (v || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
@@ -185,21 +184,24 @@
     async function init() {
         const app = document.getElementById('app');
         const clientId = localStorage.getItem('sqpr_active_client');
-
         if (!clientId) {
             app.innerHTML = '<div class="empty-state"><h2>Bitte wähle einen Kunden aus</h2><p><a href="clients.html">Zur Kundenübersicht →</a></p></div>';
             return;
         }
-
         const { data: clientData } = await sb.from('sqpr_clients').select('*').eq('id', clientId).single();
         if (!clientData) {
-            app.innerHTML = '<div class="empty-state"><h2>Kunde nicht gefunden</h2><p><a href="clients.html">→ Kundenübersicht</a></p></div>';
+            app.innerHTML = '<div class="empty-state"><h2>Kunde nicht gefunden</h2></div>';
             return;
         }
         client = clientData;
 
-        const { data: reports } = await sb.from('sqpr_bulk_reports').select('*').eq('client_id', clientId).order('report_date_start', { ascending: false });
-        bulkReports = reports || [];
+        // Load bulk reports + ASIN-SQPR reports in parallel
+        const [bulkRes, asinSqprRes] = await Promise.all([
+            sb.from('sqpr_bulk_reports').select('*').eq('client_id', clientId).order('report_date_start', { ascending: false }),
+            sb.from('sqpr_asin_reports').select('*').eq('client_id', clientId).order('report_date_start', { ascending: false })
+        ]);
+        bulkReports    = bulkRes.data || [];
+        asinSqprReports = asinSqprRes.data || [];
 
         if (bulkReports.length === 0) {
             app.innerHTML = `<div class="empty-state"><h2>Keine Bulk Sheet Uploads für ${esc(client.name)}</h2><p>Lade zuerst einen Bulk Sheet hoch: <a href="upload.html">Upload →</a></p></div>`;
@@ -213,7 +215,6 @@
 
     async function loadBulkRows() {
         if (!selectedBulkId) return;
-
         let all = [], from = 0, batchSize = 1000;
         while (true) {
             const { data, error } = await sb.from('sqpr_bulk_rows').select('*').eq('bulk_report_id', selectedBulkId).range(from, from + batchSize - 1);
@@ -224,43 +225,55 @@
         }
         allBulkRows = all;
 
-        // Build ASIN aggregates
+        // Aggregate per ASIN
         const map = {};
         for (const r of all) {
             const key = r.asin || r.sku || 'Unbekannt';
-            if (!map[key]) {
-                map[key] = {
-                    asin: r.asin || '',
-                    sku: r.sku || '',
-                    impressions: 0, clicks: 0, spend: 0, orders: 0, sales: 0,
-                    term_count: 0, terms: []
-                };
-            }
+            if (!map[key]) map[key] = { asin: r.asin || '', sku: r.sku || '', impressions: 0, clicks: 0, spend: 0, orders: 0, sales: 0, term_count: 0, terms: [] };
             const m = map[key];
-            m.impressions += (r.impressions || 0);
-            m.clicks += (r.clicks || 0);
-            m.spend += (r.spend || 0);
-            m.orders += (r.orders || 0);
-            m.sales += (r.sales || 0);
-            m.term_count++;
-            m.terms.push(r);
+            m.impressions += (r.impressions || 0); m.clicks += (r.clicks || 0);
+            m.spend += (r.spend || 0); m.orders += (r.orders || 0); m.sales += (r.sales || 0);
+            m.term_count++; m.terms.push(r);
         }
         asinData = Object.values(map);
 
-        // Also load SQPR STR terms for gap analysis if available
-        const report = bulkReports.find(r => r.id === selectedBulkId);
-        if (report) {
-            // Try to find a matching SQPR report for this period
-            const { data: sqprReports } = await sb.from('sqpr_reports').select('id, report_date_start, report_date_end')
-                .eq('client_id', client.id)
-                .gte('report_date_start', report.report_date_start)
-                .lte('report_date_end', report.report_date_end)
-                .limit(3);
+        // Load ASIN-SQPR data for all ASINs that have reports
+        await loadAsinSqprData();
+    }
 
-            if (sqprReports && sqprReports.length > 0) {
-                const sqprIds = sqprReports.map(r => r.id);
-                const { data: strTerms } = await sb.from('sqpr_str_terms').select('search_term').in('report_id', sqprIds);
-                sqprTermSet = new Set((strTerms || []).map(t => t.search_term.toLowerCase().trim()));
+    async function loadAsinSqprData() {
+        asinSqprMap = {};
+        if (!asinSqprReports || asinSqprReports.length === 0) return;
+
+        // For each ASIN that has a sqpr_asin_report, load its rows
+        const reportIds = asinSqprReports.map(r => r.id);
+        if (reportIds.length === 0) return;
+
+        let all = [], from = 0, batchSize = 1000;
+        // Load in chunks of 20 report IDs at a time to avoid URL length issues
+        for (let i = 0; i < reportIds.length; i += 20) {
+            const chunk = reportIds.slice(i, i + 20);
+            let f = 0;
+            while (true) {
+                const { data, error } = await sb.from('sqpr_asin_rows').select('asin_report_id, asin, search_query, search_query_volume, purchases_brand, purchases_brand_share')
+                    .in('asin_report_id', chunk).range(f, f + batchSize - 1);
+                if (error || !data || data.length === 0) break;
+                all = all.concat(data);
+                if (data.length < batchSize) break;
+                f += batchSize;
+            }
+        }
+
+        // Build map: asin -> {terms: Set<string>, rows: [{search_query, volume, purchases_brand, share}]}
+        for (const row of all) {
+            const asin = row.asin;
+            if (!asinSqprMap[asin]) {
+                const rep = asinSqprReports.find(r => r.id === row.asin_report_id);
+                asinSqprMap[asin] = { terms: new Set(), rows: [], report: rep };
+            }
+            if (row.search_query) {
+                asinSqprMap[asin].terms.add(row.search_query.toLowerCase().trim());
+                asinSqprMap[asin].rows.push(row);
             }
         }
     }
@@ -278,27 +291,50 @@
         return rows;
     }
 
+    function fmtDate(d) {
+        if (!d) return '';
+        return new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function buildAsinRow(row, isExpanded) {
+        const hasSqpr = !!asinSqprMap[row.asin];
+        const sqprInfo = hasSqpr ? asinSqprMap[row.asin] : null;
+        const coveredAds = new Set(row.terms.map(t => t.search_term.toLowerCase().trim()));
+        const gapCount = hasSqpr ? [...sqprInfo.terms].filter(t => !coveredAds.has(t)).length : null;
+        const ctr  = row.clicks && row.impressions ? (row.clicks / row.impressions * 100).toFixed(2) + ' %' : '—';
+        const cvr  = row.orders && row.clicks ? (row.orders / row.clicks * 100).toFixed(1) + ' %' : '—';
+        const acos = row.spend && row.sales ? (row.spend / row.sales * 100).toFixed(1) + ' %' : '—';
+        const gapBadge = hasSqpr
+            ? (gapCount > 0
+                ? `<span style="font-size:11px;background:#f851491a;color:#f85149;padding:2px 7px;border-radius:10px;font-weight:600;">⚠ ${gapCount} Lücken</span>`
+                : `<span style="font-size:11px;background:#1a7f371a;color:#1a7f37;padding:2px 7px;border-radius:10px;font-weight:600;">✓ Abgedeckt</span>`)
+            : `<span style="font-size:11px;background:var(--bg-hover);color:var(--text-muted);padding:2px 7px;border-radius:10px;">Kein SQPR</span>`;
+        return `<tr class="${isExpanded ? 'expanded' : ''}" data-asin="${esc(row.asin)}">
+            <td><div class="asin-code">${esc(row.asin)}</div><div class="sku-label">SKU: ${esc(row.sku)}</div></td>
+            <td>${fmtInt(row.term_count)}</td>
+            <td>${fmtInt(row.impressions)}</td>
+            <td>${fmtInt(row.clicks)}</td>
+            <td>${ctr}</td>
+            <td>${fmtInt(row.orders)}</td>
+            <td>${cvr}</td>
+            <td>${fmtEur(row.spend)}</td>
+            <td>${acos}</td>
+            <td style="text-align:right;">${gapBadge}</td>
+            <td><span class="chevron">▼</span></td>
+        </tr>`;
+    }
+
     function render() {
         const app = document.getElementById('app');
-        const report = bulkReports.find(r => r.id === selectedBulkId);
-
-        const totalSpend = asinData.reduce((s, r) => s + r.spend, 0);
+        const totalSpend  = asinData.reduce((s, r) => s + r.spend, 0);
         const totalOrders = asinData.reduce((s, r) => s + r.orders, 0);
-        const totalImpr = asinData.reduce((s, r) => s + r.impressions, 0);
-        const totalTerms = allBulkRows.length;
-        const totalAsins = asinData.length;
-
-        const formatDate = (d) => {
-            if (!d) return '';
-            const dt = new Date(d);
-            return dt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        };
+        const totalImpr   = asinData.reduce((s, r) => s + r.impressions, 0);
+        const totalAsins  = asinData.length;
+        const asinsWithSqpr = Object.keys(asinSqprMap).length;
 
         const periodOptions = bulkReports.map(r =>
-            `<option value="${r.id}" ${r.id === selectedBulkId ? 'selected' : ''}>${formatDate(r.report_date_start)} — ${formatDate(r.report_date_end)}</option>`
+            `<option value="${r.id}" ${r.id === selectedBulkId ? 'selected' : ''}>${fmtDate(r.report_date_start)} — ${fmtDate(r.report_date_end)}</option>`
         ).join('');
-
-        const filteredRows = applyFilterAndSort();
 
         const thCol = (label, col) => {
             const active = sortCol === col;
@@ -306,61 +342,43 @@
             return `<th data-col="${col}" class="${active ? 'sorted' : ''}">${esc(label)}<span class="sort-icon">${icon}</span></th>`;
         };
 
+        const filteredRows = applyFilterAndSort();
         let tableRows = '';
         for (const row of filteredRows) {
             const isExpanded = expandedAsin === row.asin;
-            const ctr = row.clicks && row.impressions ? (row.clicks / row.impressions * 100).toFixed(2) + ' %' : '—';
-            const cvr = row.orders && row.clicks ? (row.orders / row.clicks * 100).toFixed(1) + ' %' : '—';
-            const acos = row.spend && row.sales ? (row.spend / row.sales * 100).toFixed(1) + ' %' : '—';
-
-            tableRows += `
-            <tr class="${isExpanded ? 'expanded' : ''}" data-asin="${esc(row.asin)}">
-                <td>
-                    <div class="asin-code">${esc(row.asin)}</div>
-                    <div class="sku-label">SKU: ${esc(row.sku)}</div>
-                </td>
-                <td>${fmtInt(row.term_count)}</td>
-                <td>${fmtInt(row.impressions)}</td>
-                <td>${fmtInt(row.clicks)}</td>
-                <td>${ctr}</td>
-                <td>${fmtInt(row.orders)}</td>
-                <td>${cvr}</td>
-                <td>${fmtEur(row.spend)}</td>
-                <td>${acos}</td>
-                <td><span class="chevron">▼</span></td>
-            </tr>`;
-
-            if (isExpanded) {
-                tableRows += `<tr class="expand-row"><td colspan="10">${buildExpandContent(row)}</td></tr>`;
-            }
+            tableRows += buildAsinRow(row, isExpanded);
+            if (isExpanded) tableRows += `<tr class="expand-row"><td colspan="11">${buildExpandContent(row)}</td></tr>`;
         }
+
+        const sqprNotice = asinsWithSqpr === 0
+            ? `<div style="font-size:12px;color:var(--text-secondary);padding:8px 0;">Noch kein ASIN-SQPR hochgeladen — <a href="upload.html" style="color:var(--accent);">jetzt hochladen</a> um Lücken zu sehen.</div>`
+            : `<div style="font-size:12px;color:var(--text-secondary);padding:8px 0;">${asinsWithSqpr} von ${totalAsins} ASINs haben SQPR-Daten. <a href="upload.html" style="color:var(--accent);">Weitere hochladen →</a></div>`;
 
         app.innerHTML = `
         <div class="page-header">
             <h1>ASIN-Analyse</h1>
             <span class="client-badge">${esc(client.name)}</span>
         </div>
-
         <div class="controls">
+            <label style="font-size:13px;color:var(--text-secondary);">Bulk Sheet:</label>
             <select class="period-select" id="periodSelect">${periodOptions}</select>
-            <a href="upload.html" style="font-size:13px;color:var(--text-secondary);text-decoration:none;">+ Bulk Sheet hochladen</a>
+            <a href="upload.html" style="font-size:13px;color:var(--accent);text-decoration:none;">+ Hochladen</a>
         </div>
-
         <div class="kpi-row">
             <div class="kpi-card"><div class="kpi-val">${fmtInt(totalAsins)}</div><div class="kpi-label">ASINs mit Ads</div></div>
-            <div class="kpi-card"><div class="kpi-val">${fmtInt(totalTerms)}</div><div class="kpi-label">ASIN-Term Kombinationen</div></div>
-            <div class="kpi-card"><div class="kpi-val">${fmtInt(totalImpr)}</div><div class="kpi-label">Impressionen gesamt</div></div>
-            <div class="kpi-card"><div class="kpi-val">${fmtInt(totalOrders)}</div><div class="kpi-label">Orders gesamt</div></div>
-            <div class="kpi-card"><div class="kpi-val">${fmtEur(totalSpend)}</div><div class="kpi-label">Spend gesamt</div></div>
+            <div class="kpi-card"><div class="kpi-val">${fmtInt(asinsWithSqpr)}</div><div class="kpi-label">ASINs mit SQPR</div></div>
+            <div class="kpi-card"><div class="kpi-val">${fmtInt(totalImpr)}</div><div class="kpi-label">Impressionen</div></div>
+            <div class="kpi-card"><div class="kpi-val">${fmtInt(totalOrders)}</div><div class="kpi-label">Orders</div></div>
+            <div class="kpi-card"><div class="kpi-val">${fmtEur(totalSpend)}</div><div class="kpi-label">Spend</div></div>
         </div>
-
         <div class="section">
             <div class="section-header">
                 <div>
                     <div class="section-title">ASINs — Übersicht</div>
-                    <div class="section-sub">Klick auf eine Zeile zeigt alle Suchbegriffe dieser ASIN</div>
+                    <div class="section-sub">Klick auf eine Zeile → alle Search Terms + SQPR-Lücken dieser ASIN</div>
                 </div>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    ${sqprNotice}
                     <input type="text" class="search-input" id="asinSearch" placeholder="ASIN oder SKU filtern…" value="${esc(searchTerm)}">
                     <button class="btn-csv" id="csvExportBtn">⬇ CSV</button>
                 </div>
@@ -369,7 +387,7 @@
                 <table id="asinTable">
                     <thead><tr>
                         ${thCol('ASIN / SKU', 'asin')}
-                        ${thCol('Search Terms', 'term_count')}
+                        ${thCol('Ad Terms', 'term_count')}
                         ${thCol('Impressionen', 'impressions')}
                         ${thCol('Klicks', 'clicks')}
                         <th>CTR</th>
@@ -377,6 +395,7 @@
                         <th>CVR</th>
                         ${thCol('Spend', 'spend')}
                         <th>ACOS</th>
+                        <th>SQPR-Status</th>
                         <th></th>
                     </tr></thead>
                     <tbody id="asinBody">${tableRows}</tbody>
@@ -384,7 +403,6 @@
             </div>
         </div>`;
 
-        // Events
         document.getElementById('periodSelect').addEventListener('change', async function() {
             selectedBulkId = this.value;
             expandedAsin = null;
@@ -392,56 +410,65 @@
             await loadBulkRows();
             render();
         });
-
-        document.getElementById('asinSearch').addEventListener('input', function() {
-            searchTerm = this.value;
-            renderTableOnly();
-        });
-
+        document.getElementById('asinSearch').addEventListener('input', function() { searchTerm = this.value; renderTableOnly(); });
         document.getElementById('csvExportBtn').addEventListener('click', exportCsv);
-
-        document.querySelectorAll('#asinTable thead th[data-col]').forEach(th => {
-            th.addEventListener('click', function() {
-                const col = this.dataset.col;
-                if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-                else { sortCol = col; sortDir = 'desc'; }
-                renderTableOnly();
-            });
-        });
-
-        document.getElementById('asinBody').addEventListener('click', function(e) {
-            const tr = e.target.closest('tr[data-asin]');
-            if (!tr) return;
-            const asin = tr.dataset.asin;
-            expandedAsin = expandedAsin === asin ? null : asin;
-            activeTab = 'terms';
-            renderTableOnly();
-        });
+        bindTableEvents();
     }
 
     function buildExpandContent(row) {
-        // Sort terms by spend desc
         const terms = [...row.terms].sort((a, b) => (b.spend || 0) - (a.spend || 0));
+        const sqprData = asinSqprMap[row.asin];
+        const hasGapData = !!sqprData;
+        const isTerms = activeTab === 'terms';
+        const isGaps  = activeTab === 'gaps';
 
-        // Gap analysis: SQPR terms not covered by this ASIN
+        // Gap analysis using real ASIN SQPR
         let gapHtml = '';
-        if (sqprTermSet.size > 0) {
-            const coveredTerms = new Set(row.terms.map(t => t.search_term.toLowerCase().trim()));
-            const gaps = [...sqprTermSet].filter(t => !coveredTerms.has(t));
-            if (gaps.length > 0) {
-                gapHtml = `<div class="gap-section">
-                    <div class="gap-title">🔴 ${gaps.length} SQPR-Begriffe ohne Ads für diese ASIN</div>
-                    <div>${gaps.slice(0, 50).map(t => `<span class="term-pill">${esc(t)}</span>`).join('')}
-                    ${gaps.length > 50 ? `<span class="term-pill" style="color:var(--text-secondary)">+${gaps.length - 50} weitere</span>` : ''}</div>
+        if (hasGapData) {
+            const coveredAds = new Set(row.terms.map(t => t.search_term.toLowerCase().trim()));
+            // Sort gaps by volume desc using sqpr row data
+            const gapRows = sqprData.rows
+                .filter(r => !coveredAds.has((r.search_query || '').toLowerCase().trim()))
+                .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0));
+
+            const repInfo = sqprData.report
+                ? `<span style="font-size:11px;color:var(--text-muted);">SQPR-Zeitraum: ${fmtDate(sqprData.report.report_date_start)} — ${fmtDate(sqprData.report.report_date_end)}</span>`
+                : '';
+
+            if (gapRows.length > 0) {
+                const gapTableRows = gapRows.slice(0, 100).map(r => `<tr>
+                    <td style="text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
+                    <td>${fmtInt(r.search_query_volume)}</td>
+                    <td>${fmtInt(r.purchases_brand)}</td>
+                    <td>${r.purchases_brand_share != null ? (r.purchases_brand_share * 100).toFixed(1) + ' %' : '—'}</td>
+                </tr>`).join('');
+                gapHtml = `
+                <div style="margin-bottom:8px;display:flex;align-items:center;gap:12px;">${repInfo}</div>
+                <div style="font-size:13px;font-weight:600;color:var(--error);margin-bottom:8px;">🔴 ${gapRows.length} Suchbegriffe aus ASIN-SQPR ohne Ads</div>
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead><tr>
+                            <th style="text-align:left;">Suchbegriff</th>
+                            <th>Suchvolumen</th>
+                            <th>Käufe Marke</th>
+                            <th>Purchase Share</th>
+                        </tr></thead>
+                        <tbody>${gapTableRows}</tbody>
+                    </table>
+                </div>
+                ${gapRows.length > 100 ? `<div style="padding:8px;font-size:12px;color:var(--text-secondary);">Zeige 100 von ${gapRows.length}. CSV für vollständige Liste.</div>` : ''}
+                <div style="margin-top:10px;">
+                    <button class="btn-csv" style="font-size:12px;padding:5px 12px;" data-export-gaps="${esc(row.asin)}">⬇ Lücken als CSV</button>
                 </div>`;
             } else {
-                gapHtml = `<div style="padding:8px 0;font-size:12px;color:var(--success);">✅ Alle SQPR-Suchbegriffe sind für diese ASIN abgedeckt.</div>`;
+                gapHtml = `<div style="padding:12px 0;font-size:13px;color:var(--success);">✅ Alle SQPR-Suchbegriffe dieser ASIN sind durch Ads abgedeckt.</div>`;
             }
+        } else {
+            gapHtml = `<div style="padding:12px 0;font-size:13px;color:var(--text-secondary);">
+                Kein ASIN-SQPR für <strong>${esc(row.asin)}</strong> hochgeladen.<br>
+                <a href="upload.html" style="color:var(--accent);">Jetzt hochladen →</a> (Brand Analytics → Search Query Performance → ASIN auswählen → CSV herunterladen)
+            </div>`;
         }
-
-        const isTerms = activeTab === 'terms';
-        const isGaps = activeTab === 'gaps';
-        const hasGapData = sqprTermSet.size > 0;
 
         const termRows = terms.slice(0, 200).map(t => {
             const acos = t.spend && t.sales ? (t.spend / t.sales * 100).toFixed(1) + ' %' : '—';
@@ -492,34 +519,20 @@
         const filteredRows = applyFilterAndSort();
         const tbody = document.getElementById('asinBody');
         if (!tbody) return;
-
         let html = '';
         for (const row of filteredRows) {
             const isExpanded = expandedAsin === row.asin;
-            const ctr = row.clicks && row.impressions ? (row.clicks / row.impressions * 100).toFixed(2) + ' %' : '—';
-            const cvr = row.orders && row.clicks ? (row.orders / row.clicks * 100).toFixed(1) + ' %' : '—';
-            const acos = row.spend && row.sales ? (row.spend / row.sales * 100).toFixed(1) + ' %' : '—';
-
-            html += `<tr class="${isExpanded ? 'expanded' : ''}" data-asin="${esc(row.asin)}">
-                <td><div class="asin-code">${esc(row.asin)}</div><div class="sku-label">SKU: ${esc(row.sku)}</div></td>
-                <td>${fmtInt(row.term_count)}</td>
-                <td>${fmtInt(row.impressions)}</td>
-                <td>${fmtInt(row.clicks)}</td>
-                <td>${ctr}</td>
-                <td>${fmtInt(row.orders)}</td>
-                <td>${cvr}</td>
-                <td>${fmtEur(row.spend)}</td>
-                <td>${acos}</td>
-                <td><span class="chevron">▼</span></td>
-            </tr>`;
-
-            if (isExpanded) {
-                html += `<tr class="expand-row"><td colspan="10">${buildExpandContent(row)}</td></tr>`;
-            }
+            html += buildAsinRow(row, isExpanded);
+            if (isExpanded) html += `<tr class="expand-row"><td colspan="11">${buildExpandContent(row)}</td></tr>`;
         }
         tbody.innerHTML = html;
+        bindTableEvents();
+    }
 
-        // Re-bind sort headers
+    function bindTableEvents() {
+        const tbody = document.getElementById('asinBody');
+        if (!tbody) return;
+
         document.querySelectorAll('#asinTable thead th[data-col]').forEach(th => {
             th.addEventListener('click', function() {
                 const col = this.dataset.col;
@@ -529,14 +542,14 @@
             });
             if (th.dataset.col === sortCol) {
                 th.classList.add('sorted');
-                th.querySelector('.sort-icon').textContent = sortDir === 'desc' ? ' ▼' : ' ▲';
+                const icon = th.querySelector('.sort-icon');
+                if (icon) icon.textContent = sortDir === 'desc' ? ' ▼' : ' ▲';
             }
         });
 
-        // Row click → expand
         tbody.querySelectorAll('tr[data-asin]').forEach(tr => {
             tr.addEventListener('click', function(e) {
-                if (e.target.closest('.tab-btn') || e.target.closest('[data-export-asin]')) return;
+                if (e.target.closest('.tab-btn') || e.target.closest('[data-export-asin]') || e.target.closest('[data-export-gaps]')) return;
                 const asin = this.dataset.asin;
                 expandedAsin = expandedAsin === asin ? null : asin;
                 activeTab = 'terms';
@@ -544,7 +557,6 @@
             });
         });
 
-        // Tab buttons
         tbody.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -553,14 +565,35 @@
             });
         });
 
-        // Per-ASIN CSV export
         tbody.querySelectorAll('[data-export-asin]').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const asin = this.dataset.exportAsin;
-                exportAsinCsv(asin);
+                exportAsinCsv(this.dataset.exportAsin);
             });
         });
+
+        tbody.querySelectorAll('[data-export-gaps]').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                exportGapsCsv(this.dataset.exportGaps);
+            });
+        });
+    }
+
+    function exportGapsCsv(asin) {
+        const sqprData = asinSqprMap[asin];
+        if (!sqprData) return;
+        const asinRow = asinData.find(r => r.asin === asin);
+        const coveredAds = new Set((asinRow ? asinRow.terms : []).map(t => t.search_term.toLowerCase().trim()));
+        const gapRows = sqprData.rows
+            .filter(r => !coveredAds.has((r.search_query || '').toLowerCase().trim()))
+            .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0));
+        const rows = [['Suchbegriff', 'Suchvolumen', 'Käufe Marke', 'Purchase Share']];
+        for (const r of gapRows) {
+            rows.push([r.search_query, r.search_query_volume || 0, r.purchases_brand || 0,
+                r.purchases_brand_share != null ? (r.purchases_brand_share * 100).toFixed(2) + '%' : '']);
+        }
+        downloadCsv(rows, `gaps_${asin}.csv`);
     }
 
     function exportCsv() {

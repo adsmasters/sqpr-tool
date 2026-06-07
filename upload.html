@@ -824,6 +824,77 @@
         </div>
     </div>
 
+    <!-- ASIN SQPR Section -->
+    <div class="main" style="margin-top:36px;" id="asinSqprSection">
+        <h2 class="section-title">ASIN-SQPR Upload</h2>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">Amazon Brand Analytics → Search Query Performance → ASIN auswählen → CSV herunterladen. Pro ASIN eine Datei hochladen.</p>
+
+        <div class="card">
+            <div class="card-title">ASIN &amp; Zeitraum</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="asinInput">ASIN</label>
+                    <input type="text" id="asinInput" placeholder="z.B. B09WBDV77V" style="text-transform:uppercase;" maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label for="asinSqprStartDate">Startdatum</label>
+                    <input type="date" id="asinSqprStartDate">
+                </div>
+                <div class="form-group">
+                    <label for="asinSqprEndDate">Enddatum</label>
+                    <input type="date" id="asinSqprEndDate">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">SQPR CSV (ASIN-Ebene)</div>
+            <div class="drop-zone" id="asinSqprDropZone">
+                <div class="drop-zone-icon">📄</div>
+                <div class="drop-zone-text">ASIN-SQPR CSV hierher ziehen oder klicken</div>
+                <div class="drop-zone-hint">Gleiches Format wie der Brand-SQPR — aber gefiltert auf eine ASIN</div>
+                <input type="file" id="asinSqprFileInput" accept=".csv,.xlsx">
+            </div>
+            <div class="file-selected" id="asinSqprFileSelected" style="display:none;">
+                <span class="file-name" id="asinSqprFileName"></span>
+                <button class="remove-file" id="asinSqprRemoveFile" title="Datei entfernen">&times;</button>
+            </div>
+        </div>
+
+        <div class="card preview-section" id="asinSqprPreviewSection" style="display:none;">
+            <div class="card-title">Vorschau</div>
+            <span class="badge success" id="asinSqprRowBadge"></span>
+            <div class="columns-validation" id="asinSqprColumnsValidation" style="margin-top:12px;"></div>
+            <div class="upload-actions">
+                <button class="btn-primary" id="asinSqprUploadBtn" disabled>Hochladen</button>
+            </div>
+            <div class="progress-wrap" id="asinSqprProgressWrap" style="display:none;">
+                <div class="progress-bar-outer"><div class="progress-bar-inner" id="asinSqprProgressBar"></div></div>
+                <div class="progress-text" id="asinSqprProgressText">0%</div>
+            </div>
+            <div class="success-msg" id="asinSqprSuccessMsg" style="display:none;"></div>
+            <div class="error-msg" id="asinSqprErrorMsg" style="display:none;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+            <h3 class="section-title" style="font-size:15px;">ASIN-SQPR Verlauf</h3>
+            <div class="table-card">
+                <div class="loading" id="asinSqprHistoryLoading" style="display:none;"><div class="spinner"></div><div>Wird geladen...</div></div>
+                <table id="asinSqprHistoryTable" style="display:none;">
+                    <thead><tr>
+                        <th>ASIN</th>
+                        <th>Zeitraum</th>
+                        <th>Suchbegriffe</th>
+                        <th>Hochgeladen am</th>
+                        <th>Aktion</th>
+                    </tr></thead>
+                    <tbody id="asinSqprHistoryBody"></tbody>
+                </table>
+                <div class="empty-state" id="asinSqprHistoryEmpty"><p>Noch keine ASIN-SQPR-Uploads für diesen Kunden.</p></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bulk Sheet Section -->
     <div class="main" style="margin-top:36px;" id="bulkSection">
         <h2 class="section-title">Bulk Sheet Upload (ASIN-Analyse)</h2>
@@ -1826,6 +1897,237 @@
 
         // Init
         loadClients();
+
+        // =============================================
+        // ASIN SQPR UPLOAD
+        // =============================================
+
+        const asinInput         = document.getElementById('asinInput');
+        const asinSqprStartDate = document.getElementById('asinSqprStartDate');
+        const asinSqprEndDate   = document.getElementById('asinSqprEndDate');
+        const asinSqprDropZone  = document.getElementById('asinSqprDropZone');
+        const asinSqprFileInput = document.getElementById('asinSqprFileInput');
+        const asinSqprFileSelected  = document.getElementById('asinSqprFileSelected');
+        const asinSqprFileName      = document.getElementById('asinSqprFileName');
+        const asinSqprRemoveFile    = document.getElementById('asinSqprRemoveFile');
+        const asinSqprPreviewSection = document.getElementById('asinSqprPreviewSection');
+        const asinSqprRowBadge      = document.getElementById('asinSqprRowBadge');
+        const asinSqprColumnsVal    = document.getElementById('asinSqprColumnsValidation');
+        const asinSqprUploadBtn     = document.getElementById('asinSqprUploadBtn');
+        const asinSqprProgressWrap  = document.getElementById('asinSqprProgressWrap');
+        const asinSqprProgressBar   = document.getElementById('asinSqprProgressBar');
+        const asinSqprProgressText  = document.getElementById('asinSqprProgressText');
+        const asinSqprSuccessMsg    = document.getElementById('asinSqprSuccessMsg');
+        const asinSqprErrorMsg      = document.getElementById('asinSqprErrorMsg');
+
+        let asinSqprParsedHeaders = null;
+        let asinSqprParsedData    = null;
+
+        asinSqprDropZone.addEventListener('click', () => asinSqprFileInput.click());
+        asinSqprDropZone.addEventListener('dragover', e => { e.preventDefault(); asinSqprDropZone.classList.add('dragover'); });
+        asinSqprDropZone.addEventListener('dragleave', () => asinSqprDropZone.classList.remove('dragover'));
+        asinSqprDropZone.addEventListener('drop', e => {
+            e.preventDefault(); asinSqprDropZone.classList.remove('dragover');
+            const f = e.dataTransfer.files[0];
+            if (f) asinSqprHandleFile(f);
+        });
+        asinSqprFileInput.addEventListener('change', () => {
+            if (asinSqprFileInput.files.length > 0) asinSqprHandleFile(asinSqprFileInput.files[0]);
+        });
+        asinSqprRemoveFile.addEventListener('click', asinSqprReset);
+
+        function asinSqprReset() {
+            asinSqprFileInput.value = '';
+            asinSqprFileSelected.style.display = 'none';
+            asinSqprPreviewSection.style.display = 'none';
+            asinSqprParsedHeaders = null;
+            asinSqprParsedData    = null;
+            asinSqprUploadBtn.disabled = true;
+            asinSqprSuccessMsg.style.display = 'none';
+            asinSqprErrorMsg.style.display   = 'none';
+            asinSqprProgressWrap.style.display = 'none';
+        }
+
+        function asinSqprHandleFile(file) {
+            asinSqprFileName.textContent = file.name;
+            asinSqprFileSelected.style.display = 'flex';
+            asinSqprSuccessMsg.style.display = 'none';
+            asinSqprErrorMsg.style.display   = 'none';
+            asinSqprProgressWrap.style.display = 'none';
+
+            const reader = new FileReader();
+            if (file.name.toLowerCase().endsWith('.xlsx')) {
+                reader.onload = e => {
+                    try {
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                        // Convert to CSV-style lines then reuse parseCSV logic
+                        const hIdx = (() => {
+                            for (let i = 0; i < Math.min(rows.length, 30); i++) {
+                                const r = rows[i].join(' ').toLowerCase();
+                                if ((r.includes('search query') || r.includes('suchabfrage')) && r.includes('impr')) return i;
+                            }
+                            return 0;
+                        })();
+                        asinSqprParsedHeaders = rows[hIdx].map(h => String(h));
+                        asinSqprParsedData    = rows.slice(hIdx + 1).filter(r => r.some(c => c !== ''));
+                        asinSqprShowPreview();
+                    } catch(err) { asinSqprShowError('Fehler beim Parsen: ' + err.message); }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.onload = e => {
+                    try {
+                        const delim = detectDelimiter(e.target.result);
+                        const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+                        const hIdx = findHeaderRow(lines, delim);
+                        asinSqprParsedHeaders = splitCSVLine(lines[hIdx], delim);
+                        asinSqprParsedData    = lines.slice(hIdx + 1).map(l => splitCSVLine(l, delim)).filter(r => r.length > 1);
+                    } catch(err) { asinSqprShowError('Fehler beim Parsen: ' + err.message); return; }
+                    asinSqprShowPreview();
+                };
+                reader.readAsText(file, 'UTF-8');
+            }
+        }
+
+        function asinSqprShowPreview() {
+            asinSqprPreviewSection.style.display = 'block';
+            asinSqprColumnsVal.innerHTML = '';
+            let allFound = true;
+            EXPECTED_COLUMNS.forEach(exp => {
+                const idx = findColumnIndex(asinSqprParsedHeaders, exp);
+                const tag = document.createElement('span');
+                tag.className = 'col-tag ' + (idx >= 0 ? 'found' : 'missing');
+                tag.innerHTML = (idx >= 0 ? '&#10003; ' : '&#10007; ') + escapeHtml(exp);
+                asinSqprColumnsVal.appendChild(tag);
+                if (idx < 0) allFound = false;
+            });
+            const hasQuery = findColumnIndex(asinSqprParsedHeaders, 'Search Query') >= 0;
+            asinSqprRowBadge.textContent = asinSqprParsedData.length + ' Zeilen erkannt';
+            asinSqprUploadBtn.disabled = !hasQuery;
+        }
+
+        asinSqprUploadBtn.addEventListener('click', async () => {
+            const clientId = clientSelect.value;
+            const asin     = asinInput.value.trim().toUpperCase();
+            if (!clientId)                        { asinSqprShowError('Bitte Kunden auswählen.'); return; }
+            if (!asin || asin.length < 10)        { asinSqprShowError('Bitte gültige ASIN eingeben (10 Zeichen).'); return; }
+            if (!asinSqprStartDate.value || !asinSqprEndDate.value) { asinSqprShowError('Bitte Start- und Enddatum angeben.'); return; }
+            if (!asinSqprParsedData || asinSqprParsedData.length === 0) { asinSqprShowError('Keine Daten gefunden.'); return; }
+
+            asinSqprUploadBtn.disabled = true;
+            asinSqprSuccessMsg.style.display = 'none';
+            asinSqprErrorMsg.style.display   = 'none';
+            asinSqprProgressWrap.style.display = 'block';
+            asinSqprProgressBar.style.width = '0%';
+            asinSqprProgressText.textContent = 'Report wird erstellt...';
+
+            try {
+                // Delete existing for same client + asin + period
+                const { data: existing } = await sb.from('sqpr_asin_reports')
+                    .select('id').eq('client_id', clientId).eq('asin', asin)
+                    .eq('report_date_start', asinSqprStartDate.value).eq('report_date_end', asinSqprEndDate.value);
+                if (existing && existing.length > 0) {
+                    for (const r of existing) {
+                        await sb.from('sqpr_asin_rows').delete().eq('asin_report_id', r.id);
+                        await sb.from('sqpr_asin_reports').delete().eq('id', r.id);
+                    }
+                }
+
+                const { data: report, error: repErr } = await sb.from('sqpr_asin_reports')
+                    .insert({ client_id: clientId, asin, report_date_start: asinSqprStartDate.value, report_date_end: asinSqprEndDate.value, row_count: asinSqprParsedData.length })
+                    .select('id').single();
+                if (repErr) throw new Error('Report konnte nicht erstellt werden: ' + repErr.message);
+
+                const reportId = report.id;
+                const colIdx = {};
+                EXPECTED_COLUMNS.forEach(exp => {
+                    const idx = findColumnIndex(asinSqprParsedHeaders, exp);
+                    if (idx >= 0) colIdx[exp] = idx;
+                });
+
+                const dbRows = asinSqprParsedData.map(row => {
+                    const obj = { asin_report_id: reportId, client_id: clientId, asin };
+                    EXPECTED_COLUMNS.forEach(exp => {
+                        const dbCol = COLUMN_DB_MAP[exp];
+                        const idx = colIdx[exp];
+                        if (idx === undefined || idx < 0 || !dbCol) return;
+                        const rawVal = Array.isArray(row) ? row[idx] : row[idx];
+                        if (exp === 'Search Query') {
+                            obj[dbCol] = rawVal ? String(rawVal).trim() : null;
+                        } else if (exp.includes('%') || exp.includes('Share')) {
+                            obj[dbCol] = parseGermanNumber(String(rawVal));
+                        } else {
+                            const p = parseGermanNumber(String(rawVal));
+                            obj[dbCol] = p !== null ? Math.round(p) : null;
+                        }
+                    });
+                    return obj;
+                }).filter(r => r.search_query);
+
+                const chunkSize = 500;
+                const totalChunks = Math.ceil(dbRows.length / chunkSize);
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = dbRows.slice(i * chunkSize, (i + 1) * chunkSize);
+                    const { error } = await sb.from('sqpr_asin_rows').insert(chunk);
+                    if (error) {
+                        await sb.from('sqpr_asin_reports').delete().eq('id', reportId);
+                        throw new Error('Fehler (Chunk ' + (i+1) + '): ' + error.message);
+                    }
+                    const pct = Math.round(((i+1) / totalChunks) * 100);
+                    asinSqprProgressBar.style.width = pct + '%';
+                    asinSqprProgressText.textContent = pct + '%';
+                }
+
+                asinSqprProgressBar.style.width = '100%';
+                asinSqprSuccessMsg.textContent = 'Erfolgreich: ' + dbRows.length + ' Suchbegriffe für ASIN ' + asin + ' hochgeladen.';
+                asinSqprSuccessMsg.style.display = 'block';
+                setTimeout(() => { asinSqprReset(); loadAsinSqprHistory(); }, 1500);
+
+            } catch(err) { asinSqprShowError(err.message); asinSqprUploadBtn.disabled = false; }
+        });
+
+        function asinSqprShowError(msg) {
+            asinSqprErrorMsg.textContent = msg;
+            asinSqprErrorMsg.style.display = 'block';
+            asinSqprSuccessMsg.style.display = 'none';
+        }
+
+        async function loadAsinSqprHistory() {
+            const clientId = clientSelect.value;
+            const loading = document.getElementById('asinSqprHistoryLoading');
+            const table   = document.getElementById('asinSqprHistoryTable');
+            const empty   = document.getElementById('asinSqprHistoryEmpty');
+            const tbody   = document.getElementById('asinSqprHistoryBody');
+            if (!clientId) { empty.style.display = 'block'; table.style.display = 'none'; return; }
+            loading.style.display = 'block'; table.style.display = 'none'; empty.style.display = 'none';
+
+            const { data } = await sb.from('sqpr_asin_reports').select('*').eq('client_id', clientId).order('uploaded_at', { ascending: false });
+            loading.style.display = 'none';
+            if (!data || data.length === 0) { empty.style.display = 'block'; return; }
+
+            table.style.display = 'table';
+            tbody.innerHTML = '';
+            data.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-family:monospace;font-weight:600;">${escapeHtml(r.asin)}</td>
+                    <td>${formatDate(r.report_date_start)} — ${formatDate(r.report_date_end)}</td>
+                    <td>${(r.row_count || 0).toLocaleString('de-DE')}</td>
+                    <td>${r.uploaded_at ? formatDateTime(r.uploaded_at) : '—'}</td>
+                    <td><button class="action-btn delete asin-sqpr-del" data-id="${r.id}">Löschen</button></td>`;
+                tr.querySelector('.asin-sqpr-del').addEventListener('click', async () => {
+                    if (!confirm('ASIN-SQPR wirklich löschen?')) return;
+                    await sb.from('sqpr_asin_rows').delete().eq('asin_report_id', r.id);
+                    await sb.from('sqpr_asin_reports').delete().eq('id', r.id);
+                    loadAsinSqprHistory();
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        clientSelect.addEventListener('change', loadAsinSqprHistory);
 
         // =============================================
         // BULK SHEET UPLOAD
