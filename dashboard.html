@@ -365,6 +365,19 @@
         }
         .exclude-tag .remove-tag:hover { opacity: 1; }
 
+        /* PPC Potenziale: checked row */
+        tr.ppc-row-checked { background: #3452ff0d !important; }
+        tr.ppc-row-checked td { color: var(--text-primary); }
+
+        /* PPC CSV download button */
+        .ppc-csv-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            background: linear-gradient(135deg, #0332e8 0%, #3452ff 100%); color: #fff;
+            border: none; cursor: pointer; transition: opacity .15s;
+        }
+        .ppc-csv-btn:hover { opacity: .88; }
+
         .trend-metric-select {
             background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary);
             padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer;
@@ -600,6 +613,8 @@
         let sortDir = 'desc';
         let searchTerm = '';
         let excludeTerms = []; // terms to hide from the table
+        let ppcExcludeTerms = []; // terms to hide from PPC Potenziale table
+        let ppcCheckedTerms = new Set(); // checked terms in PPC Potenziale table
         let selectedReportId = 'all';
         let compareReportId = 'auto'; // 'auto' = previous period, 'none' = no comparison, or a report ID
         let funnelChart = null;
@@ -699,31 +714,87 @@
             return 'share-red';
         }
         function buildPpcOppRows(rows) {
-            if (!rows || rows.length === 0) return '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-secondary);">Keine Potenziale gefunden.</td></tr>';
-            return rows.map(r => `
-                <tr>
-                    <td style="text-align:left;font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
+            if (!rows || rows.length === 0) return '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-secondary);">Keine Potenziale gefunden.</td></tr>';
+            return rows.map(r => {
+                const q = r.search_query || '';
+                const checked = ppcCheckedTerms.has(q) ? 'checked' : '';
+                return `<tr class="${ppcCheckedTerms.has(q) ? 'ppc-row-checked' : ''}">
+                    <td style="width:36px;text-align:center;"><input type="checkbox" class="ppc-opp-check" data-query="${esc(q)}" ${checked} style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;"></td>
+                    <td style="text-align:left;font-weight:500;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(q)}">${esc(q)}</td>
                     <td>${fmtInt(r.search_query_volume)}</td>
                     <td>${fmtInt(r.purchases_total)}</td>
                     <td>${fmtInt(r.purchases_brand)}</td>
                     <td><span class="share-badge ${shareBadgeClass(r.purchases_brand_share)}">${fmtPct(r.purchases_brand_share)}</span></td>
-                </tr>`).join('');
+                </tr>`;
+            }).join('');
         }
         function renderPpcOppRows(filter) {
             const tbody = document.getElementById('ppcOppTbody');
             const countEl = document.getElementById('ppcOppCount');
             if (!tbody || !window._ppcAllOpportunities) return;
-            const lower = (filter || '').toLowerCase().trim();
-            const filtered = lower
-                ? window._ppcAllOpportunities.filter(r => (r.search_query || '').toLowerCase().includes(lower))
-                : window._ppcAllOpportunities.slice(0, 50);
+            const lower = (filter || document.getElementById('ppcOppFilter')?.value || '').toLowerCase().trim();
+            let base = window._ppcAllOpportunities;
+            // Apply exclude filter
+            if (ppcExcludeTerms.length > 0) {
+                base = base.filter(r => {
+                    const q = (r.search_query || '').toLowerCase();
+                    return !ppcExcludeTerms.some(t => q.includes(t.toLowerCase()));
+                });
+            }
+            const filtered = lower ? base.filter(r => (r.search_query || '').toLowerCase().includes(lower)) : base.slice(0, 100);
             tbody.innerHTML = buildPpcOppRows(filtered);
+            // Bind checkbox events
+            tbody.querySelectorAll('.ppc-opp-check').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const q = this.dataset.query;
+                    if (this.checked) ppcCheckedTerms.add(q);
+                    else ppcCheckedTerms.delete(q);
+                    this.closest('tr').classList.toggle('ppc-row-checked', this.checked);
+                    refreshPpcCsvBtn();
+                });
+            });
             if (countEl) {
-                const total = window._ppcAllOpportunities.length;
+                const total = base.length;
                 countEl.textContent = lower
                     ? filtered.length.toLocaleString('de-DE') + ' / ' + total.toLocaleString('de-DE') + ' Queries'
                     : total.toLocaleString('de-DE') + ' Queries';
             }
+        }
+        function refreshPpcExcludeTags() {
+            const container = document.getElementById('ppcExcludeTags');
+            if (!container) return;
+            container.innerHTML = ppcExcludeTerms.map((t, i) =>
+                `<span class="exclude-tag">🚫 ${esc(t)}<span class="remove-tag" data-pexcl="${i}">&times;</span></span>`
+            ).join('');
+            container.querySelectorAll('.remove-tag').forEach(el => {
+                el.addEventListener('click', function() {
+                    ppcExcludeTerms.splice(parseInt(this.dataset.pexcl), 1);
+                    refreshPpcExcludeTags();
+                    renderPpcOppRows();
+                });
+            });
+        }
+        function refreshPpcCsvBtn() {
+            const btn = document.getElementById('ppcCsvDownloadBtn');
+            if (!btn) return;
+            const n = ppcCheckedTerms.size;
+            if (n > 0) {
+                btn.style.display = 'inline-flex';
+                btn.textContent = `⬇ CSV (${n} ausgewählt)`;
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+        function downloadPpcCheckedCsv() {
+            if (ppcCheckedTerms.size === 0) return;
+            const rows = [['Suchbegriff']];
+            ppcCheckedTerms.forEach(q => rows.push([q]));
+            const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'sqpr_potenziale_keywords.csv'; a.click();
+            URL.revokeObjectURL(url);
         }
         function safeDiv(a, b) {
             return b ? (a / b) * 100 : 0;
@@ -1638,22 +1709,28 @@
                         </div>
 
                         <!-- Potenziale -->
-                        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px;gap:16px;flex-wrap:wrap;">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:16px;flex-wrap:wrap;">
                             <div>
                                 <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Top Potenziale — Queries ohne PPC</div>
                                 <div style="font-size:12px;color:var(--text-secondary);">Suchbegriffe ohne PPC, sortiert nach Suchvolumen.</div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;max-width:360px;">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
                                 <input type="text" id="ppcOppFilter" placeholder="Filtern, z.B. Becher…"
-                                       style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);font-size:13px;outline:none;"
+                                       style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);font-size:13px;outline:none;width:170px;"
                                        oninput="renderPpcOppRows(this.value)">
+                                <div class="exclude-filter-wrap" style="gap:6px;">
+                                    <input type="text" class="exclude-input" id="ppcExcludeInput" placeholder="Begriff ausschließen…" title="Enter drücken um Begriff auszuschließen" style="width:180px;border-color:#f85149;">
+                                    <div id="ppcExcludeTags" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+                                </div>
+                                <button class="ppc-csv-btn" id="ppcCsvDownloadBtn" style="display:none;" onclick="downloadPpcCheckedCsv()">⬇ CSV (0 ausgewählt)</button>
                                 <span id="ppcOppCount" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">${window._ppcAllOpportunities.length.toLocaleString('de-DE')} Queries</span>
                             </div>
                         </div>
                         <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;">
-                            <table style="min-width:600px;">
+                            <table style="min-width:620px;">
                                 <thead>
                                     <tr>
+                                        <th style="width:36px;text-align:center;" title="Suchbegriff für CSV-Export auswählen"><input type="checkbox" id="ppcCheckAll" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;" title="Alle auswählen/abwählen"></th>
                                         <th style="text-align:left;">Suchbegriff</th>
                                         <th>Suchvolumen</th>
                                         <th>Marktgröße (Käufe gesamt)</th>
@@ -1905,6 +1982,57 @@
 
             // Init exclude tags if any already set
             refreshExcludeTags();
+
+            // PPC Potenziale: exclude input
+            const ppcExcludeInput = document.getElementById('ppcExcludeInput');
+            if (ppcExcludeInput) {
+                ppcExcludeInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        const val = this.value.trim();
+                        if (val && !ppcExcludeTerms.map(t => t.toLowerCase()).includes(val.toLowerCase())) {
+                            ppcExcludeTerms.push(val);
+                            this.value = '';
+                            refreshPpcExcludeTags();
+                            renderPpcOppRows();
+                        } else {
+                            this.value = '';
+                        }
+                    }
+                });
+                refreshPpcExcludeTags();
+            }
+
+            // PPC "Alle auswählen" checkbox
+            const ppcCheckAll = document.getElementById('ppcCheckAll');
+            if (ppcCheckAll) {
+                ppcCheckAll.addEventListener('change', function() {
+                    const tbody = document.getElementById('ppcOppTbody');
+                    if (!tbody) return;
+                    tbody.querySelectorAll('.ppc-opp-check').forEach(cb => {
+                        cb.checked = this.checked;
+                        const q = cb.dataset.query;
+                        if (this.checked) ppcCheckedTerms.add(q);
+                        else ppcCheckedTerms.delete(q);
+                        cb.closest('tr').classList.toggle('ppc-row-checked', this.checked);
+                    });
+                    refreshPpcCsvBtn();
+                });
+            }
+
+            // Re-bind checkboxes for initial oppRows render
+            (function() {
+                const tbody = document.getElementById('ppcOppTbody');
+                if (!tbody) return;
+                tbody.querySelectorAll('.ppc-opp-check').forEach(cb => {
+                    cb.addEventListener('change', function() {
+                        const q = this.dataset.query;
+                        if (this.checked) ppcCheckedTerms.add(q);
+                        else ppcCheckedTerms.delete(q);
+                        this.closest('tr').classList.toggle('ppc-row-checked', this.checked);
+                        refreshPpcCsvBtn();
+                    });
+                });
+            })();
 
             document.getElementById('loadMoreBtn').addEventListener('click', function () {
                 displayedCount += 100;
