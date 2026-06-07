@@ -116,6 +116,30 @@
         .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 600; color: var(--text-secondary); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: color .15s; margin-bottom: -1px; }
         .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
         .tab-btn:hover { color: var(--text-primary); }
+
+        /* Gap checkboxes */
+        tr.gap-row-checked { background: #3452ff0d !important; }
+        .gap-action-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:10px; }
+        .btn-bulksheet { background:linear-gradient(135deg,#1a7f37 0%,#2da44e 100%); color:#fff; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
+        .btn-bulksheet:hover { opacity:.88; }
+
+        /* Bulk Sheet Modal */
+        .bs-overlay { position:fixed; inset:0; background:var(--modal-overlay); z-index:1000; display:flex; align-items:center; justify-content:center; }
+        .bs-modal { background:var(--bg-primary); border:1px solid var(--border); border-radius:12px; padding:28px 32px; width:500px; max-width:95vw; max-height:90vh; overflow-y:auto; }
+        .bs-modal h2 { font-size:18px; font-weight:700; margin-bottom:20px; }
+        .bs-field { margin-bottom:14px; }
+        .bs-field label { display:block; font-size:12px; font-weight:600; color:var(--text-secondary); margin-bottom:5px; text-transform:uppercase; letter-spacing:.05em; }
+        .bs-field input[type=text], .bs-field input[type=number] { width:100%; background:var(--bg-primary); border:1px solid var(--border); color:var(--text-primary); padding:8px 12px; border-radius:6px; font-size:13px; }
+        .bs-toggle { display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:14px; }
+        .bs-toggle button { flex:1; padding:8px; font-size:13px; font-weight:600; background:transparent; border:none; cursor:pointer; color:var(--text-secondary); }
+        .bs-toggle button.active { background:var(--accent); color:#fff; }
+        .bs-match-types { display:flex; gap:12px; flex-wrap:wrap; }
+        .bs-match-types label { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; }
+        .bs-actions { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
+        .bs-btn-cancel { background:transparent; border:1px solid var(--border); color:var(--text-secondary); padding:8px 18px; border-radius:6px; cursor:pointer; font-size:13px; }
+        .bs-btn-csv { background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-primary); padding:8px 18px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600; }
+        .bs-btn-xlsx { background:linear-gradient(135deg,#0332e8 0%,#3452ff 100%); color:#fff; border:none; padding:8px 18px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600; }
+        .bs-info { font-size:12px; color:var(--text-secondary); background:var(--bg-secondary); border-radius:6px; padding:8px 12px; margin-bottom:14px; }
     </style>
 </head>
 <body>
@@ -141,6 +165,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
     const saved = localStorage.getItem('sqpr_theme') || 'light';
     document.documentElement.setAttribute('data-theme', saved);
@@ -415,6 +440,18 @@
         bindTableEvents();
     }
 
+    // Per-ASIN gap selection state: { [asin]: Set<search_query> }
+    const gapChecked = {};
+
+    function getGapRows(row) {
+        const sqprData = asinSqprMap[row.asin];
+        if (!sqprData) return [];
+        const coveredAds = new Set(row.terms.map(t => t.search_term.toLowerCase().trim()));
+        return sqprData.rows
+            .filter(r => !coveredAds.has((r.search_query || '').toLowerCase().trim()))
+            .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0));
+    }
+
     function buildExpandContent(row) {
         const terms = [...row.terms].sort((a, b) => (b.spend || 0) - (a.spend || 0));
         const sqprData = asinSqprMap[row.asin];
@@ -422,33 +459,47 @@
         const isTerms = activeTab === 'terms';
         const isGaps  = activeTab === 'gaps';
 
-        // Gap analysis using real ASIN SQPR
         let gapHtml = '';
         if (hasGapData) {
-            const coveredAds = new Set(row.terms.map(t => t.search_term.toLowerCase().trim()));
-            // Sort gaps by volume desc using sqpr row data
-            const gapRows = sqprData.rows
-                .filter(r => !coveredAds.has((r.search_query || '').toLowerCase().trim()))
-                .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0));
-
+            const gapRows = getGapRows(row);
             const repInfo = sqprData.report
-                ? `<span style="font-size:11px;color:var(--text-muted);">SQPR-Zeitraum: ${fmtDate(sqprData.report.report_date_start)} — ${fmtDate(sqprData.report.report_date_end)}</span>`
+                ? `<span style="font-size:11px;color:var(--text-muted);">SQPR-Zeitraum: ${fmtDate(sqprData.report.report_date_start)} – ${fmtDate(sqprData.report.report_date_end)}</span>`
                 : '';
 
             if (gapRows.length > 0) {
-                const gapTableRows = gapRows.slice(0, 100).map(r => `<tr>
-                    <td style="text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
-                    <td>${fmtInt(r.search_query_volume)}</td>
-                    <td>${fmtInt(r.purchases_total)}</td>
-                    <td>${fmtInt(r.purchases_brand)}</td>
-                    <td>${r.purchases_brand_share != null ? (r.purchases_brand_share * 100).toFixed(1) + ' %' : '—'}</td>
-                </tr>`).join('');
+                if (!gapChecked[row.asin]) gapChecked[row.asin] = new Set();
+                const checked = gapChecked[row.asin];
+                const allChecked = gapRows.length > 0 && gapRows.every(r => checked.has(r.search_query));
+
+                const gapTableRows = gapRows.slice(0, 200).map(r => {
+                    const isChk = checked.has(r.search_query);
+                    return `<tr class="${isChk ? 'gap-row-checked' : ''}">
+                        <td style="width:32px;text-align:center;"><input type="checkbox" class="gap-chk" data-asin="${esc(row.asin)}" data-term="${esc(r.search_query)}" ${isChk ? 'checked' : ''}></td>
+                        <td style="text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
+                        <td>${fmtInt(r.search_query_volume)}</td>
+                        <td>${fmtInt(r.purchases_total)}</td>
+                        <td>${fmtInt(r.purchases_brand)}</td>
+                        <td>${r.purchases_brand_share != null ? (r.purchases_brand_share * 100).toFixed(1) + ' %' : '—'}</td>
+                    </tr>`;
+                }).join('');
+
+                const checkedCount = checked.size;
+                const actionBar = checkedCount > 0 ? `
+                <div class="gap-action-bar">
+                    <span style="font-size:13px;font-weight:600;">${checkedCount} Begriff${checkedCount !== 1 ? 'e' : ''} ausgewählt</span>
+                    <button class="btn-csv" style="font-size:12px;padding:5px 14px;" data-export-gaps="${esc(row.asin)}">⬇ CSV</button>
+                    <button class="btn-bulksheet" style="font-size:12px;padding:5px 14px;" data-bulksheet-asin="${esc(row.asin)}" data-bulksheet-sku="${esc(row.sku || '')}">📄 Bulk Sheet erstellen</button>
+                    <button class="btn-clear-gaps" style="font-size:12px;padding:5px 10px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;cursor:pointer;" data-asin="${esc(row.asin)}">✕ Auswahl löschen</button>
+                </div>` : '';
+
                 gapHtml = `
                 <div style="margin-bottom:8px;display:flex;align-items:center;gap:12px;">${repInfo}</div>
                 <div style="font-size:13px;font-weight:600;color:var(--error);margin-bottom:8px;">🔴 ${gapRows.length} Suchbegriffe aus ASIN-SQPR ohne Ads</div>
+                ${actionBar}
                 <div style="overflow-x:auto;">
                     <table>
                         <thead><tr>
+                            <th style="width:32px;text-align:center;"><input type="checkbox" class="gap-chk-all" data-asin="${esc(row.asin)}" ${allChecked ? 'checked' : ''} title="Alle auswählen"></th>
                             <th style="text-align:left;">Suchbegriff</th>
                             <th>Suchvolumen</th>
                             <th>Käufe Markt</th>
@@ -458,9 +509,9 @@
                         <tbody>${gapTableRows}</tbody>
                     </table>
                 </div>
-                ${gapRows.length > 100 ? `<div style="padding:8px;font-size:12px;color:var(--text-secondary);">Zeige 100 von ${gapRows.length}. CSV für vollständige Liste.</div>` : ''}
+                ${gapRows.length > 200 ? `<div style="padding:8px;font-size:12px;color:var(--text-secondary);">Zeige 200 von ${gapRows.length}. CSV für vollständige Liste.</div>` : ''}
                 <div style="margin-top:10px;">
-                    <button class="btn-csv" style="font-size:12px;padding:5px 12px;" data-export-gaps="${esc(row.asin)}">⬇ Lücken als CSV</button>
+                    <button class="btn-csv" style="font-size:12px;padding:5px 12px;" data-export-gaps="${esc(row.asin)}">⬇ Alle Lücken als CSV</button>
                 </div>`;
             } else {
                 gapHtml = `<div style="padding:12px 0;font-size:13px;color:var(--success);">✅ Alle SQPR-Suchbegriffe dieser ASIN sind durch Ads abgedeckt.</div>`;
@@ -580,6 +631,52 @@
                 exportGapsCsv(this.dataset.exportGaps);
             });
         });
+
+        // Single gap checkbox
+        tbody.querySelectorAll('.gap-chk').forEach(chk => {
+            chk.addEventListener('change', function(e) {
+                e.stopPropagation();
+                const asin = this.dataset.asin;
+                const term = this.dataset.term;
+                if (!gapChecked[asin]) gapChecked[asin] = new Set();
+                if (this.checked) gapChecked[asin].add(term);
+                else gapChecked[asin].delete(term);
+                renderTableOnly();
+            });
+        });
+
+        // Select-all gap checkbox
+        tbody.querySelectorAll('.gap-chk-all').forEach(chk => {
+            chk.addEventListener('change', function(e) {
+                e.stopPropagation();
+                const asin = this.dataset.asin;
+                const asinRow = asinData.find(r => r.asin === asin);
+                if (!asinRow) return;
+                const gapRows = getGapRows(asinRow);
+                if (!gapChecked[asin]) gapChecked[asin] = new Set();
+                if (this.checked) gapRows.forEach(r => gapChecked[asin].add(r.search_query));
+                else gapChecked[asin].clear();
+                renderTableOnly();
+            });
+        });
+
+        // Clear selection
+        tbody.querySelectorAll('.btn-clear-gaps').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const asin = this.dataset.asin;
+                if (gapChecked[asin]) gapChecked[asin].clear();
+                renderTableOnly();
+            });
+        });
+
+        // Open Bulk Sheet modal
+        tbody.querySelectorAll('[data-bulksheet-asin]').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openBulkSheetModal(this.dataset.bulksheetAsin, this.dataset.bulksheetSku);
+            });
+        });
     }
 
     function exportGapsCsv(asin) {
@@ -624,6 +721,192 @@
         const a = document.createElement('a');
         a.href = url; a.download = filename; a.click();
         URL.revokeObjectURL(url);
+    }
+
+    // ── Bulk Sheet Modal ──────────────────────────────────────────────
+    function openBulkSheetModal(asin, sku) {
+        const checked = gapChecked[asin];
+        if (!checked || checked.size === 0) return;
+        const asinRow = asinData.find(r => r.asin === asin);
+        const gapRows = asinRow ? getGapRows(asinRow) : [];
+        const selectedTerms = gapRows.filter(r => checked.has(r.search_query));
+
+        // Remove any existing modal
+        document.getElementById('bsOverlay')?.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'bs-overlay';
+        overlay.id = 'bsOverlay';
+        overlay.innerHTML = `
+        <div class="bs-modal">
+            <h2>📄 Bulk Sheet erstellen</h2>
+            <div class="bs-info">${selectedTerms.length} Keywords ausgewählt für ASIN <strong>${esc(asin)}</strong>${sku ? ` / SKU <strong>${esc(sku)}</strong>` : ''}</div>
+
+            <div class="bs-field">
+                <label>Kontotyp</label>
+                <div class="bs-toggle">
+                    <button id="bsTypeSeller" class="active" onclick="setBsType('seller')">Seller (SKU)</button>
+                    <button id="bsTypeVendor" onclick="setBsType('vendor')">Vendor (ASIN)</button>
+                </div>
+            </div>
+
+            <div class="bs-field" id="bsSkuField">
+                <label>SKU</label>
+                <input type="text" id="bsSkuInput" value="${esc(sku || '')}" placeholder="z.B. MY-SKU-001">
+            </div>
+            <div class="bs-field" id="bsAsinField" style="display:none;">
+                <label>ASIN</label>
+                <input type="text" id="bsAsinInput" value="${esc(asin)}" placeholder="z.B. B09XYZ1234">
+            </div>
+
+            <div class="bs-field">
+                <label>Kampagnenname</label>
+                <input type="text" id="bsCampName" placeholder="z.B. SP_Generic_Exact_${esc(asin)}">
+            </div>
+            <div class="bs-field">
+                <label>Ad Group Name</label>
+                <input type="text" id="bsAdGroup" placeholder="z.B. AG_${esc(asin)}" value="AG_${esc(asin)}">
+            </div>
+            <div class="bs-field">
+                <label>Match Types</label>
+                <div class="bs-match-types">
+                    <label><input type="checkbox" id="bsExact" checked> Exact</label>
+                    <label><input type="checkbox" id="bsPhrase"> Phrase</label>
+                    <label><input type="checkbox" id="bsBroad"> Broad</label>
+                </div>
+            </div>
+            <div class="bs-field">
+                <label>Default Bid (€)</label>
+                <input type="number" id="bsBid" value="0.50" step="0.01" min="0.02">
+            </div>
+
+            <div class="bs-actions">
+                <button class="bs-btn-cancel" onclick="closeBsModal()">Abbrechen</button>
+                <button class="bs-btn-csv" onclick="downloadBsAsCsv('${esc(asin)}')">⬇ CSV (einfach)</button>
+                <button class="bs-btn-xlsx" onclick="downloadBsAsXlsx('${esc(asin)}')">📄 Bulk Sheet (.xlsx)</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', e => { if (e.target === overlay) closeBsModal(); });
+    }
+
+    function closeBsModal() { document.getElementById('bsOverlay')?.remove(); }
+
+    let bsType = 'seller';
+    function setBsType(type) {
+        bsType = type;
+        document.getElementById('bsTypeSeller').classList.toggle('active', type === 'seller');
+        document.getElementById('bsTypeVendor').classList.toggle('active', type === 'vendor');
+        document.getElementById('bsSkuField').style.display = type === 'seller' ? '' : 'none';
+        document.getElementById('bsAsinField').style.display = type === 'vendor' ? '' : 'none';
+    }
+
+    function getBsConfig(asin) {
+        const campName = document.getElementById('bsCampName').value.trim() || `SP_Gap_${asin}`;
+        const adGroup  = document.getElementById('bsAdGroup').value.trim() || `AG_${asin}`;
+        const bid      = parseFloat(document.getElementById('bsBid').value) || 0.50;
+        const matchTypes = [];
+        if (document.getElementById('bsExact').checked)  matchTypes.push('exact');
+        if (document.getElementById('bsPhrase').checked) matchTypes.push('phrase');
+        if (document.getElementById('bsBroad').checked)  matchTypes.push('broad');
+        const productId = bsType === 'seller'
+            ? document.getElementById('bsSkuInput').value.trim()
+            : document.getElementById('bsAsinInput').value.trim();
+        return { campName, adGroup, bid, matchTypes, productId, isVendor: bsType === 'vendor' };
+    }
+
+    function downloadBsAsCsv(asin) {
+        const checked = gapChecked[asin];
+        const asinRow = asinData.find(r => r.asin === asin);
+        const gapRows = asinRow ? getGapRows(asinRow) : [];
+        const terms = gapRows.filter(r => checked && checked.has(r.search_query)).map(r => r.search_query);
+        const { campName, adGroup, bid, matchTypes } = getBsConfig(asin);
+        const rows = [['Kampagne', 'Ad Group', 'Keyword', 'Match Type', 'Bid']];
+        for (const term of terms) {
+            for (const mt of matchTypes.length ? matchTypes : ['exact']) {
+                rows.push([campName, adGroup, term, mt, bid.toFixed(2)]);
+            }
+        }
+        downloadCsv(rows, `bulk_keywords_${asin}.csv`);
+        closeBsModal();
+    }
+
+    function downloadBsAsXlsx(asin) {
+        if (typeof XLSX === 'undefined') { alert('SheetJS nicht geladen. Bitte Seite neu laden.'); return; }
+        const checked = gapChecked[asin];
+        const asinRow = asinData.find(r => r.asin === asin);
+        const gapRows = asinRow ? getGapRows(asinRow) : [];
+        const terms = gapRows.filter(r => checked && checked.has(r.search_query)).map(r => r.search_query);
+        const { campName, adGroup, bid, matchTypes, productId, isVendor } = getBsConfig(asin);
+
+        const HEADERS = ['Product','Entity','Operation','Campaign ID','Ad Group ID','Portfolio ID','Ad ID','Keyword ID','Product Targeting ID','Campaign Name','Ad Group Name','Start Date','End Date','Targeting Type','State','Daily Budget','SKU','ASIN','Ad Group Default Bid','Bid','Keyword Text','Match Type','Bidding Strategy','Placement','Percentage','Product Targeting Expression','Site Restrictions'];
+        const emptyRow = () => { const r = {}; HEADERS.forEach(h => r[h] = ''); return r; };
+
+        const rows = [];
+
+        // Campaign row
+        const camp = emptyRow();
+        camp['Product'] = 'Sponsored Products';
+        camp['Entity'] = 'Campaign';
+        camp['Operation'] = 'create';
+        camp['Campaign ID'] = campName;
+        camp['Campaign Name'] = campName;
+        camp['Targeting Type'] = 'Manual';
+        camp['State'] = 'enabled';
+        camp['Daily Budget'] = '10';
+        camp['Bidding Strategy'] = 'Dynamic bids - down only';
+        rows.push(camp);
+
+        // Ad group row
+        const ag = emptyRow();
+        ag['Product'] = 'Sponsored Products';
+        ag['Entity'] = 'Ad Group';
+        ag['Operation'] = 'create';
+        ag['Campaign ID'] = campName;
+        ag['Ad Group ID'] = adGroup;
+        ag['Ad Group Name'] = adGroup;
+        ag['State'] = 'enabled';
+        ag['Ad Group Default Bid'] = bid.toFixed(2);
+        rows.push(ag);
+
+        // Product ad row
+        const pa = emptyRow();
+        pa['Product'] = 'Sponsored Products';
+        pa['Entity'] = 'Product Ad';
+        pa['Operation'] = 'create';
+        pa['Campaign ID'] = campName;
+        pa['Ad Group ID'] = adGroup;
+        pa['State'] = 'enabled';
+        if (isVendor) pa['ASIN'] = productId;
+        else pa['SKU'] = productId;
+        rows.push(pa);
+
+        // Keyword rows
+        for (const term of terms) {
+            for (const mt of matchTypes.length ? matchTypes : ['exact']) {
+                const kw = emptyRow();
+                kw['Product'] = 'Sponsored Products';
+                kw['Entity'] = 'Keyword';
+                kw['Operation'] = 'create';
+                kw['Campaign ID'] = campName;
+                kw['Ad Group ID'] = adGroup;
+                kw['State'] = 'enabled';
+                kw['Keyword Text'] = term;
+                kw['Match Type'] = mt;
+                kw['Bid'] = bid.toFixed(2);
+                rows.push(kw);
+            }
+        }
+
+        const sheetData = [HEADERS, ...rows.map(r => HEADERS.map(h => r[h]))];
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        ws['!cols'] = HEADERS.map(() => ({ wch: 22 }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Sponsored Products');
+        const today = new Date();
+        const ds = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+        XLSX.writeFile(wb, `Bulk-Upload_${asin}_${ds}.xlsx`);
+        closeBsModal();
     }
 
     init();
