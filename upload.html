@@ -633,7 +633,8 @@
         <div class="topbar-left">
             <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
             <nav class="topbar-nav">
-                <a href="dashboard.html">Dashboard</a>
+                <a href="dashboard.html">Marken-Analyse</a>
+                <a href="asin.html">ASIN-Analyse</a>
                 <a href="clients.html">Kunden</a>
                 <a href="upload.html" class="active">Upload</a>
                 <a href="help.html">Hilfe</a>
@@ -819,6 +820,73 @@
                 <div class="empty-state" id="strHistoryEmpty">
                     <p>Noch keine STR-Uploads für diesen Kunden.</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Sheet Section -->
+    <div class="main" style="margin-top:36px;" id="bulkSection">
+        <h2 class="section-title">Bulk Sheet Upload (ASIN-Analyse)</h2>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">Amazon Ads → Bulk-Operationen → Bulk Sheet herunterladen. Enthält SP-Suchbegriffsbericht + ASIN-Mapping. Ermöglicht die ASIN-Ebene Analyse.</p>
+
+        <div class="card">
+            <div class="card-title">Zeitraum</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="bulkStartDate">Startdatum</label>
+                    <input type="date" id="bulkStartDate">
+                </div>
+                <div class="form-group">
+                    <label for="bulkEndDate">Enddatum</label>
+                    <input type="date" id="bulkEndDate">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Bulk Sheet (.xlsx)</div>
+            <div class="drop-zone" id="bulkDropZone">
+                <div class="drop-zone-icon">📊</div>
+                <div class="drop-zone-text">Bulk Sheet hierher ziehen oder klicken</div>
+                <div class="drop-zone-hint">Amazon Ads Bulk Sheet (.xlsx) — Tabellenblätter "Sponsored Products-Kampagnen" + "SP Bericht Suchbegriff" werden automatisch verarbeitet</div>
+                <input type="file" id="bulkFileInput" accept=".xlsx">
+            </div>
+            <div class="file-selected" id="bulkFileSelected" style="display:none;">
+                <span class="file-name" id="bulkFileName"></span>
+                <button class="remove-file" id="bulkRemoveFile" title="Datei entfernen">&times;</button>
+            </div>
+        </div>
+
+        <div class="card preview-section" id="bulkPreviewSection" style="display:none;">
+            <div class="card-title">Vorschau</div>
+            <span class="badge success" id="bulkRowBadge"></span>
+            <div class="columns-validation" id="bulkColumnsValidation" style="margin-top:12px;"></div>
+            <div class="upload-actions">
+                <button class="btn-primary" id="bulkUploadBtn" disabled>Hochladen</button>
+            </div>
+            <div class="progress-wrap" id="bulkProgressWrap" style="display:none;">
+                <div class="progress-bar-outer"><div class="progress-bar-inner" id="bulkProgressBar"></div></div>
+                <div class="progress-text" id="bulkProgressText">0%</div>
+            </div>
+            <div class="success-msg" id="bulkSuccessMsg" style="display:none;"></div>
+            <div class="error-msg" id="bulkErrorMsg" style="display:none;"></div>
+        </div>
+
+        <div style="margin-top:12px;">
+            <h3 class="section-title" style="font-size:15px;">Bulk Sheet Verlauf</h3>
+            <div class="table-card">
+                <div class="loading" id="bulkHistoryLoading" style="display:none;"><div class="spinner"></div><div>Wird geladen...</div></div>
+                <table id="bulkHistoryTable" style="display:none;">
+                    <thead><tr>
+                        <th>Zeitraum</th>
+                        <th>ASINs</th>
+                        <th>ASIN+Term Kombinationen</th>
+                        <th>Hochgeladen am</th>
+                        <th>Aktion</th>
+                    </tr></thead>
+                    <tbody id="bulkHistoryBody"></tbody>
+                </table>
+                <div class="empty-state" id="bulkHistoryEmpty"><p>Noch keine Bulk Sheet Uploads für diesen Kunden.</p></div>
             </div>
         </div>
     </div>
@@ -1758,6 +1826,332 @@
 
         // Init
         loadClients();
+
+        // =============================================
+        // BULK SHEET UPLOAD
+        // =============================================
+
+        const bulkDropZone = document.getElementById('bulkDropZone');
+        const bulkFileInput = document.getElementById('bulkFileInput');
+        const bulkFileSelected = document.getElementById('bulkFileSelected');
+        const bulkFileName = document.getElementById('bulkFileName');
+        const bulkRemoveFile = document.getElementById('bulkRemoveFile');
+        const bulkPreviewSection = document.getElementById('bulkPreviewSection');
+        const bulkRowBadge = document.getElementById('bulkRowBadge');
+        const bulkColumnsValidation = document.getElementById('bulkColumnsValidation');
+        const bulkUploadBtn = document.getElementById('bulkUploadBtn');
+        const bulkProgressWrap = document.getElementById('bulkProgressWrap');
+        const bulkProgressBar = document.getElementById('bulkProgressBar');
+        const bulkProgressText = document.getElementById('bulkProgressText');
+        const bulkSuccessMsg = document.getElementById('bulkSuccessMsg');
+        const bulkErrorMsg = document.getElementById('bulkErrorMsg');
+        const bulkStartDate = document.getElementById('bulkStartDate');
+        const bulkEndDate = document.getElementById('bulkEndDate');
+
+        let bulkParsedRows = null; // [{asin, sku, search_term, match_type, campaign_name, ad_group_name, impressions, clicks, spend, orders, units, sales, acos, roas, cpc, cvr}]
+
+        bulkDropZone.addEventListener('click', () => bulkFileInput.click());
+        bulkDropZone.addEventListener('dragover', (e) => { e.preventDefault(); bulkDropZone.classList.add('dragover'); });
+        bulkDropZone.addEventListener('dragleave', () => bulkDropZone.classList.remove('dragover'));
+        bulkDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            bulkDropZone.classList.remove('dragover');
+            const f = e.dataTransfer.files[0];
+            if (f && f.name.toLowerCase().endsWith('.xlsx')) bulkHandleFile(f);
+        });
+        bulkFileInput.addEventListener('change', () => {
+            if (bulkFileInput.files.length > 0) bulkHandleFile(bulkFileInput.files[0]);
+        });
+        bulkRemoveFile.addEventListener('click', bulkResetFileState);
+
+        function bulkResetFileState() {
+            bulkFileInput.value = '';
+            bulkFileSelected.style.display = 'none';
+            bulkPreviewSection.style.display = 'none';
+            bulkParsedRows = null;
+            bulkUploadBtn.disabled = true;
+            bulkSuccessMsg.style.display = 'none';
+            bulkErrorMsg.style.display = 'none';
+            bulkProgressWrap.style.display = 'none';
+        }
+
+        function bulkHandleFile(file) {
+            bulkFileName.textContent = file.name;
+            bulkFileSelected.style.display = 'flex';
+            bulkSuccessMsg.style.display = 'none';
+            bulkErrorMsg.style.display = 'none';
+            bulkProgressWrap.style.display = 'none';
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    bulkParseXlsx(new Uint8Array(e.target.result));
+                } catch (err) {
+                    bulkShowError('Fehler beim Parsen: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function bulkParseXlsx(data) {
+            const wb = XLSX.read(data, { type: 'array' });
+
+            // Find the required sheets (handle slight name variations / special chars)
+            const findSheet = (keywords) => {
+                for (const name of wb.SheetNames) {
+                    const lower = name.toLowerCase();
+                    if (keywords.every(k => lower.includes(k))) return name;
+                }
+                return null;
+            };
+
+            const spCampName = findSheet(['sponsored products', 'kampagnen']) || findSheet(['sponsored products']);
+            const spStrName = findSheet(['sp', 'suchbegriff']) || findSheet(['sp bericht']) || findSheet(['search term', 'sp']);
+
+            bulkPreviewSection.style.display = 'block';
+            bulkColumnsValidation.innerHTML = '';
+
+            const addTag = (ok, label) => {
+                const t = document.createElement('span');
+                t.className = 'col-tag ' + (ok ? 'found' : 'missing');
+                t.innerHTML = (ok ? '&#10003; ' : '&#10007; ') + escapeHtml(label);
+                bulkColumnsValidation.appendChild(t);
+            };
+
+            addTag(!!spCampName, spCampName ? `Kampagnen-Sheet: "${spCampName}"` : 'Sponsored Products-Kampagnen — nicht gefunden');
+            addTag(!!spStrName, spStrName ? `STR-Sheet: "${spStrName}"` : 'SP Bericht Suchbegriff — nicht gefunden');
+
+            if (!spCampName || !spStrName) {
+                bulkUploadBtn.disabled = true;
+                bulkRowBadge.textContent = '0 Zeilen';
+                return;
+            }
+
+            // Parse Produktanzeige rows: Anzeigengruppen-ID → {asin, sku, campaign_name, ad_group_name}
+            const campWs = wb.Sheets[spCampName];
+            const campRows = XLSX.utils.sheet_to_json(campWs, { header: 1, defval: '' });
+            const campHeader = campRows[0].map(h => String(h).trim());
+
+            const colIdx = (names) => {
+                for (const name of names) {
+                    const idx = campHeader.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+                    if (idx >= 0) return idx;
+                }
+                return -1;
+            };
+
+            const iEntitat = colIdx(['entität', 'entitat', 'entity']);
+            const iAgId = colIdx(['anzeigengruppen-id', 'ad group id', 'adgroup id']);
+            const iCampName = colIdx(['kampagnenname (nur', 'campaign name (info']);
+            const iAgName = colIdx(['name der anzeigengruppe (nur', 'ad group name (info']);
+            const iSku = colIdx(['sku']);
+            const iAsin = colIdx(['asin (nur', 'asin (info']);
+
+            const adGroupMap = {}; // agId -> {asin, sku, campaign_name, ad_group_name}
+            for (let i = 1; i < campRows.length; i++) {
+                const row = campRows[i];
+                const entitat = iEntitat >= 0 ? String(row[iEntitat] || '').toLowerCase() : '';
+                if (!entitat.includes('produktanzeige') && !entitat.includes('product ad')) continue;
+                const agId = iAgId >= 0 ? String(row[iAgId] || '').trim() : '';
+                const asin = iAsin >= 0 ? String(row[iAsin] || '').trim() : '';
+                const sku = iSku >= 0 ? String(row[iSku] || '').trim() : '';
+                const campName = iCampName >= 0 ? String(row[iCampName] || '').trim() : '';
+                const agName = iAgName >= 0 ? String(row[iAgName] || '').trim() : '';
+                if (agId && asin) {
+                    if (!adGroupMap[agId]) adGroupMap[agId] = { asin, sku, campaign_name: campName, ad_group_name: agName };
+                }
+            }
+
+            addTag(Object.keys(adGroupMap).length > 0, Object.keys(adGroupMap).length + ' Ad Groups mit ASIN gemappt');
+
+            // Parse SP STR sheet
+            const strWs = wb.Sheets[spStrName];
+            const strRows = XLSX.utils.sheet_to_json(strWs, { header: 1, defval: '' });
+
+            // Find header row
+            let strHeaderIdx = 0;
+            for (let i = 0; i < Math.min(strRows.length, 10); i++) {
+                const rowStr = strRows[i].join(' ').toLowerCase();
+                if (rowStr.includes('suchbegriff') || rowStr.includes('search term') || rowStr.includes('customer search')) {
+                    strHeaderIdx = i;
+                    break;
+                }
+            }
+            const strHeader = strRows[strHeaderIdx].map(h => String(h).trim());
+
+            const sColIdx = (names) => {
+                for (const name of names) {
+                    const idx = strHeader.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+                    if (idx >= 0) return idx;
+                }
+                return -1;
+            };
+
+            const sAgId = sColIdx(['anzeigengruppen-id', 'ad group id']);
+            const sSearchTerm = sColIdx(['suchbegriff eines kunden', 'customer search term', 'kundensuchanfrage', 'suchbegriff des kunden']);
+            const sMatchType = sColIdx(['übereinstimmungstyp', 'match type']);
+            const sImpr = sColIdx(['impressions']);
+            const sClicks = sColIdx(['klicks', 'clicks']);
+            const sSpend = sColIdx(['ausgaben', 'spend']);
+            const sOrders = sColIdx(['bestellungen', 'orders']);
+            const sUnits = sColIdx(['einheiten', 'units']);
+            const sSales = sColIdx(['verkäufe', 'verkaufe', 'sales']);
+            const sAcos = sColIdx(['acos']);
+            const sRoas = sColIdx(['roas']);
+            const sCpc = sColIdx(['cpc']);
+            const sCvr = sColIdx(['conversion-rate', 'conversion rate', 'cvr']);
+
+            addTag(sSearchTerm >= 0, sSearchTerm >= 0 ? 'Suchbegriff-Spalte gefunden' : 'Suchbegriff-Spalte — nicht gefunden');
+            addTag(sAgId >= 0, sAgId >= 0 ? 'Anzeigengruppen-ID gefunden' : 'Anzeigengruppen-ID — nicht gefunden');
+
+            if (sSearchTerm < 0 || sAgId < 0) {
+                bulkUploadBtn.disabled = true;
+                return;
+            }
+
+            const parseNum = (v) => {
+                const s = String(v || '').replace(/[^0-9.,-]/g, '').replace(',', '.');
+                return parseFloat(s) || 0;
+            };
+
+            // Join: STR rows → ASIN via adGroupMap
+            const joined = [];
+            for (let i = strHeaderIdx + 1; i < strRows.length; i++) {
+                const row = strRows[i];
+                const agId = sAgId >= 0 ? String(row[sAgId] || '').trim() : '';
+                const searchTerm = sSearchTerm >= 0 ? String(row[sSearchTerm] || '').trim().toLowerCase() : '';
+                if (!searchTerm || !agId) continue;
+                const adInfo = adGroupMap[agId];
+                if (!adInfo) continue; // skip if no ASIN mapping
+
+                joined.push({
+                    asin: adInfo.asin,
+                    sku: adInfo.sku,
+                    campaign_name: adInfo.campaign_name,
+                    ad_group_name: adInfo.ad_group_name,
+                    search_term: searchTerm,
+                    match_type: sMatchType >= 0 ? String(row[sMatchType] || '').trim() : '',
+                    impressions: Math.round(parseNum(row[sImpr])),
+                    clicks: Math.round(parseNum(row[sClicks])),
+                    spend: parseNum(row[sSpend]),
+                    orders: Math.round(parseNum(row[sOrders])),
+                    units: Math.round(parseNum(row[sUnits])),
+                    sales: parseNum(row[sSales]),
+                    acos: sAcos >= 0 ? parseNum(row[sAcos]) / 100 : null,
+                    roas: sRoas >= 0 ? parseNum(row[sRoas]) : null,
+                    cpc: sCpc >= 0 ? parseNum(row[sCpc]) : null,
+                    cvr: sCvr >= 0 ? parseNum(row[sCvr]) / 100 : null,
+                });
+            }
+
+            bulkParsedRows = joined;
+            const uniqueAsins = new Set(joined.map(r => r.asin)).size;
+            bulkRowBadge.textContent = joined.length + ' ASIN-Suchbegriff-Kombinationen (' + uniqueAsins + ' ASINs)';
+            addTag(joined.length > 0, joined.length + ' Kombinationen erfolgreich gejoint');
+            bulkUploadBtn.disabled = joined.length === 0 || !clientSelect.value;
+        }
+
+        bulkUploadBtn.addEventListener('click', async () => {
+            const clientId = clientSelect.value;
+            if (!clientId) { bulkShowError('Bitte Kunden auswählen.'); return; }
+            if (!bulkStartDate.value || !bulkEndDate.value) { bulkShowError('Bitte Start- und Enddatum angeben.'); return; }
+            if (!bulkParsedRows || bulkParsedRows.length === 0) { bulkShowError('Keine gültigen Daten gefunden.'); return; }
+
+            bulkUploadBtn.disabled = true;
+            bulkSuccessMsg.style.display = 'none';
+            bulkErrorMsg.style.display = 'none';
+            bulkProgressWrap.style.display = 'block';
+            bulkProgressBar.style.width = '0%';
+            bulkProgressText.textContent = 'Report wird erstellt...';
+
+            try {
+                const uniqueAsins = new Set(bulkParsedRows.map(r => r.asin)).size;
+
+                const { data: report, error: repErr } = await sb.from('sqpr_bulk_reports')
+                    .insert({
+                        client_id: clientId,
+                        report_date_start: bulkStartDate.value,
+                        report_date_end: bulkEndDate.value,
+                        row_count: bulkParsedRows.length,
+                        asin_count: uniqueAsins
+                    })
+                    .select('id').single();
+                if (repErr) throw new Error('Report konnte nicht erstellt werden: ' + repErr.message);
+
+                const reportId = report.id;
+                const dbRows = bulkParsedRows.map(r => ({ ...r, bulk_report_id: reportId, client_id: clientId }));
+
+                const chunkSize = 500;
+                const totalChunks = Math.ceil(dbRows.length / chunkSize);
+                for (let i = 0; i < totalChunks; i++) {
+                    const chunk = dbRows.slice(i * chunkSize, (i + 1) * chunkSize);
+                    const { error } = await sb.from('sqpr_bulk_rows').insert(chunk);
+                    if (error) {
+                        await sb.from('sqpr_bulk_reports').delete().eq('id', reportId);
+                        throw new Error('Fehler beim Einfügen (Chunk ' + (i + 1) + '): ' + error.message);
+                    }
+                    const pct = Math.round(((i + 1) / totalChunks) * 100);
+                    bulkProgressBar.style.width = pct + '%';
+                    bulkProgressText.textContent = pct + '% — ' + Math.min((i + 1) * chunkSize, dbRows.length) + ' / ' + dbRows.length;
+                }
+
+                bulkProgressBar.style.width = '100%';
+                bulkSuccessMsg.textContent = 'Erfolgreich: ' + dbRows.length + ' Zeilen für ' + uniqueAsins + ' ASINs hochgeladen.';
+                bulkSuccessMsg.style.display = 'block';
+                setTimeout(() => { bulkResetFileState(); loadBulkHistory(); }, 1500);
+
+            } catch (err) {
+                bulkShowError(err.message);
+                bulkUploadBtn.disabled = false;
+            }
+        });
+
+        function bulkShowError(msg) {
+            bulkErrorMsg.textContent = msg;
+            bulkErrorMsg.style.display = 'block';
+            bulkSuccessMsg.style.display = 'none';
+        }
+
+        async function loadBulkHistory() {
+            const clientId = clientSelect.value;
+            const loading = document.getElementById('bulkHistoryLoading');
+            const table = document.getElementById('bulkHistoryTable');
+            const empty = document.getElementById('bulkHistoryEmpty');
+            const tbody = document.getElementById('bulkHistoryBody');
+            if (!clientId) { empty.style.display = 'block'; table.style.display = 'none'; return; }
+
+            loading.style.display = 'block';
+            table.style.display = 'none';
+            empty.style.display = 'none';
+
+            const { data } = await sb.from('sqpr_bulk_reports').select('*').eq('client_id', clientId).order('uploaded_at', { ascending: false });
+            loading.style.display = 'none';
+
+            if (!data || data.length === 0) { empty.style.display = 'block'; return; }
+
+            table.style.display = 'table';
+            tbody.innerHTML = '';
+            data.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${formatDate(r.report_date_start)} — ${formatDate(r.report_date_end)}</td>
+                    <td>${(r.asin_count || 0).toLocaleString('de-DE')}</td>
+                    <td>${(r.row_count || 0).toLocaleString('de-DE')}</td>
+                    <td>${r.uploaded_at ? formatDateTime(r.uploaded_at) : '—'}</td>
+                    <td><button class="action-btn delete bulk-delete-btn" data-id="${r.id}">Löschen</button></td>
+                `;
+                tr.querySelector('.bulk-delete-btn').addEventListener('click', async () => {
+                    if (!confirm('Bulk Sheet Upload wirklich löschen?')) return;
+                    await sb.from('sqpr_bulk_rows').delete().eq('bulk_report_id', r.id);
+                    await sb.from('sqpr_bulk_reports').delete().eq('id', r.id);
+                    loadBulkHistory();
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Load bulk history when client changes
+        clientSelect.addEventListener('change', loadBulkHistory);
     </script>
 </body>
 </html>
