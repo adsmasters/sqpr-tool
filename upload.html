@@ -1040,21 +1040,21 @@
 
         // Expected columns for validation - each entry has display name, DB column, and search terms (EN + DE)
         const COLUMN_DEFS = [
-            { name: 'Search Query', db: 'search_query', match: ['search query', 'suchabfrage'] },
-            { name: 'Search Query Score', db: 'search_query_score', match: ['search query score', 'ergebnis der suchabfrage'] },
-            { name: 'Search Query Volume', db: 'search_query_volume', match: ['search query volume', 'volumen der suchabfrage'] },
-            { name: 'Impressions: Total Count', db: 'impressions_total', match: ['impressions: total count', 'eindr\u00fccke: gesamtanzahl', 'eindrucke: gesamtanzahl'] },
-            { name: 'Impressions: Brand Count', db: 'impressions_brand', match: ['impressions: brand count', 'eindr\u00fccke: markenanzahl', 'eindrucke: markenanzahl'] },
-            { name: 'Impressions: Brand Share %', db: 'impressions_brand_share', match: ['impressions: brand share', 'eindr\u00fccke: markenanteil', 'eindrucke: markenanteil'] },
-            { name: 'Clicks: Total Count', db: 'clicks_total', match: ['clicks: total count', 'klicks: gesamtanzahl'] },
-            { name: 'Clicks: Brand Count', db: 'clicks_brand', match: ['clicks: brand count', 'klicks: anzahl der marken'] },
-            { name: 'Clicks: Brand Share %', db: 'clicks_brand_share', match: ['clicks: brand share', 'klicks: markenanteil'] },
-            { name: 'Cart Adds: Total Count', db: 'cart_adds_total', match: ['cart adds: total count', 'produkte im einkaufswagen: gesamtanzahl'] },
-            { name: 'Cart Adds: Brand Count', db: 'cart_adds_brand', match: ['cart adds: brand count', 'produkte im einkaufswagen: markenanzahl'] },
-            { name: 'Cart Adds: Brand Share %', db: 'cart_adds_brand_share', match: ['cart adds: brand share', 'produkte im einkaufswagen: markenanteil'] },
-            { name: 'Purchases: Total Count', db: 'purchases_total', match: ['purchases: total count', 'k\u00e4ufe: gesamtanzahl', 'kaufe: gesamtanzahl'] },
-            { name: 'Purchases: Brand Count', db: 'purchases_brand', match: ['purchases: brand count', 'k\u00e4ufe: markenanzahl', 'kaufe: markenanzahl'] },
-            { name: 'Purchases: Brand Share %', db: 'purchases_brand_share', match: ['purchases: brand share', 'k\u00e4ufe: markenanteil', 'kaufe: markenanteil'] }
+            { name: 'Search Query', db: 'search_query', match: ['search query', 'suchabfrage', 'suchanfrage'] },
+            { name: 'Search Query Score', db: 'search_query_score', match: ['search query score', 'ergebnis der suchabfrage', 'ergebnis der suchanfrage'] },
+            { name: 'Search Query Volume', db: 'search_query_volume', match: ['search query volume', 'volumen der suchabfrage', 'volumen der suchanfrage'] },
+            { name: 'Impressions: Total Count', db: 'impressions_total', match: ['impressions: total count', 'eindrücke: gesamtanzahl', 'eindrucke: gesamtanzahl', 'seitenaufrufe: gesamtanzahl'] },
+            { name: 'Impressions: Brand Count', db: 'impressions_brand', match: ['impressions: brand count', 'eindrücke: markenanzahl', 'eindrucke: markenanzahl', 'seitenaufrufe: asin-anzahl', 'seitenaufrufe: markenanzahl'] },
+            { name: 'Impressions: Brand Share %', db: 'impressions_brand_share', match: ['impressions: brand share', 'eindrücke: markenanteil', 'eindrucke: markenanteil', 'seitenaufrufe: asin-anteil in %', 'seitenaufrufe: asin-anteil', 'seitenaufrufe: markenanteil'] },
+            { name: 'Clicks: Total Count', db: 'clicks_total', match: ['clicks: total count', 'klicks: gesamtanzahl', 'klicks: gesamtzahl'] },
+            { name: 'Clicks: Brand Count', db: 'clicks_brand', match: ['clicks: brand count', 'klicks: anzahl der marken', 'klicks: asin-anzahl', 'klicks: markenanzahl'] },
+            { name: 'Clicks: Brand Share %', db: 'clicks_brand_share', match: ['clicks: brand share', 'klicks: markenanteil', 'klicks: asin-anteil in %', 'klicks: asin-anteil'] },
+            { name: 'Cart Adds: Total Count', db: 'cart_adds_total', match: ['cart adds: total count', 'produkte im einkaufswagen: gesamtanzahl', 'aufnahmen in den einkaufswagen: gesamtanzahl', 'einkaufswagenhinzufügungen: gesamtanzahl', 'einkaufswagenhinzufugungen: gesamtanzahl'] },
+            { name: 'Cart Adds: Brand Count', db: 'cart_adds_brand', match: ['cart adds: brand count', 'produkte im einkaufswagen: markenanzahl', 'einkaufswagenhinzufügungen: asin-anzahl', 'einkaufswagenhinzufugungen: asin-anzahl', 'einkaufswagenhinzufügungen: markenanzahl'] },
+            { name: 'Cart Adds: Brand Share %', db: 'cart_adds_brand_share', match: ['cart adds: brand share', 'produkte im einkaufswagen: markenanteil', 'einkaufswagenhinzufügungen: asin-anteil %', 'einkaufswagenhinzufugungen: asin-anteil %', 'einkaufswagenhinzufügungen: markenanteil'] },
+            { name: 'Purchases: Total Count', db: 'purchases_total', match: ['purchases: total count', 'käufe: gesamtanzahl', 'kaufe: gesamtanzahl', 'käufe: gesamtzahl', 'kaufe: gesamtzahl'] },
+            { name: 'Purchases: Brand Count', db: 'purchases_brand', match: ['purchases: brand count', 'käufe: markenanzahl', 'kaufe: markenanzahl', 'käufe: asin-anzahl', 'kaufe: asin-anzahl'] },
+            { name: 'Purchases: Brand Share %', db: 'purchases_brand_share', match: ['purchases: brand share', 'käufe: markenanteil', 'kaufe: markenanteil', 'käufe: asin-anteil in %', 'kaufe: asin-anteil in %', 'käufe: asin-anteil', 'kaufe: asin-anteil'] }
         ];
 
         const EXPECTED_COLUMNS = COLUMN_DEFS.map(d => d.name);
@@ -1203,8 +1203,8 @@
         function findHeaderRow(lines, delimiter) {
             for (let i = 0; i < Math.min(lines.length, 30); i++) {
                 const lower = lines[i].toLowerCase();
-                const hasQuery = lower.includes('search query') || lower.includes('suchabfrage');
-                const hasImpressions = lower.includes('impressions') || lower.includes('eindr');
+                const hasQuery = lower.includes('search query') || lower.includes('suchabfrage') || lower.includes('suchanfrage');
+                const hasImpressions = lower.includes('impressions') || lower.includes('eindr') || lower.includes('seitenaufrufe') || lower.includes('klicks');
                 if (hasQuery && hasImpressions) {
                     return i;
                 }
