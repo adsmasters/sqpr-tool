@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="de" data-theme="light">
 <head>
+<script>
+/* AUTO-SSO: geteilte Hub-Session erkennen und automatisch durchloggen */
+(function(){var U="https://lgrnmiszhhahfcmctmwo.supabase.co";var K="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxncm5taXN6aGhhaGZjbWN0bXdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NjE2NDksImV4cCI6MjA4OTIzNzY0OX0.FDZRGMESves7XbAMs_oMLWmvnywMlVqe8p7f1kt06qk";
+function go(){try{var sb=window.supabase.createClient(U,K);sb.auth.getSession().then(function(r){if(r.data&&r.data.session){sessionStorage.setItem("sqpr_auth","true");location.replace("dashboard.html");}});}catch(e){}}
+if(window.supabase&&window.supabase.createClient)go();else{var x=document.createElement("script");x.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";x.onload=go;document.head.appendChild(x);}})();
+</script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SQPR Tool — Login</title>
