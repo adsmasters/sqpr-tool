@@ -845,6 +845,7 @@
                     <input type="date" id="asinSqprEndDate">
                 </div>
             </div>
+            <div id="asinMetaHint" style="display:none;margin-top:12px;font-size:12px;padding:8px 12px;border-radius:6px;background:#3452ff0d;border:1px solid #3452ff33;color:var(--text);"></div>
         </div>
 
         <div class="card">
@@ -1946,6 +1947,56 @@
             asinSqprSuccessMsg.style.display = 'none';
             asinSqprErrorMsg.style.display   = 'none';
             asinSqprProgressWrap.style.display = 'none';
+            if (asinMetaHint) asinMetaHint.style.display = 'none';
+        }
+
+        // --- Auto-Erkennung von ASIN / Monat / Jahr aus der Metadaten-Zeile ---
+        const asinMetaHint = document.getElementById('asinMetaHint');
+        const ASIN_MONTHS_DE = {
+            januar:1, februar:2, 'märz':3, maerz:3, april:4, mai:5, juni:6, juli:7,
+            august:8, september:9, oktober:10, november:11, dezember:12,
+            january:1, february:2, march:3, may:5, june:6, july:7, october:10, december:12
+        };
+        const ASIN_MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+        // Parst die erste Zeile, z.B.:
+        // ASIN oder Produkt=["B004EDMYG2"],Berichtszeitraum=["Monatlich"],Jahr auswählen=["2026"],Monat auswählen=["Mai"]
+        function asinParseMetadata(firstLine) {
+            if (!firstLine) return null;
+            const line = String(firstLine);
+            const asinM  = line.match(/\b(B0[A-Z0-9]{8})\b/i)
+                        || line.match(/ASIN[^=\n]*=\s*\[?\s*"?\s*([A-Z0-9]{10})\b/i);
+            const yearM  = line.match(/(?:Jahr|year)[^=\n]*=\s*\[?\s*"?\s*(\d{4})/i)
+                        || line.match(/\b(20\d{2})\b/);
+            const monthM = line.match(/(januar|februar|märz|maerz|april|mai|juni|juli|august|september|oktober|november|dezember|january|february|march|may|june|july|october|december)/i);
+            const asin  = asinM ? asinM[1].toUpperCase() : null;
+            const year  = yearM ? parseInt(yearM[1], 10) : null;
+            const month = monthM ? (ASIN_MONTHS_DE[monthM[1].toLowerCase()] || null) : null;
+            if (!asin && !year && !month) return null;
+            return { asin: asin, year: year, month: month };
+        }
+
+        // Befüllt ASIN + Start-/Enddatum (erster/letzter Tag des Monats) und zeigt einen Hinweis.
+        function asinApplyMetadata(meta) {
+            if (!meta) { if (asinMetaHint) asinMetaHint.style.display = 'none'; return; }
+            const parts = [];
+            if (meta.asin) { asinInput.value = meta.asin; parts.push('ASIN <strong>' + escapeHtml(meta.asin) + '</strong>'); }
+            if (meta.year && meta.month) {
+                const mm = String(meta.month).padStart(2, '0');
+                const lastDay = new Date(meta.year, meta.month, 0).getDate();
+                asinSqprStartDate.value = meta.year + '-' + mm + '-01';
+                asinSqprEndDate.value   = meta.year + '-' + mm + '-' + String(lastDay).padStart(2, '0');
+                parts.push('Zeitraum <strong>' + ASIN_MONTH_NAMES[meta.month - 1] + ' ' + meta.year + '</strong>');
+            }
+            if (asinMetaHint) {
+                if (parts.length) {
+                    asinMetaHint.innerHTML = '✓ Automatisch erkannt: ' + parts.join(' · ') +
+                        ' <span style="color:var(--text-secondary)">— bei Bedarf oben überschreiben</span>';
+                    asinMetaHint.style.display = 'block';
+                } else {
+                    asinMetaHint.style.display = 'none';
+                }
+            }
         }
 
         function asinSqprHandleFile(file) {
@@ -1962,6 +2013,7 @@
                         const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                         const ws = wb.Sheets[wb.SheetNames[0]];
                         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                        asinApplyMetadata(asinParseMetadata([(rows[0] || []).join(','), (rows[1] || []).join(',')].join(' ')));
                         // Convert to CSV-style lines then reuse parseCSV logic
                         const hIdx = (() => {
                             for (let i = 0; i < Math.min(rows.length, 30); i++) {
@@ -1979,6 +2031,7 @@
             } else {
                 reader.onload = e => {
                     try {
+                        asinApplyMetadata(asinParseMetadata(e.target.result.split(/\r?\n/)[0] || ''));
                         const delim = detectDelimiter(e.target.result);
                         const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
                         const hIdx = findHeaderRow(lines, delim);
