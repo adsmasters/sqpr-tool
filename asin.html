@@ -203,7 +203,7 @@
 
     const fmtInt = (v) => (v || 0).toLocaleString('de-DE');
     const fmtEur = (v) => (v || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-    const fmtPct = (v) => v != null ? (v * 100).toFixed(1) + ' %' : '—';
+    const fmtPct = (v) => v != null ? v.toFixed(1) + ' %' : '—';
     const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
     async function init() {
@@ -477,7 +477,7 @@
                         <td style="width:32px;text-align:center;"><input type="checkbox" class="gap-chk" data-asin="${esc(row.asin)}" data-term="${esc(r.search_query)}" ${isChk ? 'checked' : ''}></td>
                         <td style="text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
                         <td>${fmtInt(r.search_query_volume)}</td>
-                        <td>${r.purchases_brand_share != null ? (r.purchases_brand_share * 100).toFixed(1) + ' %' : '—'}</td>
+                        <td>${r.purchases_brand_share != null ? r.purchases_brand_share.toFixed(1) + ' %' : '—'}</td>
                     </tr>`;
                 }).join('');
 
@@ -686,7 +686,7 @@
         const rows = [['Suchbegriff', 'Suchvolumen', 'Purchase Share (Marke)']];
         for (const r of gapRows) {
             rows.push([r.search_query, r.search_query_volume || 0,
-                r.purchases_brand_share != null ? (r.purchases_brand_share * 100).toFixed(2) + '%' : '']);
+                r.purchases_brand_share != null ? r.purchases_brand_share.toFixed(2) + '%' : '']);
         }
         downloadCsv(rows, `gaps_${asin}.csv`);
     }
