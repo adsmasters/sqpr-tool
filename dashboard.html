@@ -116,6 +116,15 @@
         }
         .header-left { display: flex; align-items: center; gap: 12px; }
         .client-name { font-size: 22px; font-weight: 700; }
+        .client-select {
+            font-size: 22px; font-weight: 700; color: var(--text-primary);
+            background: transparent; border: 1px solid transparent; border-radius: 6px;
+            padding: 2px 28px 2px 6px; margin-left: -6px; cursor: pointer; max-width: 360px;
+            appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%238b949e' viewBox='0 0 16 16'%3E%3Cpath d='M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 8px center;
+        }
+        .client-select:hover { border-color: var(--border); background-color: var(--bg-hover); }
         .marketplace-badge {
             background: var(--bg-hover); border: 1px solid var(--border); color: var(--text-secondary);
             font-size: 12px; padding: 3px 10px; border-radius: 12px; font-weight: 600;
@@ -606,6 +615,7 @@
 
         // State
         let client = null;
+        let allClients = [];
         let reports = [];
         let allRows = [];
         let filteredRows = [];
@@ -815,6 +825,10 @@
                 app.innerHTML = '<div class="empty-state"><h2>Bitte wähle einen Kunden aus</h2><p><a href="clients.html">Zur Kundenübersicht →</a></p></div>';
                 return;
             }
+
+            // Load all clients (for the in-header client switcher)
+            const { data: allClientsData } = await sb.from('sqpr_clients').select('id,name,marketplace').order('name', { ascending: true });
+            allClients = allClientsData || [];
 
             // Load client
             const { data: clientData } = await sb.from('sqpr_clients').select('*').eq('id', clientId).single();
@@ -1444,7 +1458,9 @@
             html += `
                 <div class="header-row">
                     <div class="header-left">
-                        <span class="client-name">${esc(client.name)}</span>
+                        <select class="client-select" id="clientSelect" title="Kunde wechseln">
+                            ${allClients.map(c => `<option value="${esc(c.id)}"${c.id === client.id ? ' selected' : ''}>${esc(c.name)}${c.marketplace ? ' (' + esc(c.marketplace) + ')' : ''}</option>`).join('')}
+                        </select>
                         <span class="marketplace-badge">${esc(client.marketplace || 'DE')}</span>
                     </div>
                     <div style="display:flex;gap:12px;align-items:center;">
@@ -1897,6 +1913,21 @@
             initInfoIcons();
 
             // Events
+            const clientSelectEl = document.getElementById('clientSelect');
+            if (clientSelectEl) {
+                clientSelectEl.addEventListener('change', function () {
+                    const newId = this.value;
+                    if (!newId || newId === (client && client.id)) return;
+                    localStorage.setItem('sqpr_active_client', newId);
+                    // Reset per-client view state, then reload everything for the new client
+                    selectedReportId = 'all';
+                    compareReportId = 'auto';
+                    displayedCount = 100;
+                    document.getElementById('app').innerHTML = '';
+                    init();
+                });
+            }
+
             document.getElementById('periodSelect').addEventListener('change', async function () {
                 selectedReportId = this.value;
                 displayedCount = 100;
