@@ -6,6 +6,7 @@
     <title>SQPR Tool — Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="sqp-adapter.js"></script>
     <style>
         /* Theme variables — Light (default) */
         :root {
@@ -607,11 +608,9 @@
             window.location.href = 'index.html';
         }
 
-        // Supabase init
-        const sb = supabase.createClient(
-            'https://lgrnmiszhhahfcmctmwo.supabase.co',
-            'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI'
-        );
+        // Supabase init — via SQP-API-Adapter (sqpr_rows/reports/str_terms aus API,
+        // sqpr_clusters/clients-Writes weiter über echtes Supabase)
+        const sb = createSqpAdapter();
 
         // State
         let client = null;
