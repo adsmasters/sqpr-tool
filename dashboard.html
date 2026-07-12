@@ -550,6 +550,21 @@
         </div>
     </div>
 
+    <!-- Datenquelle-Banner (Live-API vs. CSV-Upload) -->
+    <div id="dataSourceBar"></div>
+    <script>
+    (function(){
+      var api = window.SQP_API_CLIENTS || [];
+      var active = localStorage.getItem('sqpr_active_client');
+      var isApi = api.indexOf(active) !== -1;
+      var bar = document.getElementById('dataSourceBar');
+      bar.style.cssText='padding:8px 32px;font-size:13px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);'+(isApi?'background:rgba(26,127,55,0.10);color:var(--success);':'background:var(--bg-hover);color:var(--text-secondary);');
+      bar.innerHTML = isApi
+        ? '🟢 Datenquelle: <b>Live über Amazon SP-API</b> — automatisch aktualisiert, kein Sheet-Upload nötig.'
+        : '📄 Datenquelle: <b>CSV-Upload</b> — manuell hochgeladene Reports (dieser Kunde ist noch nicht per API angebunden).';
+    })();
+    </script>
+
     <!-- Main Content -->
     <div class="main" id="app">
         <div id="loadingState">
