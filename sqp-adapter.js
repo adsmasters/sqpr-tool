@@ -11,12 +11,16 @@
   const REAL_KEY = 'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI';
   const API = 'https://ppc-callback.vercel.app/api/sqp/data';
   const PPC = 'https://ppc-callback.vercel.app/api/sqp/ppc';
+  const CLIENTS_EP = 'https://ppc-callback.vercel.app/api/sqp/clients';
 
-  // API-Kunden (sqpr client_id -> SP-API selling_partner_id). Weitere hier ergänzen.
-  const CLIENTS = [
-    { id: '7c4acd87-fe09-4708-935c-35f94d3d273b', name: 'Recoactiv_DE', marketplace: 'DE', spid: 'AB0SPXUYQ1F1W' },
-  ];
-  window.SQP_API_CLIENTS = CLIENTS.map(c => c.id);
+  // API-Kunden werden aus der DB (sqp_clients) geladen — kein Hardcoding.
+  let CLIENTS = [];
+  window.SQP_API_CLIENTS = [];
+  const clientsReady = fetch(CLIENTS_EP).then(r => r.json()).then(j => {
+    CLIENTS = j.clients || [];
+    window.SQP_API_CLIENTS = CLIENTS.map(c => c.id);
+  }).catch(() => { CLIENTS = []; });
+  window.SQP_CLIENTS_READY = clientsReady;
   const VIRTUAL = new Set(['sqpr_clients', 'sqpr_reports', 'sqpr_rows', 'sqpr_str_terms']);
   const monthEnd = (m) => { const d = new Date(m + 'T00:00:00Z'); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10); };
   const num = (x) => (x == null ? 0 : +x || 0);
@@ -24,6 +28,7 @@
 
   const cache = {};
   async function loadSpid(spid) {
+    await clientsReady;
     if (cache[spid]) return cache[spid];
     const clientId = (CLIENTS.find(c => c.spid === spid) || {}).id;
     const j = await (await fetch(`${API}?spid=${encodeURIComponent(spid)}`)).json();
@@ -73,15 +78,16 @@
     return { data: rows, error: null };
   };
 
-  function Adapter() { this._real = window.supabase.createClient(REAL_URL, REAL_KEY); this.auth = this._real.auth; this._activeSpid = CLIENTS[0].spid; }
+  function Adapter() { this._real = window.supabase.createClient(REAL_URL, REAL_KEY); this.auth = this._real.auth; this._activeSpid = null; }
   Adapter.prototype.from = function (table) { return VIRTUAL.has(table) ? new VQuery(this, table) : this._real.from(table); };
   Adapter.prototype._data = async function (table, filters) {
+    await clientsReady;
     if (table === 'sqpr_clients') {
       let list = CLIENTS.map(c => ({ id: c.id, name: c.name, marketplace: c.marketplace }));
       if (filters.id) list = list.filter(c => c.id === filters.id);
       return list;
     }
-    let spid = (filters.client_id && spidForClient(filters.client_id)) || this._activeSpid;
+    let spid = (filters.client_id && spidForClient(filters.client_id)) || this._activeSpid || (CLIENTS[0] || {}).spid;
     if (filters.client_id && spidForClient(filters.client_id)) this._activeSpid = spid;
     if (!spid) return [];
     const d = await loadSpid(spid);
