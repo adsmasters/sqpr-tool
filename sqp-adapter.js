@@ -27,13 +27,18 @@
   const spidForClient = (id) => (CLIENTS.find(c => c.id === id) || {}).spid;
 
   const cache = {};
+  const getPeriod = () => (window.SQP_PERIOD === 'WEEK' ? 'WEEK' : 'MONTH');
   async function loadSpid(spid) {
     await clientsReady;
-    if (cache[spid]) return cache[spid];
+    const period = getPeriod();
+    const ck = spid + '|' + period;
+    if (cache[ck]) return cache[ck];
     const clientId = (CLIENTS.find(c => c.spid === spid) || {}).id;
-    const j = await (await fetch(`${API}?spid=${encodeURIComponent(spid)}`)).json();
+    const j = await (await fetch(`${API}?spid=${encodeURIComponent(spid)}&period=${period}`)).json();
+    const endBy = {}; // start_date -> end_date (aus den Daten, funktioniert für Monat & Woche)
     const byKey = new Map();
     for (const r of (j.rows || [])) {
+      endBy[r.start_date] = r.end_date;
       const key = r.start_date + '||' + r.search_query;
       let e = byKey.get(key);
       if (!e) { e = { client_id: clientId, report_id: r.start_date, search_query: r.search_query,
@@ -55,12 +60,13 @@
       clicks_brand_share: e.clicks_total ? 100 * e.clicks_brand / e.clicks_total : 0,
       cart_adds_brand_share: e.cart_adds_total ? 100 * e.cart_adds_brand / e.cart_adds_total : 0,
       purchases_brand_share: e.purchases_total ? 100 * e.purchases_brand / e.purchases_total : 0 }));
-    const months = [...new Set(rows.map(r => r.report_id))].sort();
-    const reports = months.map(m => ({ id: m, client_id: clientId, report_date_start: m, report_date_end: monthEnd(m), reporting_range: 'Monatlich' }));
+    const periods = [...new Set(rows.map(r => r.report_id))].sort();
+    const label = period === 'WEEK' ? 'Wöchentlich' : 'Monatlich';
+    const reports = periods.map(m => ({ id: m, client_id: clientId, report_date_start: m, report_date_end: endBy[m] || monthEnd(m), reporting_range: label }));
     let strterms = [];
     try { const p = await (await fetch(`${PPC}?spid=${encodeURIComponent(spid)}`)).json(); strterms = p.rows || []; } catch (e) {}
-    cache[spid] = { reports, rows, strterms };
-    return cache[spid];
+    cache[ck] = { reports, rows, strterms };
+    return cache[ck];
   }
 
   function VQuery(a, table) { this.a = a; this.table = table; this.filters = {}; this._order = null; this._single = false; this._sel = '*'; }

@@ -6,7 +6,7 @@
     <title>SQPR Tool — Live-Analyse</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="sqp-adapter.js?v=5"></script>
+    <script src="sqp-adapter.js?v=6"></script>
     <style>
         /* Theme variables — Light (default) */
         :root {
@@ -608,6 +608,18 @@
         // Auth check
         if (!sessionStorage.getItem('sqpr_auth')) {
             window.location.href = 'index.html';
+        }
+
+        // Granularität (Monat/Woche) — vom Adapter gelesen
+        window.SQP_PERIOD = (localStorage.getItem('sqpr_period') === 'WEEK') ? 'WEEK' : 'MONTH';
+        function setPeriod(p) {
+            p = (p === 'WEEK') ? 'WEEK' : 'MONTH';
+            if (window.SQP_PERIOD === p) return;
+            window.SQP_PERIOD = p;
+            localStorage.setItem('sqpr_period', p);
+            selectedReportId = 'all'; compareReportId = 'auto'; displayedCount = 100;
+            document.getElementById('app').innerHTML = '<div class="loading">Lade ' + (p === 'WEEK' ? 'Wochendaten' : 'Monatsdaten') + '…</div>';
+            init();
         }
 
         // Supabase init (via SQP-API-Adapter)
@@ -1467,6 +1479,13 @@
                         <span class="marketplace-badge">${esc(client.marketplace || 'DE')}</span>
                     </div>
                     <div style="display:flex;gap:12px;align-items:center;">
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                            <span style="font-size:11px;color:var(--text-secondary);">Granularität</span>
+                            <div class="table-view-toggle">
+                                <button class="table-view-btn ${window.SQP_PERIOD !== 'WEEK' ? 'active' : ''}" onclick="setPeriod('MONTH')">Monatlich</button>
+                                <button class="table-view-btn ${window.SQP_PERIOD === 'WEEK' ? 'active' : ''}" onclick="setPeriod('WEEK')">Wöchentlich</button>
+                            </div>
+                        </div>
                         <div style="display:flex;flex-direction:column;gap:2px;">
                             <span style="font-size:11px;color:var(--text-secondary);">Zeitraum</span>
                             <select class="period-select" id="periodSelect">${periodOptions}</select>
