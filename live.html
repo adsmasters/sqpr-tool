@@ -1537,8 +1537,9 @@
                         absDiff: d[diffField] || 0
                     }));
                 const moverTopN = window._moverTopN || 5;
-                const winners = [...entries].sort((a, b) => b.absDiff - a.absDiff).filter(e => e.absDiff > 0).slice(0, moverTopN);
-                const losers = [...entries].sort((a, b) => a.absDiff - b.absDiff).filter(e => e.absDiff < 0).slice(0, moverTopN);
+                // Gewinner (positive Veränderung) und Verlierer (negative) — jeweils absteigend nach Anzahl.
+                const winners = [...entries].filter(e => e.absDiff > 0).sort((a, b) => b.abs - a.abs).slice(0, moverTopN);
+                const losers = [...entries].filter(e => e.absDiff < 0).sort((a, b) => b.abs - a.abs).slice(0, moverTopN);
 
                 // Metric selector + threshold + top N
                 const metricSelect = Object.entries(moverMetricLabels).map(([k, v]) =>
