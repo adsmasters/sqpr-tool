@@ -1,16 +1,10 @@
-/* SQP-API-Adapter (HYBRID) — Ersatz für den Supabase-Client der SQPR-Seiten.
+/* SQP-API-Adapter (nur für die eigene "Live-Analyse"-Seite live.html).
+ * Ersetzt den Supabase-Client: liefert sqpr_clients/reports/rows/str_terms aus der
+ * SP-API (ASIN-Level -> Marken-Level aggregiert); sqpr_clusters bleibt echtes Supabase.
+ * Betrifft NUR live.html — dashboard.html / asin.html (CSV) sind unberührt.
  *
- * - API-Kunden (mit SP-API-Anbindung, s. CLIENTS): sqpr_reports/rows/str_terms
- *   werden aus der API geliefert (ASIN-Level → Marken-Level aggregiert).
- * - Alle anderen Kunden (CSV-Upload): werden 1:1 an das echte Supabase durchgereicht
- *   → unverändertes Verhalten wie bisher.
- * - sqpr_clients & sqpr_clusters: immer echtes Supabase (alle Kunden sichtbar,
- *   Cluster lesen/schreiben wie gehabt).
- *
- * Zugriff auf die API-Endpunkte wird server-seitig per Origin-Allowlist gewährt
- * (kein Token im Client). window.SQP_API_CLIENTS listet die API-Kunden für das UI.
- *
- * Nutzung: const sb = createSqpAdapter();   // statt supabase.createClient(...)
+ * Zugriff auf die API-Endpunkte per Origin-Allowlist (kein Token im Client).
+ * Nutzung: const sb = createSqpAdapter();
  */
 (function () {
   const REAL_URL = 'https://lgrnmiszhhahfcmctmwo.supabase.co';
@@ -18,36 +12,29 @@
   const API = 'https://ppc-callback.vercel.app/api/sqp/data';
   const PPC = 'https://ppc-callback.vercel.app/api/sqp/ppc';
 
-  // Kunden mit API-Daten (sqpr client_id -> SP-API selling_partner_id)
+  // API-Kunden (sqpr client_id -> SP-API selling_partner_id). Weitere hier ergänzen.
   const CLIENTS = [
-    { id: '7c4acd87-fe09-4708-935c-35f94d3d273b', name: 'Recoactiv_DE', spid: 'AB0SPXUYQ1F1W' },
+    { id: '7c4acd87-fe09-4708-935c-35f94d3d273b', name: 'Recoactiv_DE', marketplace: 'DE', spid: 'AB0SPXUYQ1F1W' },
   ];
-  window.SQP_API_CLIENTS = CLIENTS.map(c => c.id);       // fürs UI (Datenquelle-Banner)
-  const isApiClient = (id) => CLIENTS.some(c => c.id === id);
-  const spidForClient = (id) => (CLIENTS.find(c => c.id === id) || {}).spid;
-
-  const HYBRID = new Set(['sqpr_reports', 'sqpr_rows', 'sqpr_str_terms']); // API oder echt, je Kunde
+  window.SQP_API_CLIENTS = CLIENTS.map(c => c.id);
+  const VIRTUAL = new Set(['sqpr_clients', 'sqpr_reports', 'sqpr_rows', 'sqpr_str_terms']);
   const monthEnd = (m) => { const d = new Date(m + 'T00:00:00Z'); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10); };
   const num = (x) => (x == null ? 0 : +x || 0);
+  const spidForClient = (id) => (CLIENTS.find(c => c.id === id) || {}).spid;
 
-  // ---- API-Daten je spid (Cache) ----
   const cache = {};
   async function loadSpid(spid) {
     if (cache[spid]) return cache[spid];
     const clientId = (CLIENTS.find(c => c.spid === spid) || {}).id;
     const j = await (await fetch(`${API}?spid=${encodeURIComponent(spid)}`)).json();
-    const apiRows = j.rows || [];
     const byKey = new Map();
-    for (const r of apiRows) {
+    for (const r of (j.rows || [])) {
       const key = r.start_date + '||' + r.search_query;
       let e = byKey.get(key);
-      if (!e) {
-        e = { client_id: clientId, report_id: r.start_date, search_query: r.search_query,
-          search_query_volume: 0, search_query_score: r.search_query_score,
-          impressions_total: 0, clicks_total: 0, cart_adds_total: 0, purchases_total: 0,
-          impressions_brand: 0, clicks_brand: 0, cart_adds_brand: 0, purchases_brand: 0 };
-        byKey.set(key, e);
-      }
+      if (!e) { e = { client_id: clientId, report_id: r.start_date, search_query: r.search_query,
+        search_query_volume: 0, search_query_score: r.search_query_score,
+        impressions_total: 0, clicks_total: 0, cart_adds_total: 0, purchases_total: 0,
+        impressions_brand: 0, clicks_brand: 0, cart_adds_brand: 0, purchases_brand: 0 }; byKey.set(key, e); }
       e.search_query_volume = Math.max(e.search_query_volume, num(r.search_query_volume));
       e.impressions_total = Math.max(e.impressions_total, num(r.total_query_impression_count));
       e.clicks_total = Math.max(e.clicks_total, num(r.total_click_count));
@@ -66,50 +53,42 @@
     const months = [...new Set(rows.map(r => r.report_id))].sort();
     const reports = months.map(m => ({ id: m, client_id: clientId, report_date_start: m, report_date_end: monthEnd(m), reporting_range: 'Monatlich' }));
     let strterms = [];
-    try { const p = await (await fetch(`${PPC}?spid=${encodeURIComponent(spid)}`)).json(); strterms = p.rows || []; } catch (e) { /* PPC optional */ }
+    try { const p = await (await fetch(`${PPC}?spid=${encodeURIComponent(spid)}`)).json(); strterms = p.rows || []; } catch (e) {}
     cache[spid] = { reports, rows, strterms };
     return cache[spid];
   }
 
-  // ---- Chainable Query-Builder: entscheidet zur Laufzeit API vs. echtes Supabase ----
-  function HQuery(adapter, table) { this.a = adapter; this.table = table; this.filters = {}; this._sel = '*'; this._order = null; this._single = false; }
-  HQuery.prototype.select = function (cols) { if (cols) this._sel = cols; return this; };
-  HQuery.prototype.eq = function (col, val) { this.filters[col] = val; return this; };
-  HQuery.prototype.order = function (col, opts) { this._order = { col, asc: opts ? opts.ascending !== false : true }; return this; };
-  HQuery.prototype.single = function () { this._single = true; return this._resolve(); };
-  HQuery.prototype.range = function (from, to) { return this._resolve(from, to); };
-  HQuery.prototype.then = function (onF, onR) { return this._resolve().then(onF, onR); };
-  HQuery.prototype._activeClientId = function () {
-    return this.filters.client_id || (window.localStorage && localStorage.getItem('sqpr_active_client')) || null;
-  };
-  HQuery.prototype._resolve = async function (rangeFrom, rangeTo) {
-    const clientId = this._activeClientId();
-    // CSV-Kunde (oder unbekannt) -> an echtes Supabase durchreichen
-    if (!isApiClient(clientId)) {
-      let rq = this.a._real.from(this.table).select(this._sel);
-      for (const k in this.filters) rq = rq.eq(k, this.filters[k]);
-      if (this._order) rq = rq.order(this._order.col, { ascending: this._order.asc });
-      if (this._single) return rq.single();
-      if (rangeFrom != null) return rq.range(rangeFrom, rangeTo);
-      return rq;
-    }
-    // API-Kunde -> aus API-Cache bedienen
-    const spid = spidForClient(clientId);
-    const d = await loadSpid(spid);
-    let rows = this.table === 'sqpr_reports' ? d.reports
-      : this.table === 'sqpr_rows' ? d.rows
-      : d.strterms;
-    if (this.table !== 'sqpr_str_terms') rows = rows.filter(r => !this.filters.client_id || r.client_id === this.filters.client_id);
+  function VQuery(a, table) { this.a = a; this.table = table; this.filters = {}; this._order = null; this._single = false; this._sel = '*'; }
+  VQuery.prototype.select = function (c) { if (c) this._sel = c; return this; };
+  VQuery.prototype.eq = function (col, val) { this.filters[col] = val; return this; };
+  VQuery.prototype.order = function (col, opts) { this._order = { col, asc: opts ? opts.ascending !== false : true }; return this; };
+  VQuery.prototype.single = function () { this._single = true; return this._resolve(); };
+  VQuery.prototype.range = function (f, t) { return this._resolve(f, t); };
+  VQuery.prototype.then = function (onF, onR) { return this._resolve().then(onF, onR); };
+  VQuery.prototype._resolve = async function (rangeFrom, rangeTo) {
+    let rows = await this.a._data(this.table, this.filters);
     if (this._order) { const { col, asc } = this._order; rows = [...rows].sort((x, y) => (x[col] > y[col] ? 1 : x[col] < y[col] ? -1 : 0) * (asc ? 1 : -1)); }
     if (this._single) return { data: rows[0] || null, error: rows.length ? null : { message: 'no rows' } };
     if (rangeFrom != null) rows = rows.slice(rangeFrom, rangeTo + 1);
     return { data: rows, error: null };
   };
 
-  function Adapter() { this._real = window.supabase.createClient(REAL_URL, REAL_KEY); this.auth = this._real.auth; }
-  Adapter.prototype.from = function (table) {
-    if (HYBRID.has(table)) return new HQuery(this, table);
-    return this._real.from(table); // sqpr_clients, sqpr_clusters -> echtes Supabase
+  function Adapter() { this._real = window.supabase.createClient(REAL_URL, REAL_KEY); this.auth = this._real.auth; this._activeSpid = CLIENTS[0].spid; }
+  Adapter.prototype.from = function (table) { return VIRTUAL.has(table) ? new VQuery(this, table) : this._real.from(table); };
+  Adapter.prototype._data = async function (table, filters) {
+    if (table === 'sqpr_clients') {
+      let list = CLIENTS.map(c => ({ id: c.id, name: c.name, marketplace: c.marketplace }));
+      if (filters.id) list = list.filter(c => c.id === filters.id);
+      return list;
+    }
+    let spid = (filters.client_id && spidForClient(filters.client_id)) || this._activeSpid;
+    if (filters.client_id && spidForClient(filters.client_id)) this._activeSpid = spid;
+    if (!spid) return [];
+    const d = await loadSpid(spid);
+    if (table === 'sqpr_reports') return d.reports.filter(r => !filters.client_id || r.client_id === filters.client_id);
+    if (table === 'sqpr_rows') return d.rows.filter(r => !filters.client_id || r.client_id === filters.client_id);
+    if (table === 'sqpr_str_terms') return d.strterms;
+    return [];
   };
 
   window.createSqpAdapter = function () { return new Adapter(); };

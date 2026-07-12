@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQPR Tool — Dashboard</title>
+    <title>SQPR Tool — Live-Analyse</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="sqp-adapter.js?v=3"></script>
     <style>
         /* Theme variables — Light (default) */
         :root {
@@ -536,10 +537,10 @@
         <div class="topbar-left">
             <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
             <nav class="topbar-nav">
-                <a href="dashboard.html" class="active">Marken-Analyse</a>
+                <a href="dashboard.html">Marken-Analyse</a>
                 <a href="asin.html">ASIN-Analyse</a>
-
-                <a href="live.html">Live-Analyse</a>                <a href="clients.html">Kunden</a>
+                <a href="live.html" class="active">Live-Analyse</a>
+                <a href="clients.html">Kunden</a>
                 <a href="upload.html">Upload</a>
                 <a href="help.html">Hilfe</a>
             </nav>
@@ -609,10 +610,7 @@
         }
 
         // Supabase init
-        const sb = supabase.createClient(
-            'https://lgrnmiszhhahfcmctmwo.supabase.co',
-            'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI'
-        );
+        const sb = createSqpAdapter();
 
         // State
         let client = null;
@@ -820,7 +818,9 @@
         // Init
         async function init() {
             const app = document.getElementById('app');
-            const clientId = localStorage.getItem('sqpr_active_client');
+            // Live-Analyse nutzt eigenen Kunden-Key (isoliert von der CSV-Marken-Analyse)
+            // und defaultet auf den ersten API-Kunden.
+            const clientId = localStorage.getItem('sqpr_live_client') || (window.SQP_API_CLIENTS || [])[0];
 
             if (!clientId) {
                 app.innerHTML = '<div class="empty-state"><h2>Bitte wähle einen Kunden aus</h2><p><a href="clients.html">Zur Kundenübersicht →</a></p></div>';
@@ -1919,7 +1919,7 @@
                 clientSelectEl.addEventListener('change', function () {
                     const newId = this.value;
                     if (!newId || newId === (client && client.id)) return;
-                    localStorage.setItem('sqpr_active_client', newId);
+                    localStorage.setItem('sqpr_live_client', newId);
                     // Reset per-client view state, then reload everything for the new client
                     selectedReportId = 'all';
                     compareReportId = 'auto';
