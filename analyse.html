@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQPR Tool — Analyse</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root{
+    --bg:#F7F7F8; --card:#FFFFFF; --ink:#191A1C; --muted:#6B7177; --faint:#9AA0A6;
+    --line:#ECEDEF; --accent:#0EA5A0; --accent-soft:#E6F7F5;
+    --up:#12A150; --down:#E5484D;
+    --c-click:#6366F1; --c-purch:#12A150; --c-spend:#F59E0B; --c-sales:#EC4899; --c-vol:#0EA5A0;
+    --shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
+  }
+  [data-theme="dark"]{
+    --bg:#0B0C0E; --card:#151719; --ink:#F2F3F5; --muted:#9AA0A6; --faint:#6B7177;
+    --line:#26292E; --accent:#2DD4BF; --accent-soft:#0f2a28;
+    --up:#3FB950; --down:#F0616D; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.4);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 40px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.02em;}
+  .brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;}
+  .nav{display:flex;gap:2px;}
+  .nav a{color:var(--muted);text-decoration:none;font-size:14px;padding:8px 14px;border-radius:999px;font-weight:500;}
+  .nav a:hover{color:var(--ink);background:var(--card);}
+  .nav a.active{color:var(--ink);background:var(--card);box-shadow:var(--shadow);}
+  .icon-btn{width:36px;height:36px;border-radius:999px;border:none;background:var(--card);box-shadow:var(--shadow);color:var(--muted);cursor:pointer;font-size:16px;}
+  .wrap{max-width:1180px;margin:0 auto;padding:12px 40px 80px;}
+  .pickrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 6px;}
+  .sel{appearance:none;-webkit-appearance:none;background:var(--card);border:none;box-shadow:var(--shadow);color:var(--ink);font-size:15px;font-weight:600;padding:11px 40px 11px 16px;border-radius:14px;cursor:pointer;max-width:440px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%239AA0A6' viewBox='0 0 16 16'%3E%3Cpath d='M4.4 7.4l3.4 3.4a.25.25 0 00.35 0l3.4-3.4A.25.25 0 0011.4 7H4.6a.25.25 0 00-.18.43z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;}
+  .seg{display:inline-flex;background:var(--card);box-shadow:var(--shadow);border-radius:999px;padding:3px;}
+  .seg button{border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;}
+  .seg button.on{background:var(--accent);color:#fff;}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 22px;}
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:26px;}
+  .kpi{background:var(--card);border-radius:18px;padding:18px 18px 16px;box-shadow:var(--shadow);}
+  .kpi .l{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.01em;margin-bottom:10px;}
+  .kpi .v{font-size:26px;font-weight:750;letter-spacing:-.03em;line-height:1;}
+  .kpi .d{font-size:12.5px;font-weight:650;margin-top:9px;display:flex;align-items:center;gap:4px;}
+  .d.up{color:var(--up);} .d.down{color:var(--down);} .d.flat{color:var(--faint);}
+  .panel{background:var(--card);border-radius:22px;box-shadow:var(--shadow);padding:24px;margin-bottom:24px;}
+  .panel h2{font-size:17px;font-weight:700;letter-spacing:-.02em;margin-bottom:2px;}
+  .panel .ph{color:var(--muted);font-size:13px;margin-bottom:18px;}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .chip{border:none;cursor:pointer;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:999px;background:var(--bg);color:var(--muted);display:flex;align-items:center;gap:7px;}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.35;}
+  .chip.on{color:#fff;} .chip.on .dot{opacity:1;background:#fff;}
+  .chart-box{height:340px;position:relative;}
+  .thead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .search{border:none;background:var(--bg);border-radius:12px;padding:10px 14px;font-size:13.5px;color:var(--ink);width:240px;}
+  .search::placeholder{color:var(--faint);}
+  .tbl{width:100%;border-collapse:collapse;font-size:13.5px;}
+  .tbl th{text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;padding:0 12px 12px;cursor:pointer;white-space:nowrap;}
+  .tbl th:first-child{text-align:left;}
+  .tbl td{text-align:right;padding:13px 12px;border-top:1px solid var(--line);white-space:nowrap;}
+  .tbl td:first-child{text-align:left;font-weight:600;max-width:300px;overflow:hidden;text-overflow:ellipsis;}
+  .tbl tr:hover td{background:var(--bg);}
+  .cell{display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px;}
+  .cell .cd{font-size:11px;font-weight:650;} .cd.up{color:var(--up);} .cd.down{color:var(--down);} .cd.flat{color:var(--faint);}
+  .tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;}
+  .tag.gap{background:#FEECEC;color:var(--down);} .tag.ok{background:#E7F7EE;color:var(--up);}
+  [data-theme="dark"] .tag.gap{background:#3a1f22;} [data-theme="dark"] .tag.ok{background:#12291c;}
+  .loading{text-align:center;padding:90px;color:var(--muted);}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;margin:0 auto 14px;}
+  @keyframes s{to{transform:rotate(360deg);}}
+  .hint{background:var(--accent-soft);color:var(--accent);border-radius:14px;padding:12px 16px;font-size:13px;font-weight:600;margin-bottom:22px;}
+  @media(max-width:1024px){.kpis{grid-template-columns:repeat(3,1fr);}.wrap,.topbar{padding-left:20px;padding-right:20px;}}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="logo">◑</span> SQPR <span style="color:var(--muted);font-weight:500;">Analyse</span></div>
+    <div class="nav">
+      <a href="live.html">Marken</a>
+      <a href="asin-live.html">ASIN</a>
+      <a href="analyse.html" class="active">Analyse</a>
+    </div>
+    <div style="display:flex;gap:8px;"><button class="icon-btn" onclick="toggleTheme()" title="Theme">◐</button><button class="icon-btn" onclick="logout()" title="Logout">⏻</button></div>
+  </div>
+  <div class="wrap">
+    <div class="pickrow">
+      <select class="sel" id="clientSel" onchange="onClient()"></select>
+      <select class="sel" id="asinSel" onchange="render()"></select>
+      <div class="seg" id="granSeg">
+        <button data-p="MONTH" class="on" onclick="setGran('MONTH')">Monatlich</button>
+        <button data-p="WEEK" onclick="setGran('WEEK')">Wöchentlich</button>
+      </div>
+    </div>
+    <div class="sub" id="sub"></div>
+    <div id="content"><div class="loading"><div class="spin"></div>Lade…</div></div>
+  </div>
+<script>
+(function(){var t=localStorage.getItem('sqpr_theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+if(sessionStorage.getItem('sqpr_auth')!=='true')location.replace('index.html');
+function toggleTheme(){var c=document.documentElement.getAttribute('data-theme');var n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('sqpr_theme',n);if(chart)draw();}
+function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index.html');}
+
+const API='https://ppc-callback.vercel.app/api/sqp';
+const NAMES={B004EDA8HE:'Immun Tonicum Hund',B004EDSTZW:'Herz Tonicum Hund',B004EDSU7E:'Gelenk Hund',B08T6JP93J:'Gelenk Forte Hund',B004EDL20Q:'Immun Katze',B004EDDV00:'Immun Katze (2)',B004EDP2IY:'Herz Tonicum Katze',B004EDQRX8:'Nieren Tonicum Katze',B004EDMYG2:'Nieren Tonicum Katze (2)',B007UOST0W:'Renaltan Tonicum Katze',B07S2MT9L1:'Recovery Immun Katze',B08T6J9TVL:'Recovery Immun Katze (2)',B07RZG9QRT:'Recovery Renal Katze',B08T6G2K86:'Recovery Renal Katze 280ml',B0DMT8HD4N:'Immun Hund'};
+const norm=s=>(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+const fmtInt=x=>x==null||isNaN(x)?'–':Math.round(+x).toLocaleString('de-DE');
+const fmtK=x=>{x=+x||0;return x>=1000?(x/1000).toLocaleString('de-DE',{maximumFractionDigits:1})+'k':fmtInt(x);};
+const fmtPct=x=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+const eur=x=>'€'+(+x||0).toLocaleString('de-DE',{maximumFractionDigits:0});
+const name=a=>NAMES[a]||a;
+const mLabel=m=>{const d=new Date(m+'T00:00:00Z');return d.toLocaleDateString('de-DE',{month:'short',year:'2-digit',timeZone:'UTC'});};
+
+let CLIENTS=[],SQP=[],PPC=new Map(),MONTHS=[],WEEKS=[],ASINS=[],GRAN='MONTH',chart=null;
+let metrics={click:true,purch:true,spend:true,sales:false,vol:false};
+
+async function boot(){
+  try{CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[];}catch(e){}
+  if(!CLIENTS.length){document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>';return;}
+  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}</option>`).join('');
+  onClient();
+}
+async function onClient(){
+  const spid=document.getElementById('clientSel').value;
+  document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade SQP + Ads…</div>';
+  const [m,w,p]=await Promise.all([
+    fetch(`${API}/data?spid=${spid}`).then(r=>r.json()).catch(()=>({rows:[]})),
+    fetch(`${API}/data?spid=${spid}&period=WEEK`).then(r=>r.json()).catch(()=>({rows:[]})),
+    fetch(`${API}/asin-ppc?spid=${spid}`).then(r=>r.json()).catch(()=>({rows:[]})),
+  ]);
+  SQP={MONTH:m.rows||[],WEEK:w.rows||[]};
+  PPC=new Map(); for(const r of (p.rows||[])){ if(!PPC.has(r.asin))PPC.set(r.asin,new Map()); PPC.get(r.asin).set(norm(r.search_term),{spend:+r.cost||0,sales:+r.sales7d||0,clicks:+r.clicks||0}); }
+  MONTHS=[...new Set(SQP.MONTH.map(r=>r.start_date))].sort();
+  WEEKS=[...new Set(SQP.WEEK.map(r=>r.start_date))].sort();
+  ASINS=[...new Set(SQP.MONTH.map(r=>r.asin))].sort((a,b)=>name(a).localeCompare(name(b)));
+  document.getElementById('asinSel').innerHTML=ASINS.map(a=>`<option value="${a}">${name(a)} · ${a}</option>`).join('');
+  render();
+}
+function setGran(p){GRAN=p;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('on',b.dataset.p===p));render();}
+
+// pro Periode: Zeilen der ASIN; aggregiere ASIN-Shares (gewichtet) je Periode
+function asinRows(period){ return (SQP[GRAN]||[]).filter(r=>r.asin===document.getElementById('asinSel').value && r.start_date===period); }
+function periods(){ return GRAN==='WEEK'?WEEKS:MONTHS; }
+function shareOf(rows){ // gewichtete ASIN-Shares für eine Periode
+  let iP=0,iT=0,cP=0,cT=0,pP=0,pT=0,vol=0,purch=0;
+  for(const r of rows){ iP+=+r.asin_impression_count||0;iT+=+r.total_query_impression_count||0;cP+=+r.asin_click_count||0;cT+=+r.total_click_count||0;pP+=+r.asin_purchase_count||0;pT+=+r.total_purchase_count||0;vol+=+r.search_query_volume||0;purch+=+r.asin_purchase_count||0; }
+  return { impr:iT?100*iP/iT:0, click:cT?100*cP/cT:0, purch:pT?100*pP/pT:0, vol, purchases:purch };
+}
+function render(){
+  const asin=document.getElementById('asinSel').value; if(!asin)return;
+  const P=periods(); if(!P.length){document.getElementById('content').innerHTML='<div class="loading">Keine Daten für diese Granularität.</div>';return;}
+  const cur=P[P.length-1], prev=P.length>1?P[P.length-2]:null;
+  const curS=shareOf(asinRows(cur)), prevS=prev?shareOf(asinRows(prev)):null;
+  const cov=PPC.get(asin)||new Map();
+  // Ad-Summe (Snapshot, 30T) über die SQP-Begriffe der aktuellen Periode
+  let adSpend=0,adSales=0; for(const r of asinRows(cur)){const a=cov.get(norm(r.search_query));if(a){adSpend+=a.spend;adSales+=a.sales;}}
+  document.getElementById('sub').textContent=`${name(asin)} · ${GRAN==='WEEK'?'Woche':'Monat'} ${mLabel(cur)}${prev?' vs. '+mLabel(prev):''} · ${asinRows(cur).length} Suchbegriffe`;
+
+  const dPct=(a,b)=>b==null?null:(a-b);
+  const kpi=(l,v,d,suf)=>{let dd='';if(d!=null){const cls=Math.abs(d)<0.05?'flat':(d>0?'up':'down');const s=d>0?'+':'';dd=`<div class="d ${cls}">${d>0?'▲':d<0?'▼':'•'} ${s}${(suf==='pp'?d.toFixed(1)+' pp':fmtInt(d))}</div>`;}return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div>${dd}</div>`;};
+  const kpis=[
+    kpi('Suchvolumen',fmtK(curS.vol),prevS?curS.vol-prevS.vol:null,''),
+    kpi('Käufe (ASIN)',fmtInt(curS.purchases),prevS?curS.purchases-prevS.purchases:null,''),
+    kpi('Click-Share',fmtPct(curS.click),dPct(curS.click,prevS&&prevS.click),'pp'),
+    kpi('Purchase-Share',fmtPct(curS.purch),dPct(curS.purch,prevS&&prevS.purch),'pp'),
+    kpi('Ad-Spend (30T)',eur(adSpend),null,''),
+    kpi('Ad-Sales (30T)',eur(adSales),null,''),
+  ].join('');
+
+  // Metric-Chips
+  const M=[['click','Click-Share','var(--c-click)'],['purch','Purchase-Share','var(--c-purch)'],['spend','Ad-Spend','var(--c-spend)'],['sales','Ad-Sales','var(--c-sales)'],['vol','Suchvolumen','var(--c-vol)']];
+  const chips=M.map(([k,l,c])=>`<button class="chip ${metrics[k]?'on':''}" style="${metrics[k]?'background:'+c+';':'color:'+c+';'}" onclick="toggleMetric('${k}')"><span class="dot"></span>${l}</button>`).join('');
+
+  // Tabelle: aktuelle Periode je Begriff + Δ vs prev + Ad
+  const prevByQ=new Map(); asinRows(prev||'').forEach(r=>prevByQ.set(norm(r.search_query),r));
+  let rows=asinRows(cur).map(r=>{const a=cov.get(norm(r.search_query));const pr=prevByQ.get(norm(r.search_query));
+    return {q:r.search_query,vol:+r.search_query_volume||0,click:+r.asin_click_share||0,purch:+r.asin_purchase_share||0,
+      dPurch:pr?(+r.asin_purchase_share||0)-(+pr.asin_purchase_share||0):null, spend:a?a.spend:0,sales:a?a.sales:0,covered:!!a};});
+  const flt=(document.getElementById('tsearch')?.value||'').toLowerCase();
+  rows.sort((a,b)=>b.vol-a.vol); if(flt)rows=rows.filter(r=>r.q.toLowerCase().includes(flt));
+  const dcell=(d,suf)=>d==null?'':`<span class="cd ${Math.abs(d)<0.05?'flat':d>0?'up':'down'}">${d>0?'▲':d<0?'▼':''} ${d>0?'+':''}${suf==='pp'?d.toFixed(1):fmtInt(d)}</span>`;
+  const body=rows.slice(0,60).map(r=>`<tr>
+    <td>${r.q}</td>
+    <td>${fmtInt(r.vol)}</td>
+    <td><span class="cell">${fmtPct(r.click)}</span></td>
+    <td><span class="cell">${fmtPct(r.purch)}${dcell(r.dPurch,'pp')}</span></td>
+    <td>${r.covered?eur(r.spend):'–'}</td>
+    <td>${r.covered?eur(r.sales):'–'}</td>
+    <td>${r.covered?'<span class="tag ok">beworben</span>':'<span class="tag gap">Lücke</span>'}</td>
+  </tr>`).join('');
+
+  document.getElementById('content').innerHTML=`
+    <div class="hint">💡 Purchase-Share neben Ad-Spend: so siehst du, ob Umsatz an weniger Werbung, verlorenem Marktanteil oder schwächerer Conversion liegt.</div>
+    <div class="kpis">${kpis}</div>
+    <div class="panel">
+      <h2>Verlauf</h2><div class="ph">Shares (%) und Ad-Werte über die Perioden — auf einem Chart.</div>
+      <div class="chips">${chips}</div>
+      <div class="chart-box"><canvas id="chart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="thead"><div><h2>Suchbegriffe</h2><div class="ph">Aktuelle Periode, sortiert nach Volumen · Δ = vs. Vorperiode</div></div>
+        <input class="search" id="tsearch" placeholder="Filtern…" oninput="render()" value="${flt}"></div>
+      <table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Click-Share</th><th>Purchase-Share</th><th>Ad-Spend</th><th>Ad-Sales</th><th style="text-align:right">PPC</th></tr></thead>
+      <tbody>${body||'<tr><td colspan="7" class="loading">keine Treffer</td></tr>'}</tbody></table>
+    </div>`;
+  draw();
+}
+function toggleMetric(k){metrics[k]=!metrics[k];draw();}
+function draw(){
+  const cv=document.getElementById('chart'); if(!cv)return;
+  const asin=document.getElementById('asinSel').value; const P=periods();
+  const series=P.map(p=>{const s=shareOf(asinRows.call({},p)); // shareOf per period
+    const rows=(SQP[GRAN]||[]).filter(r=>r.asin===asin&&r.start_date===p); const sh=shareOf(rows);
+    const cov=PPC.get(asin)||new Map(); let sp=0,sa=0; for(const r of rows){const a=cov.get(norm(r.search_query));if(a){sp+=a.spend;sa+=a.sales;}}
+    return {p, click:sh.click, purch:sh.purch, vol:sh.vol, spend:sp, sales:sa};});
+  const css=getComputedStyle(document.documentElement);
+  const col=n=>css.getPropertyValue(n).trim();
+  const ds=[]; const pctAxis='y', valAxis='y1';
+  if(metrics.click)ds.push({label:'Click-Share',data:series.map(x=>x.click),borderColor:col('--c-click'),yAxisID:pctAxis,tension:.35,pointRadius:3,borderWidth:2.5,backgroundColor:'transparent'});
+  if(metrics.purch)ds.push({label:'Purchase-Share',data:series.map(x=>x.purch),borderColor:col('--c-purch'),yAxisID:pctAxis,tension:.35,pointRadius:3,borderWidth:2.5,backgroundColor:'transparent'});
+  if(metrics.spend)ds.push({label:'Ad-Spend',data:series.map(x=>x.spend),borderColor:col('--c-spend'),yAxisID:valAxis,tension:.35,pointRadius:3,borderWidth:2.5,borderDash:[5,4],backgroundColor:'transparent'});
+  if(metrics.sales)ds.push({label:'Ad-Sales',data:series.map(x=>x.sales),borderColor:col('--c-sales'),yAxisID:valAxis,tension:.35,pointRadius:3,borderWidth:2.5,borderDash:[5,4],backgroundColor:'transparent'});
+  if(metrics.vol)ds.push({label:'Suchvolumen',data:series.map(x=>x.vol),borderColor:col('--c-vol'),yAxisID:valAxis,tension:.35,pointRadius:3,borderWidth:2,backgroundColor:'transparent'});
+  const grid=col('--line'),txt=col('--muted');
+  if(chart)chart.destroy();
+  chart=new Chart(cv,{type:'line',data:{labels:P.map(mLabel),datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{color:txt,usePointStyle:true,pointStyleWidth:10,boxHeight:7,font:{size:12}}}},
+    scales:{x:{grid:{display:false},ticks:{color:txt}},
+      y:{position:'left',grid:{color:grid},ticks:{color:txt,callback:v=>v+'%'},title:{display:true,text:'Share %',color:txt}},
+      y1:{position:'right',grid:{display:false},ticks:{color:txt,callback:v=>'€'+fmtK(v)},title:{display:true,text:'Ad €',color:txt}}}}});
+}
+boot();
+</script>
+<script defer src="https://adsmasters.github.io/hub/backlink.js"></script>
+</body>
+</html>
