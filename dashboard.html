@@ -6,7 +6,6 @@
     <title>SQPR Tool — Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="sqp-adapter.js"></script>
     <style>
         /* Theme variables — Light (default) */
         :root {
@@ -550,21 +549,6 @@
         </div>
     </div>
 
-    <!-- Datenquelle-Banner (Live-API vs. CSV-Upload) -->
-    <div id="dataSourceBar"></div>
-    <script>
-    (function(){
-      var api = window.SQP_API_CLIENTS || [];
-      var active = localStorage.getItem('sqpr_active_client');
-      var isApi = api.indexOf(active) !== -1;
-      var bar = document.getElementById('dataSourceBar');
-      bar.style.cssText='padding:8px 32px;font-size:13px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);'+(isApi?'background:rgba(26,127,55,0.10);color:var(--success);':'background:var(--bg-hover);color:var(--text-secondary);');
-      bar.innerHTML = isApi
-        ? '🟢 Datenquelle: <b>Live über Amazon SP-API</b> — automatisch aktualisiert, kein Sheet-Upload nötig.'
-        : '📄 Datenquelle: <b>CSV-Upload</b> — manuell hochgeladene Reports (dieser Kunde ist noch nicht per API angebunden).';
-    })();
-    </script>
-
     <!-- Main Content -->
     <div class="main" id="app">
         <div id="loadingState">
@@ -623,9 +607,11 @@
             window.location.href = 'index.html';
         }
 
-        // Supabase init — via SQP-API-Adapter (sqpr_rows/reports/str_terms aus API,
-        // sqpr_clusters/clients-Writes weiter über echtes Supabase)
-        const sb = createSqpAdapter();
+        // Supabase init
+        const sb = supabase.createClient(
+            'https://lgrnmiszhhahfcmctmwo.supabase.co',
+            'sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI'
+        );
 
         // State
         let client = null;
