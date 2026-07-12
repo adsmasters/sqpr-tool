@@ -1036,14 +1036,14 @@
                 const currentStart = new Date(current.report_date_start);
 
                 if (compareReportId === 'auto') {
-                    // Vormonat: find report ~1 month before
-                    const targetDate = new Date(currentStart);
-                    targetDate.setMonth(targetDate.getMonth() - 1);
-                    return findClosestReport(targetDate, current.id);
+                    // Vorherige Periode = unmittelbar vorheriger Report (Vormonat bzw. Vorwoche).
+                    const sorted = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
+                    const idx = sorted.findIndex(r => r.id === current.id);
+                    return idx > 0 ? sorted[idx - 1] : null;
                 } else {
-                    // Vorjahr: find report ~12 months before
+                    // Vorjahr: Report ~365 Tage vorher (funktioniert für Monat & Woche).
                     const targetDate = new Date(currentStart);
-                    targetDate.setFullYear(targetDate.getFullYear() - 1);
+                    targetDate.setDate(targetDate.getDate() - 365);
                     return findClosestReport(targetDate, current.id);
                 }
             }
@@ -1458,8 +1458,9 @@
             });
 
             // Compare options
+            const prevLabel = window.SQP_PERIOD === 'WEEK' ? 'Vorwoche' : 'Vormonat';
             let compareOptions = '<option value="none">Kein Vergleich</option>';
-            compareOptions += `<option value="auto" ${compareReportId === 'auto' ? 'selected' : ''}>Vormonat</option>`;
+            compareOptions += `<option value="auto" ${compareReportId === 'auto' ? 'selected' : ''}>${prevLabel}</option>`;
             compareOptions += `<option value="auto_year" ${compareReportId === 'auto_year' ? 'selected' : ''}>Vorjahr</option>`;
             compareOptions += '<option disabled>──────────</option>';
             reports.forEach(r => {
@@ -1511,7 +1512,7 @@
             if (!canCompare()) {
                 html += `<div class="empty-hint">
                     <strong>Top Gewinner & Verlierer</strong><br>
-                    Wähle oben einen <strong>Vergleichszeitraum</strong> (z.B. Vormonat), um die Suchbegriffe mit den größten Veränderungen zu sehen.
+                    Wähle oben einen <strong>Vergleichszeitraum</strong> (z.B. ${window.SQP_PERIOD === 'WEEK' ? 'Vorwoche' : 'Vormonat'}), um die Suchbegriffe mit den größten Veränderungen zu sehen.
                 </div>`;
             }
             if (canCompare() && queryDiffs) {
