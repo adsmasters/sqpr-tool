@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQPR Tool — Kunde verbinden</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        :root { --bg-primary:#fff; --bg-secondary:#f6f8fa; --bg-hover:#eef1f5; --border:#d0d7de; --text-primary:#1f2328; --text-secondary:#656d76; --accent:#3551FF; --accent-hover:#2a41cc; --error:#cf222e; --success:#1a7f37; --placeholder:#8b949e; --row-border:#d8dee4; }
+        [data-theme="dark"] { --bg-primary:#0d1117; --bg-secondary:#161b22; --bg-hover:#1c2129; --border:#30363d; --text-primary:#e6edf3; --text-secondary:#8b949e; --accent:#3551FF; --accent-hover:#2a44dd; --error:#f85149; --success:#3fb950; --placeholder:#484f58; --row-border:#21262d; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:Arial, sans-serif; background:var(--bg-primary); color:var(--text-primary); min-height:100vh; }
+        .topbar { background:var(--bg-secondary); border-bottom:1px solid var(--border); padding:0 32px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+        .topbar-left { display:flex; align-items:center; gap:32px; }
+        .topbar-logo { font-size:18px; font-weight:700; color:var(--accent); text-decoration:none; }
+        .topbar-nav { display:flex; gap:4px; flex-wrap:wrap; }
+        .topbar-nav a { color:var(--text-secondary); text-decoration:none; font-size:14px; padding:8px 14px; border-radius:6px; }
+        .topbar-nav a:hover, .topbar-nav a.active { color:var(--text-primary); background:var(--bg-hover); }
+        .btn-logout { background:transparent; border:1px solid var(--border); color:var(--text-secondary); padding:6px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+        .main { max-width:900px; margin:0 auto; padding:28px 32px 64px; }
+        h1 { font-size:22px; margin-bottom:4px; }
+        .sub { color:var(--text-secondary); font-size:13px; margin-bottom:24px; }
+        .card { background:var(--bg-secondary); border:1px solid var(--border); border-radius:10px; padding:22px 24px; margin-bottom:24px; }
+        .card h2 { font-size:15px; font-weight:700; margin-bottom:14px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        thead th { text-align:left; color:var(--text-secondary); font-size:11px; text-transform:uppercase; letter-spacing:.3px; padding:6px 8px; border-bottom:2px solid var(--border); }
+        tbody td { padding:8px; border-bottom:1px solid var(--row-border); }
+        .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:var(--bg-hover); border:1px solid var(--border); color:var(--text-secondary); }
+        .badge.ok { color:var(--success); border-color:var(--success); }
+        .badge.miss { color:var(--error); border-color:var(--error); }
+        .step { display:flex; gap:14px; padding:16px 0; border-bottom:1px solid var(--row-border); }
+        .step:last-child { border-bottom:none; }
+        .step-num { flex-shrink:0; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+        .step-body { flex:1; }
+        .step-title { font-weight:600; font-size:14px; margin-bottom:6px; }
+        .step-hint { font-size:12px; color:var(--text-secondary); margin-bottom:8px; }
+        label { display:block; font-size:12px; color:var(--text-secondary); margin:8px 0 4px; font-weight:600; }
+        select, input[type=text] { width:100%; max-width:460px; background:var(--bg-primary); border:1px solid var(--border); color:var(--text-primary); padding:8px 12px; border-radius:6px; font-size:13px; font-family:inherit; }
+        select:focus, input:focus { outline:none; border-color:var(--accent); }
+        .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--bg-hover); color:var(--text-primary); }
+        .btn:hover { background:var(--border); }
+        .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+        .btn.primary:hover { background:var(--accent-hover); }
+        .btn:disabled { opacity:.5; cursor:not-allowed; }
+        .row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+        .msg { margin-top:14px; padding:10px 14px; border-radius:8px; font-size:13px; display:none; }
+        .msg.ok { display:block; background:rgba(26,127,55,.1); color:var(--success); }
+        .msg.err { display:block; background:rgba(207,34,46,.1); color:var(--error); }
+        .empty { color:var(--placeholder); font-size:13px; padding:8px; }
+        code { background:var(--bg-hover); padding:1px 6px; border-radius:4px; font-size:12px; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
+            <nav class="topbar-nav">
+                <a href="dashboard.html">Marken-Analyse</a>
+                <a href="asin.html">ASIN-Analyse</a>
+                <a href="live.html">Live-Analyse</a>
+                <a href="connect.html" class="active">Kunde verbinden</a>
+                <a href="clients.html">Kunden</a>
+                <a href="upload.html">Upload</a>
+                <a href="help.html">Hilfe</a>
+            </nav>
+        </div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+
+    <div class="main">
+        <h1>Kunde verbinden</h1>
+        <div class="sub">Kunden per Amazon-API anbinden — danach erscheinen sie automatisch in der <b>Live-Analyse</b> (ohne Sheet-Upload).</div>
+
+        <div class="card">
+            <h2>Verbundene Kunden (Live-API)</h2>
+            <table>
+                <thead><tr><th>Kunde</th><th>Marktplatz</th><th>Seller (SP-API)</th><th>Ads-Profil</th></tr></thead>
+                <tbody id="clientsBody"><tr><td colspan="4" class="empty">Lade…</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Neuen Kunden verbinden</h2>
+
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-body">
+                    <div class="step-title">Kunde auswählen</div>
+                    <div class="step-hint">Wähle den Kunden aus der bestehenden SQPR-Kundenliste.</div>
+                    <select id="clientSelect"><option value="">Lade Kunden…</option></select>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-body">
+                    <div class="step-title">Seller Central verbinden (SQP-Daten)</div>
+                    <div class="step-hint">Im Ziel-Seller-Central des Kunden einloggen, dann „Autorisieren" klicken. Danach unten den verbundenen Seller wählen.</div>
+                    <div class="row">
+                        <button class="btn" onclick="window.open(API+'/api/spapi/authorize','_blank')">🔗 Seller Central autorisieren</button>
+                        <button class="btn" onclick="loadAccounts()">↻ Seller-Liste aktualisieren</button>
+                    </div>
+                    <label>Verbundener Seller</label>
+                    <select id="sellerSelect"><option value="">Lade…</option></select>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-body">
+                    <div class="step-title">Ads-Profil zuordnen (PPC-Daten)</div>
+                    <div class="step-hint">Das Werbekonto des Kunden auswählen (nach Name/Land filtern).</div>
+                    <input type="text" id="adsFilter" placeholder="Filtern (Name oder Land)…" oninput="renderAdsOptions()">
+                    <label>Ads-Profil</label>
+                    <select id="adsSelect"><option value="">Lade Profile…</option></select>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-body">
+                    <div class="step-title">Speichern</div>
+                    <div class="step-hint">Verknüpft Kunde ↔ Seller ↔ Ads-Profil. Danach den Backfill anstoßen (siehe Hinweis).</div>
+                    <button class="btn primary" id="saveBtn" onclick="saveClient()">Verbindung speichern</button>
+                    <div class="msg" id="saveMsg"></div>
+                    <div class="step-hint" style="margin-top:12px;">Nach dem Speichern: der Datenimport (12 Monate SQP) wird angestoßen — aktuell manuell durch das Team. Der automatische Nacht-Job folgt.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+(function(){ const t=localStorage.getItem('sqpr_theme')||'light'; document.documentElement.setAttribute('data-theme',t); })();
+if (sessionStorage.getItem('sqpr_auth')!=='true') location.replace('index.html');
+function logout(){ sessionStorage.removeItem('sqpr_auth'); location.replace('index.html'); }
+
+const API='https://ppc-callback.vercel.app';
+const SB_URL='https://lgrnmiszhhahfcmctmwo.supabase.co';
+const SB_KEY='sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI';
+const sb = window.supabase.createClient(SB_URL, SB_KEY);
+let ADS_PROFILES=[], SQPR_CLIENTS=[], CONNECTED=[];
+
+const esc=s=>(s==null?'':String(s)).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+async function loadConnected(){
+  try { const r=await fetch(`${API}/api/sqp/clients`); const j=await r.json(); CONNECTED=j.clients||[]; } catch(e){ CONNECTED=[]; }
+  const b=document.getElementById('clientsBody');
+  if(!CONNECTED.length){ b.innerHTML='<tr><td colspan="4" class="empty">Noch keine Kunden per API verbunden.</td></tr>'; return; }
+  b.innerHTML=CONNECTED.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.marketplace||'')}</td>
+    <td>${c.spid?`<span class="badge ok">${esc(c.spid)}</span>`:'<span class="badge miss">fehlt</span>'}</td>
+    <td>${c.ads_profile_id?`<span class="badge ok">${esc(c.ads_profile_id)}</span>`:'<span class="badge miss">fehlt</span>'}</td></tr>`).join('');
+}
+
+async function loadSqprClients(){
+  const { data } = await sb.from('sqpr_clients').select('id,name,marketplace').order('name',{ascending:true});
+  SQPR_CLIENTS=data||[];
+  const connectedIds=new Set(CONNECTED.map(c=>c.id));
+  const sel=document.getElementById('clientSelect');
+  sel.innerHTML='<option value="">— Kunde wählen —</option>'+SQPR_CLIENTS.map(c=>
+    `<option value="${c.id}" data-name="${esc(c.name)}" data-mkt="${esc(c.marketplace||'')}">${esc(c.name)}${connectedIds.has(c.id)?' ✓ (bereits verbunden)':''}</option>`).join('');
+}
+
+async function loadAccounts(){
+  const sel=document.getElementById('sellerSelect');
+  sel.innerHTML='<option value="">Lade…</option>';
+  try { const r=await fetch(`${API}/api/spapi/accounts`); const j=await r.json(); CONNECTED_SELLERS=j.accounts||[]; }
+  catch(e){ CONNECTED_SELLERS=[]; }
+  sel.innerHTML='<option value="">— Seller wählen —</option>'+CONNECTED_SELLERS.map(a=>
+    `<option value="${esc(a.selling_partner_id)}">${esc(a.selling_partner_id)} · verbunden ${esc((a.created_at||'').slice(0,10))}</option>`).join('');
+}
+let CONNECTED_SELLERS=[];
+
+async function loadAdsProfiles(){
+  const sel=document.getElementById('adsSelect');
+  try { const r=await fetch(`${API}/api/ads/profiles`); const j=await r.json(); ADS_PROFILES=j.profiles||[]; }
+  catch(e){ ADS_PROFILES=[]; sel.innerHTML='<option value="">Fehler beim Laden</option>'; return; }
+  renderAdsOptions();
+}
+function renderAdsOptions(){
+  const f=(document.getElementById('adsFilter').value||'').toLowerCase();
+  const list=ADS_PROFILES.filter(p=>!f || (`${p.name} ${p.countryCode} ${p.profileId}`).toLowerCase().includes(f)).slice(0,300);
+  const sel=document.getElementById('adsSelect');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Ads-Profil wählen —</option>'+list.map(p=>
+    `<option value="${esc(p.profileId)}">${esc(p.name)} · ${esc(p.countryCode)} · ${esc(p.type||'')} · ${esc(p.profileId)}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+async function saveClient(){
+  const msg=document.getElementById('saveMsg'); msg.className='msg'; msg.textContent='';
+  const opt=document.getElementById('clientSelect').selectedOptions[0];
+  const id=opt?opt.value:''; const name=opt?opt.dataset.name:''; const marketplace=opt?opt.dataset.mkt:'';
+  const spid=document.getElementById('sellerSelect').value;
+  const ads=document.getElementById('adsSelect').value;
+  if(!id){ msg.className='msg err'; msg.textContent='Bitte einen Kunden wählen.'; return; }
+  if(!spid){ msg.className='msg err'; msg.textContent='Bitte den verbundenen Seller wählen (Schritt 2).'; return; }
+  if(!ads){ msg.className='msg err'; msg.textContent='Bitte ein Ads-Profil wählen (Schritt 3).'; return; }
+  const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='Speichere…';
+  try {
+    const r=await fetch(`${API}/api/sqp/clients`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id,name,marketplace,spid,ads_profile_id:ads})});
+    const j=await r.json();
+    if(j.ok){ msg.className='msg ok'; msg.innerHTML=`✅ <b>${esc(name)}</b> verbunden. Erscheint in der Live-Analyse, sobald der Backfill gelaufen ist.`; loadConnected(); }
+    else { msg.className='msg err'; msg.textContent='Fehler: '+JSON.stringify(j); }
+  } catch(e){ msg.className='msg err'; msg.textContent='Fehler: '+e.message; }
+  btn.disabled=false; btn.textContent='Verbindung speichern';
+}
+
+(async function init(){
+  await loadConnected();
+  await loadSqprClients();
+  loadAccounts();
+  loadAdsProfiles();
+})();
+</script>
+<script defer src="https://adsmasters.github.io/hub/backlink.js"></script>
+</body>
+</html>
