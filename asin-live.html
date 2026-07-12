@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQPR Tool — ASIN-Live</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root{--bg-primary:#fff;--bg-secondary:#f6f8fa;--bg-hover:#eef1f5;--border:#d0d7de;--text-primary:#1f2328;--text-secondary:#656d76;--accent:#3551FF;--accent-hover:#2a41cc;--error:#cf222e;--success:#1a7f37;--row-border:#d8dee4;--placeholder:#8b949e;--modal-overlay:rgba(0,0,0,.3);}
+        [data-theme="dark"]{--bg-primary:#0d1117;--bg-secondary:#161b22;--bg-hover:#1c2129;--border:#30363d;--text-primary:#e6edf3;--text-secondary:#8b949e;--accent:#3551FF;--accent-hover:#2a44dd;--error:#f85149;--success:#3fb950;--row-border:#21262d;--placeholder:#484f58;--modal-overlay:rgba(0,0,0,.6);}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:Arial,sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;}
+        .topbar{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 32px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .topbar-left{display:flex;align-items:center;gap:32px;}
+        .topbar-logo{font-size:18px;font-weight:700;color:var(--accent);text-decoration:none;}
+        .topbar-nav{display:flex;gap:4px;}
+        .topbar-nav a{color:var(--text-secondary);text-decoration:none;font-size:14px;padding:8px 14px;border-radius:6px;}
+        .topbar-nav a:hover{color:var(--text-primary);background:var(--bg-hover);}
+        .topbar-nav a.active{color:var(--text-primary);background:var(--bg-hover);}
+        .btn-theme-toggle,.btn-logout{background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;cursor:pointer;}
+        .btn-theme-toggle{width:34px;height:34px;font-size:18px;}
+        .btn-logout{padding:6px 14px;font-size:13px;}
+        .main{max-width:1440px;margin:0 auto;padding:24px 32px 64px;}
+        .head-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+        select,.inp{background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:6px;font-size:14px;}
+        select{cursor:pointer;max-width:420px;}
+        .badge{background:var(--bg-hover);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:3px 10px;border-radius:12px;font-weight:600;}
+        .note{font-size:12px;color:var(--text-secondary);margin:2px 0 20px;display:flex;align-items:center;gap:6px;}
+        .dot{width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;}
+        .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+        .kpi{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;}
+        .kpi-l{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+        .kpi-v{font-size:20px;font-weight:700;}
+        .card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+        .card-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+        .card-head h3{font-size:15px;font-weight:700;}
+        .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+        .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer;}
+        .search{width:220px;}
+        .btn{padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg-hover);color:var(--text-primary);}
+        .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);} .btn-primary:hover{background:var(--accent-hover);}
+        .table-wrap{overflow-x:auto;}
+        table{width:100%;border-collapse:collapse;font-size:13px;min-width:820px;}
+        thead th{position:sticky;top:0;background:var(--bg-secondary);border-bottom:2px solid var(--border);padding:8px 10px;text-align:right;color:var(--text-secondary);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;white-space:nowrap;}
+        thead th:first-child,thead th:nth-child(2){text-align:left;cursor:default;}
+        tbody tr{border-bottom:1px solid var(--row-border);}
+        tbody tr:nth-child(even){background:var(--bg-primary);}
+        tbody tr:hover{background:var(--bg-hover);}
+        tbody td{padding:6px 10px;text-align:right;white-space:nowrap;height:34px;}
+        tbody td:nth-child(2){text-align:left;font-weight:500;max-width:320px;overflow:hidden;text-overflow:ellipsis;}
+        .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+        .pill-gap{background:rgba(207,34,46,.12);color:var(--error);}
+        .pill-ok{background:rgba(26,127,55,.12);color:var(--success);}
+        .actionbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--border);background:var(--bg-primary);flex-wrap:wrap;}
+        .loading{text-align:center;padding:70px;color:var(--text-secondary);}
+        .spinner{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        .ov{position:fixed;inset:0;background:var(--modal-overlay);z-index:200;display:flex;align-items:center;justify-content:center;}
+        .modal{background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:22px;width:460px;max-width:92vw;max-height:86vh;overflow:auto;}
+        .modal h3{font-size:16px;margin-bottom:14px;}
+        .bs-field{margin-bottom:12px;} .bs-field label{display:block;font-size:12px;color:var(--text-secondary);margin-bottom:4px;font-weight:600;}
+        .bs-field input[type=text],.bs-field input[type=number]{width:100%;background:var(--bg-primary);border:1px solid var(--border);color:var(--text-primary);padding:8px 12px;border-radius:6px;font-size:13px;}
+        .bs-toggle{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:12px;}
+        .bs-toggle button{background:transparent;border:none;color:var(--text-secondary);padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;}
+        .bs-toggle button.active{background:var(--accent);color:#fff;}
+        .bs-match-types{display:flex;gap:16px;font-size:13px;}
+        .bs-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;}
+        @media(max-width:1024px){.kpis{grid-template-columns:repeat(3,1fr);}}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
+            <nav class="topbar-nav">
+                <a href="dashboard.html">Marken-Analyse</a>
+                <a href="asin.html">ASIN-Analyse</a>
+                <a href="live.html">Live-Analyse</a>
+                <a href="asin-live.html" class="active">ASIN-Live</a>
+                <a href="connect.html">Kunde verbinden</a>
+                <a href="clients.html">Kunden</a>
+                <a href="help.html">Hilfe</a>
+            </nav>
+        </div>
+        <div class="topbar-right" style="display:flex;gap:10px;align-items:center;">
+            <button class="btn-theme-toggle" title="Theme" onclick="toggleTheme()">&#9789;</button>
+            <button class="btn-logout" onclick="logout()">Logout</button>
+        </div>
+    </div>
+    <div class="main">
+        <div class="head-row">
+            <select id="clientSelect" onchange="onClient()"></select>
+            <span class="badge" id="mkt">DE</span>
+            <select id="asinSelect" onchange="render()"></select>
+            <select id="monthSelect" onchange="render()"></select>
+        </div>
+        <div class="note"><span class="dot"></span><span><strong>Automatisch via Amazon SP-API + Ads-API</strong> — SQP je ASIN + PPC-Lücken, kein Upload. <span id="info"></span></span></div>
+        <div id="content"><div class="loading"><div class="spinner"></div>Lade…</div></div>
+    </div>
+<script>
+(function(){var t=localStorage.getItem('sqpr_theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+if(sessionStorage.getItem('sqpr_auth')!=='true')location.replace('index.html');
+function toggleTheme(){var c=document.documentElement.getAttribute('data-theme');var n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('sqpr_theme',n);}
+function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index.html');}
+
+const API='https://ppc-callback.vercel.app/api/sqp';
+const ASIN_NAMES={B004EDA8HE:'Immun Tonicum Hund',B004EDSTZW:'Herz Tonicum Hund',B004EDSU7E:'Gelenk Hund',B08T6JP93J:'Gelenk Forte Hund',B004EDL20Q:'Immun Katze',B004EDDV00:'Immun Katze (2)',B004EDP2IY:'Herz Tonicum Katze',B004EDQRX8:'Nieren Tonicum Katze',B004EDMYG2:'Nieren Tonicum Katze (2)',B007UOST0W:'Renaltan Tonicum Katze',B07S2MT9L1:'Recovery Immun Katze',B08T6J9TVL:'Recovery Immun Katze (2)',B07RZG9QRT:'Recovery Renal Katze',B08T6G2K86:'Recovery Renal Katze 280ml',B0DMT8HD4N:'Immun Hund'};
+const norm=s=>(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+const fmt=(x,d=1)=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtInt=x=>x==null||isNaN(x)?'–':Math.round(+x).toLocaleString('de-DE');
+const asinLabel=a=>ASIN_NAMES[a]?`${ASIN_NAMES[a]} · ${a}`:a;
+const monthLabel=m=>{const d=new Date(m+'T00:00:00Z');return d.toLocaleDateString('de-DE',{month:'short',year:'numeric',timeZone:'UTC'});};
+
+let CLIENTS=[], sqpRows=[], ppcRows=[], MONTHS=[], ASINS=[];
+let ppcByAsin=new Map();      // asin -> Map(normTerm -> {clicks,cost,purch,sales})
+let checked=new Set();        // ausgewählte Lücken (search_query)
+let sortKey='vol', sortDir=-1, gapsOnly=true;
+
+async function boot(){
+  try{ CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[]; }catch(e){ CLIENTS=[]; }
+  if(!CLIENTS.length){ document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>'; return; }
+  document.getElementById('clientSelect').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}</option>`).join('');
+  onClient();
+}
+async function onClient(){
+  const spid=document.getElementById('clientSelect').value;
+  const c=CLIENTS.find(c=>c.spid===spid)||CLIENTS[0];
+  document.getElementById('mkt').textContent=c.marketplace||'DE';
+  document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div>Lade SQP + PPC…</div>';
+  const [sqp,ppc]=await Promise.all([
+    fetch(`${API}/data?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
+    fetch(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
+  ]);
+  sqpRows=sqp.rows||[]; ppcRows=ppc.rows||[];
+  ppcByAsin=new Map();
+  for(const r of ppcRows){ if(!ppcByAsin.has(r.asin))ppcByAsin.set(r.asin,new Map()); ppcByAsin.get(r.asin).set(norm(r.search_term),{clicks:+r.clicks||0,cost:+r.cost||0,purch:+r.purchases7d||0,sales:+r.sales7d||0}); }
+  MONTHS=[...new Set(sqpRows.map(r=>r.start_date))].sort();
+  ASINS=[...new Set(sqpRows.map(r=>r.asin))].sort((a,b)=>(ASIN_NAMES[a]||a).localeCompare(ASIN_NAMES[b]||b));
+  const aSel=document.getElementById('asinSelect'); aSel.innerHTML=ASINS.map(a=>`<option value="${a}">${asinLabel(a)}</option>`).join(''); if(ASINS[0])aSel.value=ASINS[0];
+  const mSel=document.getElementById('monthSelect'); mSel.innerHTML=[...MONTHS].reverse().map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join(''); if(MONTHS.length)mSel.value=MONTHS[MONTHS.length-1];
+  document.getElementById('info').textContent=`· ${ppcRows.length.toLocaleString('de-DE')} beworbene (ASIN×Begriff) · ${ASINS.length} ASINs mit SQP`;
+  checked=new Set(); render();
+}
+function currentRows(){
+  const asin=document.getElementById('asinSelect').value, month=document.getElementById('monthSelect').value;
+  const cov=ppcByAsin.get(asin)||new Map();
+  return sqpRows.filter(r=>r.asin===asin&&r.start_date===month).map(r=>{ const p=cov.get(norm(r.search_query));
+    return { q:r.search_query, vol:+r.search_query_volume||0, impr:+r.asin_impression_share||0, purch:+r.asin_purchase_share||0,
+      covered:!!p, clicks:p?p.clicks:0, cost:p?p.cost:0 }; });
+}
+function render(){
+  const asin=document.getElementById('asinSelect').value, month=document.getElementById('monthSelect').value;
+  if(!asin){document.getElementById('content').innerHTML='<div class="loading">Keine Daten.</div>';return;}
+  let rows=currentRows();
+  const total=rows.length, coveredN=rows.filter(r=>r.covered).length, gapN=total-coveredN;
+  const gapVol=rows.filter(r=>!r.covered).reduce((s,r)=>s+r.vol,0);
+  const spend=rows.reduce((s,r)=>s+r.cost,0);
+  const kpis=[['SQP-Begriffe',fmtInt(total)],['Beworben',fmtInt(coveredN)],['PPC-Lücken',fmtInt(gapN)],['Lücken-Suchvolumen',fmtInt(gapVol)],['PPC-Spend (30T)',fmt(spend,2)+' €']];
+  let list=[...rows]; if(gapsOnly) list=list.filter(r=>!r.covered);
+  const flt=(document.getElementById('tsearch')?.value||'').toLowerCase(); if(flt)list=list.filter(r=>r.q.toLowerCase().includes(flt));
+  list.sort((a,b)=>{const av=a[sortKey],bv=b[sortKey];return typeof av==='string'?sortDir*av.localeCompare(bv):sortDir*(av-bv);});
+  const th=(k,l)=>`<th onclick="setSort('${k}')">${l}${sortKey===k?(sortDir<0?' ▼':' ▲'):''}</th>`;
+  const gapList=rows.filter(r=>!r.covered).map(r=>r.q);
+  const allGapChecked=gapList.length&&gapList.every(q=>checked.has(q));
+  const body=list.map(r=>`<tr>
+    <td>${!r.covered?`<input type="checkbox" ${checked.has(r.q)?'checked':''} onclick="toggle('${r.q.replace(/'/g,"\\'")}')">`:''}</td>
+    <td title="${r.q}">${r.q}</td>
+    <td>${fmtInt(r.vol)}</td><td>${fmt(r.impr)}%</td><td>${fmt(r.purch)}%</td>
+    <td>${r.covered?'<span class="pill pill-ok">beworben</span>':'<span class="pill pill-gap">Lücke</span>'}</td>
+    <td>${r.covered?fmtInt(r.clicks):'–'}</td><td>${r.covered?fmt(r.cost,2)+' €':'–'}</td>
+  </tr>`).join('');
+  document.getElementById('content').innerHTML=`
+    <div class="kpis">${kpis.map(k=>`<div class="kpi"><div class="kpi-l">${k[0]}</div><div class="kpi-v">${k[1]}</div></div>`).join('')}</div>
+    <div class="card">
+      <div class="card-head">
+        <h3>${asinLabel(asin)} — ${monthLabel(month)}</h3>
+        <div class="controls">
+          <label class="chk"><input type="checkbox" ${gapsOnly?'checked':''} onchange="toggleGapsOnly(this.checked)"> Nur Lücken</label>
+          <input class="inp search" id="tsearch" placeholder="Suchbegriff filtern…" oninput="render()" value="${flt}">
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th style="cursor:default"><input type="checkbox" ${allGapChecked?'checked':''} onclick="toggleAllGaps(this.checked)" title="alle Lücken"></th>${th('q','Suchbegriff')}${th('vol','Volumen')}${th('impr','Impr-Share')}${th('purch','Kauf-Share')}<th style="cursor:default">PPC</th>${th('clicks','Klicks')}${th('cost','Spend')}</tr></thead>
+        <tbody>${body||'<tr><td colspan="8" class="loading">keine Treffer</td></tr>'}</tbody>
+      </table></div>
+      <div class="actionbar">
+        <span style="font-size:13px;color:var(--text-secondary);"><b id="chkCount">${checked.size}</b> Lücken ausgewählt</span>
+        <button class="btn btn-primary" onclick="openBulk()">📄 Bulk-Sheet aus Auswahl erstellen</button>
+        <button class="btn" onclick="checked=new Set();render()">Auswahl leeren</button>
+      </div>
+    </div>`;
+}
+function setSort(k){ if(sortKey===k)sortDir*=-1; else {sortKey=k;sortDir=(k==='q'?1:-1);} render(); }
+function toggle(q){ checked.has(q)?checked.delete(q):checked.add(q); const el=document.getElementById('chkCount'); if(el)el.textContent=checked.size; }
+function toggleGapsOnly(v){ gapsOnly=v; render(); }
+function toggleAllGaps(v){ const gaps=currentRows().filter(r=>!r.covered).map(r=>r.q); if(v)gaps.forEach(q=>checked.add(q)); else gaps.forEach(q=>checked.delete(q)); render(); }
+
+/* ---------- Bulk-Sheet ---------- */
+let bsType='seller';
+function openBulk(){
+  const asin=document.getElementById('asinSelect').value;
+  if(!checked.size){ alert('Bitte zuerst Lücken auswählen (Checkboxen).'); return; }
+  const ov=document.createElement('div'); ov.className='ov'; ov.id='ov';
+  ov.innerHTML=`<div class="modal">
+    <h3>Bulk-Sheet — ${checked.size} Keywords · ${asin}</h3>
+    <div class="bs-toggle"><button id="tS" class="active" onclick="setBsType('seller')">Seller (SKU)</button><button id="tV" onclick="setBsType('vendor')">Vendor (ASIN)</button></div>
+    <div class="bs-field" id="fSku"><label>SKU</label><input type="text" id="bSku" placeholder="z.B. 3000011025"></div>
+    <div class="bs-field" id="fAsin" style="display:none;"><label>ASIN</label><input type="text" id="bAsin" value="${asin}"></div>
+    <div class="bs-field"><label>Kampagnenname</label><input type="text" id="bCamp" placeholder="SP_Gap_${asin}"></div>
+    <div class="bs-field"><label>Ad Group Name</label><input type="text" id="bAg" value="AG_${asin}"></div>
+    <div class="bs-field"><label>Match Types</label><div class="bs-match-types"><label><input type="checkbox" id="mE" checked> Exact</label><label><input type="checkbox" id="mP"> Phrase</label><label><input type="checkbox" id="mB"> Broad</label></div></div>
+    <div class="bs-field"><label>Default Bid (€)</label><input type="number" id="bBid" value="0.50" step="0.01" min="0.02"></div>
+    <div class="bs-actions"><button class="btn" onclick="document.getElementById('ov').remove()">Abbrechen</button><button class="btn" onclick="bulkCsv('${asin}')">⬇ CSV</button><button class="btn btn-primary" onclick="bulkXlsx('${asin}')">📄 Bulk-Sheet (.xlsx)</button></div>
+  </div>`;
+  document.body.appendChild(ov); ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+}
+function setBsType(t){ bsType=t; document.getElementById('tS').classList.toggle('active',t==='seller'); document.getElementById('tV').classList.toggle('active',t==='vendor'); document.getElementById('fSku').style.display=t==='seller'?'':'none'; document.getElementById('fAsin').style.display=t==='vendor'?'':'none'; }
+function bsCfg(asin){ const camp=document.getElementById('bCamp').value.trim()||`SP_Gap_${asin}`; const ag=document.getElementById('bAg').value.trim()||`AG_${asin}`; const bid=parseFloat(document.getElementById('bBid').value)||0.5; const mt=[]; if(document.getElementById('mE').checked)mt.push('exact'); if(document.getElementById('mP').checked)mt.push('phrase'); if(document.getElementById('mB').checked)mt.push('broad'); const pid=bsType==='seller'?document.getElementById('bSku').value.trim():document.getElementById('bAsin').value.trim(); return {camp,ag,bid,mt:mt.length?mt:['exact'],pid,isV:bsType==='vendor'}; }
+function bulkCsv(asin){ const {camp,ag,bid,mt}=bsCfg(asin); const terms=[...checked]; const rows=[['Kampagne','Ad Group','Keyword','Match Type','Bid']]; for(const t of terms)for(const m of mt)rows.push([camp,ag,t,m,bid.toFixed(2)]); dl(rows.map(r=>r.map(c=>`"${(''+c).replace(/"/g,'""')}"`).join(',')).join('\r\n'),`bulk_keywords_${asin}.csv`,'text/csv'); document.getElementById('ov').remove(); }
+function bulkXlsx(asin){
+  if(typeof XLSX==='undefined'){alert('SheetJS nicht geladen.');return;}
+  const {camp,ag,bid,mt,pid,isV}=bsCfg(asin); const terms=[...checked];
+  const HEADERS=['Product','Entity','Operation','Campaign ID','Ad Group ID','Portfolio ID','Ad ID','Keyword ID','Product Targeting ID','Campaign Name','Ad Group Name','Start Date','End Date','Targeting Type','State','Daily Budget','SKU','ASIN','Ad Group Default Bid','Bid','Keyword Text','Match Type','Bidding Strategy','Placement','Percentage','Product Targeting Expression','Site Restrictions'];
+  const empty=()=>{const r={};HEADERS.forEach(h=>r[h]='');return r;}; const rows=[];
+  for(const m of mt){ const L=m.charAt(0).toUpperCase()+m.slice(1); const cN=`${camp}_${L}`, aN=`${ag}_${L}`;
+    const c=empty();c['Product']='Sponsored Products';c['Entity']='Campaign';c['Operation']='create';c['Campaign ID']=cN;c['Campaign Name']=cN;c['Targeting Type']='Manual';c['State']='enabled';c['Daily Budget']='10';c['Bidding Strategy']='Dynamic bids - down only';rows.push(c);
+    const g=empty();g['Product']='Sponsored Products';g['Entity']='Ad Group';g['Operation']='create';g['Campaign ID']=cN;g['Ad Group ID']=aN;g['Ad Group Name']=aN;g['State']='enabled';g['Ad Group Default Bid']=bid.toFixed(2);rows.push(g);
+    const p=empty();p['Product']='Sponsored Products';p['Entity']='Product Ad';p['Operation']='create';p['Campaign ID']=cN;p['Ad Group ID']=aN;p['State']='enabled';if(isV)p['ASIN']=pid;else p['SKU']=pid;rows.push(p);
+    for(const t of terms){const k=empty();k['Product']='Sponsored Products';k['Entity']='Keyword';k['Operation']='create';k['Campaign ID']=cN;k['Ad Group ID']=aN;k['State']='enabled';k['Keyword Text']=t;k['Match Type']=m;k['Bid']=bid.toFixed(2);rows.push(k);}
+  }
+  const sheet=[HEADERS,...rows.map(r=>HEADERS.map(h=>r[h]))]; const ws=XLSX.utils.aoa_to_sheet(sheet); ws['!cols']=HEADERS.map(()=>({wch:22}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Sponsored Products');
+  const d=new Date(); const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  XLSX.writeFile(wb,`Bulk-Upload_${asin}_${ds}.xlsx`); document.getElementById('ov').remove();
+}
+function dl(content,name,mime){ const b=new Blob([content],{type:mime}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u;a.download=name;a.click(); URL.revokeObjectURL(u); }
+
+boot();
+</script>
+<script defer src="https://adsmasters.github.io/hub/backlink.js"></script>
+</body>
+</html>
