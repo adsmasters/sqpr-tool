@@ -74,9 +74,11 @@
   <div class="topbar">
     <div class="brand"><span class="logo">◑</span> SQPR <span style="color:var(--muted);font-weight:500;">Analyse</span></div>
     <div class="nav">
-      <a href="live.html">Marken</a>
-      <a href="asin-live.html">ASIN</a>
-      <a href="analyse.html" class="active">Analyse</a>
+      <a href="dashboard.html">Marken-Analyse</a>
+      <a href="live.html">Live-Analyse</a>
+      <a href="asin-live.html">ASIN-Live</a>
+      <a href="overview.html">Übersicht</a>
+      <a href="analyse.html" class="active">Deep-Dive</a>
     </div>
     <div style="display:flex;gap:8px;"><button class="icon-btn" onclick="toggleTheme()" title="Theme">◐</button><button class="icon-btn" onclick="logout()" title="Logout">⏻</button></div>
   </div>
@@ -109,6 +111,7 @@ const name=a=>NAMES[a]||a;
 const mLabel=m=>{const d=new Date(m+'T00:00:00Z');return d.toLocaleDateString('de-DE',{month:'short',year:'2-digit',timeZone:'UTC'});};
 
 let CLIENTS=[],SQP=[],PPC=new Map(),MONTHS=[],WEEKS=[],ASINS=[],GRAN='MONTH',chart=null;
+let ADHIST={MONTH:new Map(),WEEK:new Map()}; // asin -> {period_start -> {spend,sales}}
 let metrics={click:true,purch:true,spend:true,sales:false,vol:false};
 
 async function boot(){
@@ -120,17 +123,22 @@ async function boot(){
 async function onClient(){
   const spid=document.getElementById('clientSel').value;
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade SQP + Ads…</div>';
-  const [m,w,p]=await Promise.all([
+  const [m,w,p,ahM,ahW]=await Promise.all([
     fetch(`${API}/data?spid=${spid}`).then(r=>r.json()).catch(()=>({rows:[]})),
     fetch(`${API}/data?spid=${spid}&period=WEEK`).then(r=>r.json()).catch(()=>({rows:[]})),
     fetch(`${API}/asin-ppc?spid=${spid}`).then(r=>r.json()).catch(()=>({rows:[]})),
+    fetch(`${API}/ads-history?spid=${spid}&period=MONTH`).then(r=>r.json()).catch(()=>({rows:[]})),
+    fetch(`${API}/ads-history?spid=${spid}&period=WEEK`).then(r=>r.json()).catch(()=>({rows:[]})),
   ]);
   SQP={MONTH:m.rows||[],WEEK:w.rows||[]};
   PPC=new Map(); for(const r of (p.rows||[])){ if(!PPC.has(r.asin))PPC.set(r.asin,new Map()); PPC.get(r.asin).set(norm(r.search_term),{spend:+r.cost||0,sales:+r.sales7d||0,clicks:+r.clicks||0}); }
+  const buildHist=rows=>{const map=new Map();for(const r of (rows||[])){if(!map.has(r.asin))map.set(r.asin,{});const b=map.get(r.asin);const k=r.period_start;if(!b[k])b[k]={spend:0,sales:0};b[k].spend+=+r.cost||0;b[k].sales+=+r.sales7d||0;}return map;};
+  ADHIST={MONTH:buildHist(ahM.rows), WEEK:buildHist(ahW.rows)};
   MONTHS=[...new Set(SQP.MONTH.map(r=>r.start_date))].sort();
   WEEKS=[...new Set(SQP.WEEK.map(r=>r.start_date))].sort();
   ASINS=[...new Set(SQP.MONTH.map(r=>r.asin))].sort((a,b)=>name(a).localeCompare(name(b)));
   document.getElementById('asinSel').innerHTML=ASINS.map(a=>`<option value="${a}">${name(a)} · ${a}</option>`).join('');
+  const qa=new URLSearchParams(location.search).get('asin'); if(qa&&ASINS.includes(qa))document.getElementById('asinSel').value=qa;
   render();
 }
 function setGran(p){GRAN=p;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('on',b.dataset.p===p));render();}
@@ -149,8 +157,12 @@ function render(){
   const cur=P[P.length-1], prev=P.length>1?P[P.length-2]:null;
   const curS=shareOf(asinRows(cur)), prevS=prev?shareOf(asinRows(prev)):null;
   const cov=PPC.get(asin)||new Map();
-  // Ad-Summe (Snapshot, 30T) über die SQP-Begriffe der aktuellen Periode
-  let adSpend=0,adSales=0; for(const r of asinRows(cur)){const a=cov.get(norm(r.search_query));if(a){adSpend+=a.spend;adSales+=a.sales;}}
+  // Ad-Werte: echte Periode aus ADHIST, sonst Snapshot-Fallback
+  const histCur=(ADHIST[GRAN].get(asin)||{})[cur], histPrev=prev?(ADHIST[GRAN].get(asin)||{})[prev]:null;
+  let adSpend,adSales;
+  if(histCur){ adSpend=histCur.spend; adSales=histCur.sales; }
+  else { adSpend=0;adSales=0; for(const r of asinRows(cur)){const a=cov.get(norm(r.search_query));if(a){adSpend+=a.spend;adSales+=a.sales;}} }
+  const adReal=!!histCur;
   document.getElementById('sub').textContent=`${name(asin)} · ${GRAN==='WEEK'?'Woche':'Monat'} ${mLabel(cur)}${prev?' vs. '+mLabel(prev):''} · ${asinRows(cur).length} Suchbegriffe`;
 
   const dPct=(a,b)=>b==null?null:(a-b);
@@ -160,8 +172,8 @@ function render(){
     kpi('Käufe (ASIN)',fmtInt(curS.purchases),prevS?curS.purchases-prevS.purchases:null,''),
     kpi('Click-Share',fmtPct(curS.click),dPct(curS.click,prevS&&prevS.click),'pp'),
     kpi('Purchase-Share',fmtPct(curS.purch),dPct(curS.purch,prevS&&prevS.purch),'pp'),
-    kpi('Ad-Spend (30T)',eur(adSpend),null,''),
-    kpi('Ad-Sales (30T)',eur(adSales),null,''),
+    kpi(adReal?'Ad-Spend':'Ad-Spend (30T)',eur(adSpend),histPrev?adSpend-histPrev.spend:null,''),
+    kpi(adReal?'Ad-Sales':'Ad-Sales (30T)',eur(adSales),histPrev?adSales-histPrev.sales:null,''),
   ].join('');
 
   // Metric-Chips
@@ -208,7 +220,9 @@ function draw(){
   const asin=document.getElementById('asinSel').value; const P=periods();
   const series=P.map(p=>{const s=shareOf(asinRows.call({},p)); // shareOf per period
     const rows=(SQP[GRAN]||[]).filter(r=>r.asin===asin&&r.start_date===p); const sh=shareOf(rows);
-    const cov=PPC.get(asin)||new Map(); let sp=0,sa=0; for(const r of rows){const a=cov.get(norm(r.search_query));if(a){sp+=a.spend;sa+=a.sales;}}
+    const hist=(ADHIST[GRAN].get(asin)||{})[p]; let sp,sa;
+    if(hist){ sp=hist.spend; sa=hist.sales; }
+    else { const cov=PPC.get(asin)||new Map(); sp=0;sa=0; for(const r of rows){const a=cov.get(norm(r.search_query));if(a){sp+=a.spend;sa+=a.sales;}} }
     return {p, click:sh.click, purch:sh.purch, vol:sh.vol, spend:sp, sales:sa};});
   const css=getComputedStyle(document.documentElement);
   const col=n=>css.getPropertyValue(n).trim();
