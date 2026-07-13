@@ -90,6 +90,8 @@
         <button data-p="MONTH" class="on" onclick="setGran('MONTH')">Monatlich</button>
         <button data-p="WEEK" onclick="setGran('WEEK')">Wöchentlich</button>
       </div>
+      <select class="sel" id="periodSel" onchange="onPeriod()" title="Zeitraum wählen"></select>
+      <button class="icon-btn" onclick="refreshAll()" title="Daten neu laden">↻</button>
     </div>
     <div class="sub" id="sub"></div>
     <div id="content"><div class="loading"><div class="spin"></div>Lade…</div></div>
@@ -109,13 +111,21 @@ const fmtPct=x=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumFrac
 const eur=x=>'€'+(+x||0).toLocaleString('de-DE',{maximumFractionDigits:0});
 const name=a=>NAMES[a]||a;
 const mLabel=m=>{const d=new Date(m+'T00:00:00Z');return d.toLocaleDateString('de-DE',{month:'short',year:'2-digit',timeZone:'UTC'});};
+const MON=['Jan.','Feb.','März','Apr.','Mai','Juni','Juli','Aug.','Sep.','Okt.','Nov.','Dez.'];
+function pLabel(d){ if(!d)return '–'; if(GRAN==='WEEK'){const s=new Date(d+'T00:00:00Z'),e=new Date(s);e.setUTCDate(s.getUTCDate()+6);const f=x=>x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});return `Woche ${f(s)}–${f(e)}`;} const[y,mo]=d.split('-');return `${MON[+mo-1]} ${y}`;}
 
-let CLIENTS=[],SQP=[],PPC=new Map(),MONTHS=[],WEEKS=[],ASINS=[],GRAN='MONTH',chart=null;
+let CLIENTS=[],SQP=[],PPC=new Map(),MONTHS=[],WEEKS=[],ASINS=[],GRAN='MONTH',chart=null,SELPERIOD=null;
 let ADHIST={MONTH:new Map(),WEEK:new Map()}; // asin -> {period_start -> {spend,sales}}
 let metrics={click:true,purch:true,spend:true,sales:false,vol:false};
+// Session-Cache (gemeinsam mit Übersicht) → Navigation sofort
+function cGet(k){try{const v=sessionStorage.getItem('sqpc_'+k);return v?JSON.parse(v):null;}catch(e){return null;}}
+function cSet(k,v){try{sessionStorage.setItem('sqpc_'+k,JSON.stringify(v));}catch(e){}}
+function expand(r){if(r&&r.compact&&r.data){const o2={...r,rows:r.data.map(a=>{const o={};r.cols.forEach((c,i)=>o[c]=a[i]);return o;})};return o2;}return r;}
+async function jget(url,ck){let raw=cGet(ck);if(!raw){raw=await fetch(url).then(r=>r.json()).catch(()=>({rows:[]}));cSet(ck,raw);}return expand(raw);}
+function refreshAll(){try{Object.keys(sessionStorage).filter(k=>k.startsWith('sqpc_')).forEach(k=>sessionStorage.removeItem(k));}catch(e){}onClient();}
 
 async function boot(){
-  try{CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[];}catch(e){}
+  try{CLIENTS=(await jget(`${API}/clients`,'clients')).clients||[];}catch(e){}
   if(!CLIENTS.length){document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>';return;}
   document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}</option>`).join('');
   onClient();
@@ -124,11 +134,11 @@ async function onClient(){
   const spid=document.getElementById('clientSel').value;
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade SQP + Ads…</div>';
   const [m,w,p,ahM,ahW]=await Promise.all([
-    fetch(`${API}/data?spid=${spid}`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/data?spid=${spid}&period=WEEK`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/asin-ppc?spid=${spid}`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/ads-history?spid=${spid}&period=MONTH`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/ads-history?spid=${spid}&period=WEEK`).then(r=>r.json()).catch(()=>({rows:[]})),
+    jget(`${API}/data?spid=${spid}&compact=1`,`data_${spid}`),
+    jget(`${API}/data?spid=${spid}&period=WEEK&compact=1`,`dataW_${spid}`),
+    jget(`${API}/asin-ppc?spid=${spid}`,`ppc_${spid}`),
+    jget(`${API}/ads-history?spid=${spid}&period=MONTH`,`ahM_${spid}`),
+    jget(`${API}/ads-history?spid=${spid}&period=WEEK`,`ahW_${spid}`),
   ]);
   SQP={MONTH:m.rows||[],WEEK:w.rows||[]};
   PPC=new Map(); for(const r of (p.rows||[])){ if(!PPC.has(r.asin))PPC.set(r.asin,new Map()); PPC.get(r.asin).set(norm(r.search_term),{spend:+r.cost||0,sales:+r.sales7d||0,clicks:+r.clicks||0}); }
@@ -139,9 +149,11 @@ async function onClient(){
   ASINS=[...new Set(SQP.MONTH.map(r=>r.asin))].sort((a,b)=>name(a).localeCompare(name(b)));
   document.getElementById('asinSel').innerHTML=ASINS.map(a=>`<option value="${a}">${name(a)} · ${a}</option>`).join('');
   const qa=new URLSearchParams(location.search).get('asin'); if(qa&&ASINS.includes(qa))document.getElementById('asinSel').value=qa;
-  render();
+  fillPeriods();render();
 }
-function setGran(p){GRAN=p;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('on',b.dataset.p===p));render();}
+function fillPeriods(){const P=periods();const sel=document.getElementById('periodSel');if(!sel)return;sel.innerHTML=[...P].reverse().map((d,i)=>`<option value="${d}">${pLabel(d)}${i===0?' (neueste)':''}</option>`).join('');sel.value=SELPERIOD||P[P.length-1]||'';}
+function onPeriod(){SELPERIOD=document.getElementById('periodSel').value;render();}
+function setGran(p){GRAN=p;SELPERIOD=null;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('on',b.dataset.p===p));fillPeriods();render();}
 
 // pro Periode: Zeilen der ASIN; aggregiere ASIN-Shares (gewichtet) je Periode
 function asinRows(period){ return (SQP[GRAN]||[]).filter(r=>r.asin===document.getElementById('asinSel').value && r.start_date===period); }
@@ -154,7 +166,8 @@ function shareOf(rows){ // gewichtete ASIN-Shares für eine Periode
 function render(){
   const asin=document.getElementById('asinSel').value; if(!asin)return;
   const P=periods(); if(!P.length){document.getElementById('content').innerHTML='<div class="loading">Keine Daten für diese Granularität.</div>';return;}
-  const cur=P[P.length-1], prev=P.length>1?P[P.length-2]:null;
+  const cur=(SELPERIOD&&P.includes(SELPERIOD))?SELPERIOD:P[P.length-1];
+  const ci=P.indexOf(cur); const prev=ci>0?P[ci-1]:null;
   const curS=shareOf(asinRows(cur)), prevS=prev?shareOf(asinRows(prev)):null;
   const cov=PPC.get(asin)||new Map();
   // Ad-Werte: echte Periode aus ADHIST, sonst Snapshot-Fallback
@@ -163,7 +176,7 @@ function render(){
   if(histCur){ adSpend=histCur.spend; adSales=histCur.sales; }
   else { adSpend=0;adSales=0; for(const r of asinRows(cur)){const a=cov.get(norm(r.search_query));if(a){adSpend+=a.spend;adSales+=a.sales;}} }
   const adReal=!!histCur;
-  document.getElementById('sub').textContent=`${name(asin)} · ${GRAN==='WEEK'?'Woche':'Monat'} ${mLabel(cur)}${prev?' vs. '+mLabel(prev):''} · ${asinRows(cur).length} Suchbegriffe`;
+  document.getElementById('sub').innerHTML=`${name(asin)} · <b>${pLabel(cur)}</b>${prev?' vs. '+pLabel(prev):''} · ${asinRows(cur).length} Suchbegriffe${adReal?'':' · Ad-Werte = 30-Tage-Näherung'}`;
 
   const dPct=(a,b)=>b==null?null:(a-b);
   const kpi=(l,v,d,suf)=>{let dd='';if(d!=null){const cls=Math.abs(d)<0.05?'flat':(d>0?'up':'down');const s=d>0?'+':'';dd=`<div class="d ${cls}">${d>0?'▲':d<0?'▼':'•'} ${s}${(suf==='pp'?d.toFixed(1)+' pp':fmtInt(d))}</div>`;}return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div>${dd}</div>`;};
@@ -207,9 +220,9 @@ function render(){
       <div class="chart-box"><canvas id="chart"></canvas></div>
     </div>
     <div class="panel">
-      <div class="thead"><div><h2>Suchbegriffe</h2><div class="ph">Aktuelle Periode, sortiert nach Volumen · Δ = vs. Vorperiode</div></div>
+      <div class="thead"><div><h2>Suchbegriffe</h2><div class="ph">Volumen/Shares = <b>${pLabel(cur)}</b> · Δ vs. Vorperiode · Ad-Spend/Sales = letzte 30 Tage</div></div>
         <input class="search" id="tsearch" placeholder="Filtern…" oninput="render()" value="${flt}"></div>
-      <table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Click-Share</th><th>Purchase-Share</th><th>Ad-Spend</th><th>Ad-Sales</th><th style="text-align:right">PPC</th></tr></thead>
+      <table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Click-Share</th><th>Purchase-Share</th><th>Ad-Spend (30T)</th><th>Ad-Sales (30T)</th><th style="text-align:right">PPC</th></tr></thead>
       <tbody>${body||'<tr><td colspan="7" class="loading">keine Treffer</td></tr>'}</tbody></table>
     </div>`;
   draw();

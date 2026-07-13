@@ -5,10 +5,10 @@
 <title>SQPR Tool — Übersicht</title>
 <style>
   :root{--bg:#F7F7F8;--card:#FFFFFF;--ink:#191A1C;--muted:#6B7177;--faint:#9AA0A6;--line:#ECEDEF;--accent:#0EA5A0;
-    --up:#12A150;--down:#E5484D;--op:#12A150;--ef:#4F7CF6;--pr:#E5484D;--pe:#9AA0A6;
+    --up:#12A150;--down:#E5484D;--op:#12A150;--ef:#4F7CF6;--pr:#E5484D;--pe:#C0C4C9;--st:#8A94A6;
     --shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.06);}
   [data-theme="dark"]{--bg:#0B0C0E;--card:#151719;--ink:#F2F3F5;--muted:#9AA0A6;--faint:#6B7177;--line:#26292E;--accent:#2DD4BF;
-    --up:#3FB950;--down:#F0616D;--op:#3FB950;--ef:#6E93F7;--pr:#F0616D;--pe:#6B7177;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);}
+    --up:#3FB950;--down:#F0616D;--op:#3FB950;--ef:#6E93F7;--pr:#F0616D;--pe:#5A6068;--st:#7E8898;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
   .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 40px;}
@@ -38,10 +38,13 @@
   .row:hover{transform:translateY(-1px);}
   .prod{display:flex;align-items:center;gap:12px;min-width:0;}
   .flag{width:9px;height:34px;border-radius:6px;flex-shrink:0;}
-  .flag.op{background:var(--op);} .flag.ef{background:var(--ef);} .flag.pr{background:var(--pr);} .flag.pe{background:var(--pe);}
+  .flag.op{background:var(--op);} .flag.ef{background:var(--ef);} .flag.pr{background:var(--pr);} .flag.pe{background:var(--pe);} .flag.st{background:var(--st);}
   .pname{font-weight:650;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pflag{font-size:11px;font-weight:700;margin-top:2px;}
-  .pflag.op{color:var(--op);} .pflag.ef{color:var(--ef);} .pflag.pr{color:var(--pr);} .pflag.pe{color:var(--pe);}
+  .pflag.op{color:var(--op);} .pflag.ef{color:var(--ef);} .pflag.pr{color:var(--pr);} .pflag.pe{color:var(--pe);} .pflag.st{color:var(--st);}
+  .pwhy{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .legend{font-size:12px;color:var(--muted);background:var(--card);box-shadow:var(--shadow);border-radius:12px;padding:9px 14px;margin-bottom:14px;line-height:1.5;}
+  .legend b{color:var(--ink);font-weight:700;}
   .met{text-align:right;} .met .v{font-size:15px;font-weight:700;letter-spacing:-.02em;} .met .d{font-size:11.5px;font-weight:650;margin-top:2px;}
   .d.up{color:var(--up);} .d.down{color:var(--down);} .d.flat{color:var(--faint);}
   .chev{color:var(--faint);text-align:right;font-size:18px;}
@@ -61,6 +64,8 @@
     <div class="pickrow">
       <select class="sel" id="clientSel" onchange="onClient()"></select>
       <div class="seg" id="granSeg"><button data-p="MONTH" class="on" onclick="setGran('MONTH')">Monatlich</button><button data-p="WEEK" onclick="setGran('WEEK')">Wöchentlich</button></div>
+      <select class="sel" id="periodSel" onchange="onPeriod()" title="Zeitraum wählen"></select>
+      <button class="icon-btn" onclick="refreshAll()" title="Daten neu laden">↻</button>
       <input class="search" id="q" placeholder="ASIN oder Produkt filtern…" oninput="render()">
     </div>
     <div id="content"><div class="loading"><div class="spin"></div>Lade…</div></div>
@@ -78,11 +83,19 @@ const fmtK=x=>{x=+x||0;return x>=1000?(x/1000).toLocaleString('de-DE',{maximumFr
 const pct=x=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
 const eur=x=>'€'+(+x||0).toLocaleString('de-DE',{maximumFractionDigits:0});
 const nm=a=>NAMES[a]||a;
-const FLAGS={op:'Opportunity',ef:'Efficiency',pr:'Problem',pe:'Pending'};
-let CLIENTS=[],SQP={MONTH:[],WEEK:[]},PPCbyAsin=new Map(),ADHIST={MONTH:new Map(),WEEK:new Map()},GRAN='MONTH',filterFlag=null;
+const FLAGS={pr:'Problem',op:'Chance',ef:'Effizienz',st:'Stabil',pe:'Neu'};
+const MON=['Jan.','Feb.','März','Apr.','Mai','Juni','Juli','Aug.','Sep.','Okt.','Nov.','Dez.'];
+function pLabel(d){ if(!d)return '–'; if(GRAN==='WEEK'){const s=new Date(d+'T00:00:00Z'),e=new Date(s);e.setUTCDate(s.getUTCDate()+6);const f=x=>x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});return `Woche ${f(s)}–${f(e)}`;} const[y,mo]=d.split('-');return `${MON[+mo-1]} ${y}`;}
+let CLIENTS=[],SQP={MONTH:[],WEEK:[]},PPCbyAsin=new Map(),ADHIST={MONTH:new Map(),WEEK:new Map()},GRAN='MONTH',filterFlag=null,SELPERIOD=null;
+// Session-Cache: gleiche Daten für Übersicht & Deep-Dive, damit Navigation sofort ist
+function cGet(k){try{const v=sessionStorage.getItem('sqpc_'+k);return v?JSON.parse(v):null;}catch(e){return null;}}
+function cSet(k,v){try{sessionStorage.setItem('sqpc_'+k,JSON.stringify(v));}catch(e){}}
+function expand(r){if(r&&r.compact&&r.data){const o2={...r,rows:r.data.map(a=>{const o={};r.cols.forEach((c,i)=>o[c]=a[i]);return o;})};return o2;}return r;}
+async function jget(url,ck){let raw=cGet(ck);if(!raw){raw=await fetch(url).then(r=>r.json()).catch(()=>({rows:[]}));cSet(ck,raw);}return expand(raw);}
+function refreshAll(){try{Object.keys(sessionStorage).filter(k=>k.startsWith('sqpc_')).forEach(k=>sessionStorage.removeItem(k));}catch(e){}onClient();}
 
 async function boot(){
-  try{CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[];}catch(e){}
+  try{CLIENTS=(await jget(`${API}/clients`,'clients')).clients||[];}catch(e){}
   if(!CLIENTS.length){document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>';return;}
   document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}</option>`).join('');
   onClient();
@@ -91,20 +104,22 @@ async function onClient(){
   const spid=document.getElementById('clientSel').value;
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade SQP + Ads…</div>';
   const [m,w,p,ahM,ahW]=await Promise.all([
-    fetch(`${API}/data?spid=${spid}`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/data?spid=${spid}&period=WEEK`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/asin-ppc?spid=${spid}`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/ads-history?spid=${spid}&period=MONTH`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/ads-history?spid=${spid}&period=WEEK`).then(r=>r.json()).catch(()=>({rows:[]})),
+    jget(`${API}/data?spid=${spid}&compact=1`,`data_${spid}`),
+    jget(`${API}/data?spid=${spid}&period=WEEK&compact=1`,`dataW_${spid}`),
+    jget(`${API}/asin-ppc?spid=${spid}`,`ppc_${spid}`),
+    jget(`${API}/ads-history?spid=${spid}&period=MONTH`,`ahM_${spid}`),
+    jget(`${API}/ads-history?spid=${spid}&period=WEEK`,`ahW_${spid}`),
   ]);
   SQP={MONTH:m.rows||[],WEEK:w.rows||[]};
   PPCbyAsin=new Map(); for(const r of (p.rows||[])){if(!PPCbyAsin.has(r.asin))PPCbyAsin.set(r.asin,new Map());PPCbyAsin.get(r.asin).set(norm(r.search_term),{spend:+r.cost||0,sales:+r.sales7d||0});}
   const bh=rows=>{const map=new Map();for(const r of(rows||[])){if(!map.has(r.asin))map.set(r.asin,{});const b=map.get(r.asin);if(!b[r.period_start])b[r.period_start]={spend:0,sales:0};b[r.period_start].spend+=+r.cost||0;b[r.period_start].sales+=+r.sales7d||0;}return map;};
   ADHIST={MONTH:bh(ahM.rows),WEEK:bh(ahW.rows)};
-  render();
+  fillPeriods();render();
 }
-function setGran(p){GRAN=p;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('on',b.dataset.p===p));render();}
+function setGran(p){GRAN=p;SELPERIOD=null;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('on',b.dataset.p===p));fillPeriods();render();}
 function periods(){return [...new Set(SQP[GRAN].map(r=>r.start_date))].sort();}
+function fillPeriods(){const P=periods();const sel=document.getElementById('periodSel');if(!sel)return;sel.innerHTML=[...P].reverse().map((d,i)=>`<option value="${d}">${pLabel(d)}${i===0?' (neueste)':''}</option>`).join('');sel.value=SELPERIOD||P[P.length-1]||'';}
+function onPeriod(){SELPERIOD=document.getElementById('periodSel').value;render();}
 function aggAsin(asin,period){ // SQP-Aggregat je ASIN/Periode + Ad
   let iP=0,iT=0,cP=0,cT=0,pP=0,pT=0,vol=0,pur=0;
   for(const r of SQP[GRAN]){ if(r.asin!==asin||r.start_date!==period)continue;
@@ -114,34 +129,37 @@ function aggAsin(asin,period){ // SQP-Aggregat je ASIN/Periode + Ad
   return {vol,purchases:pur,click:cT?100*cP/cT:0,purch:pT?100*pP/pT:0,impr:iT?100*iP/iT:0,spend,sales,adReal:!!hist};
 }
 function flagOf(cur,prev){
-  if(!prev)return 'pe';
+  if(!prev)return {f:'pe',why:'keine Vorperiode'};
   const dPS=cur.purch-prev.purch; // pp
   const dVol=prev.vol?(cur.vol-prev.vol)/prev.vol:0;
   const dSpend=prev.spend?(cur.spend-prev.spend)/prev.spend:0;
   const dSales=prev.sales?(cur.sales-prev.sales)/prev.sales:0;
-  if(dPS<=-0.5||(cur.adReal&&dSales<=-0.15))return 'pr';               // verliert Marktanteil/Umsatz
-  if(cur.adReal&&dSpend<=-0.10&&dPS>=-0.1)return 'ef';                  // weniger Spend, Anteil gehalten
-  if(dVol>=0.10||dPS>=0.5)return 'op';                                  // steigende Nachfrage / Anteil wächst
-  return 'op';
+  const p1=x=>(x>0?'+':'')+x.toFixed(1)+'pp', p0=x=>(x>0?'+':'')+Math.round(x*100)+'%';
+  if(dPS<=-0.5||(cur.adReal&&dSales<=-0.15))return {f:'pr',why:`Purchase-Share ${p1(dPS)}`+(cur.adReal&&dSales<=-0.15?`, Ad-Umsatz ${p0(dSales)}`:'')}; // verliert Marktanteil/Umsatz
+  if(cur.adReal&&dSpend<=-0.10&&dPS>=-0.1)return {f:'ef',why:`Ad-Spend ${p0(dSpend)}, Anteil gehalten`};                          // effizienter
+  if(dVol>=0.15||dPS>=0.5)return {f:'op',why:dPS>=0.5?`Purchase-Share ${p1(dPS)}`:`Suchvolumen ${p0(dVol)}`};                      // steigende Nachfrage / Anteil wächst
+  return {f:'st',why:'kaum Veränderung'};
 }
+const FLAGDESC={pr:'Marktanteil oder Ad-Umsatz fällt → handeln',op:'Nachfrage oder Anteil wächst → ausbauen',ef:'weniger Ad-Spend bei gehaltenem Anteil',st:'kaum Veränderung → beobachten',pe:'keine Vorperiode zum Vergleich'};
 function render(){
   const P=periods(); if(!P.length){document.getElementById('content').innerHTML='<div class="loading">Keine Daten für diese Granularität.</div>';return;}
-  const cur=P[P.length-1],prev=P.length>1?P[P.length-2]:null;
+  const cur=(SELPERIOD&&P.includes(SELPERIOD))?SELPERIOD:P[P.length-1];
+  const ci=P.indexOf(cur); const prev=ci>0?P[ci-1]:null;
   const ASINS=[...new Set(SQP[GRAN].map(r=>r.asin))];
   let items=ASINS.map(a=>{const c=aggAsin(a,cur),pr=prev?aggAsin(a,prev):null;return {asin:a,c,pr,flag:flagOf(c,pr)};});
-  const counts={op:0,ef:0,pr:0,pe:0}; items.forEach(i=>counts[i.flag]++);
+  const counts={pr:0,op:0,ef:0,st:0,pe:0}; items.forEach(i=>counts[i.flag.f]++);
   // filter
   const q=(document.getElementById('q')?.value||'').toLowerCase();
   let show=items.filter(i=>!q||nm(i.asin).toLowerCase().includes(q)||i.asin.toLowerCase().includes(q));
-  if(filterFlag)show=show.filter(i=>i.flag===filterFlag);
-  const order={pr:0,op:1,ef:2,pe:3}; show.sort((a,b)=>order[a.flag]-order[b.flag] || b.c.vol-a.c.vol);
+  if(filterFlag)show=show.filter(i=>i.flag.f===filterFlag);
+  const order={pr:0,op:1,ef:2,st:3,pe:4}; show.sort((a,b)=>order[a.flag.f]-order[b.flag.f] || b.c.vol-a.c.vol);
   const dCell=(cur,prev,type)=>{ if(prev==null)return ''; let d,cls,txt; if(type==='pp'){d=cur-prev;cls=Math.abs(d)<0.05?'flat':d>0?'up':'down';txt=(d>0?'+':'')+d.toFixed(1)+' pp';}
     else{const rel=prev?((cur-prev)/prev*100):0;cls=Math.abs(rel)<0.5?'flat':rel>0?'up':'down';txt=(rel>0?'▲':rel<0?'▼':'')+' '+(rel>0?'+':'')+Math.round(rel)+'%';}
     return `<div class="d ${cls}">${txt}</div>`;};
   const met=(l,v,d)=>`<div class="met" data-l="${l}"><div class="v">${v}</div>${d}</div>`;
-  const rowsHtml=show.map(i=>{const c=i.c,pr=i.pr;
+  const rowsHtml=show.map(i=>{const c=i.c,pr=i.pr,f=i.flag.f;
     return `<div class="row" onclick="location.href='analyse.html?asin=${i.asin}'">
-      <div class="prod"><div class="flag ${i.flag}"></div><div style="min-width:0"><div class="pname">${nm(i.asin)}</div><div class="pflag ${i.flag}">${FLAGS[i.flag]}</div></div></div>
+      <div class="prod"><div class="flag ${f}"></div><div style="min-width:0"><div class="pname">${nm(i.asin)}</div><div class="pflag ${f}">${FLAGS[f]}</div><div class="pwhy">${i.flag.why}</div></div></div>
       ${met('Suchvol.',fmtK(c.vol),dCell(c.vol,pr&&pr.vol,'rel'))}
       ${met('Käufe',fmtInt(c.purchases),dCell(c.purchases,pr&&pr.purchases,'rel'))}
       ${met('Click-Share',pct(c.click),dCell(c.click,pr&&pr.click,'pp'))}
@@ -149,10 +167,12 @@ function render(){
       ${met('Ad-Spend',c.adReal||c.spend?eur(c.spend):'–',c.adReal?dCell(c.spend,pr&&pr.spend,'rel'):'')}
       ${met('Ad-Sales',c.adReal||c.sales?eur(c.sales):'–',c.adReal?dCell(c.sales,pr&&pr.sales,'rel'):'')}
       <div class="chev">›</div></div>`;}).join('');
-  const stat=(k)=>`<div class="stat ${filterFlag===k?'active':''}" onclick="toggleFlag('${k}')"><span class="dot" style="background:var(--${k})"></span><span class="n">${counts[k]}</span> ${FLAGS[k]}</div>`;
+  const stat=(k)=>`<div class="stat ${filterFlag===k?'active':''}" onclick="toggleFlag('${k}')" title="${FLAGDESC[k]}"><span class="dot" style="background:var(--${k})"></span><span class="n">${counts[k]}</span> ${FLAGS[k]}</div>`;
+  const adNote=items.some(i=>i.c.adReal)?'':' · Ad-Spend/Sales = 30-Tage-Näherung (echte Periode folgt)';
   document.getElementById('content').innerHTML=`
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">${ASINS.length} ASINs · ${GRAN==='WEEK'?'Woche':'Monat'} ${cur}${prev?' vs. '+prev:''} · Klick auf eine Zeile öffnet den Deep-Dive</div>
-    <div class="summary">${stat('op')}${stat('ef')}${stat('pr')}${stat('pe')}</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">${ASINS.length} ASINs · <b style="color:var(--ink)">${pLabel(cur)}</b>${prev?' vs. '+pLabel(prev):''} · Klick öffnet den Deep-Dive${adNote}</div>
+    <div class="summary">${stat('pr')}${stat('op')}${stat('ef')}${stat('st')}${stat('pe')}</div>
+    <div class="legend">Bewertung = Veränderung zur Vorperiode. <b>Problem</b>: Anteil/Umsatz fällt · <b>Chance</b>: Nachfrage/Anteil steigt · <b>Effizienz</b>: weniger Spend, Anteil gehalten · <b>Stabil</b>: kaum Veränderung · <b>Neu</b>: keine Vorperiode.</div>
     <div class="hd"><div>Produkt</div><div>Suchvol.</div><div>Käufe</div><div>Click-Share</div><div>Purchase-Share</div><div>Ad-Spend</div><div>Ad-Sales</div><div></div></div>
     ${rowsHtml||'<div class="loading">keine Treffer</div>'}`;
 }
