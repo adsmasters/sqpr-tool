@@ -17,7 +17,9 @@
   let CLIENTS = [];
   window.SQP_API_CLIENTS = [];
   const clientsReady = fetch(CLIENTS_EP).then(r => r.json()).then(j => {
-    CLIENTS = j.clients || [];
+    CLIENTS = (j.clients || [])
+      .sort((a, b) => (b.has_data !== false) - (a.has_data !== false) || (a.name || '').localeCompare(b.name || ''))
+      .map(c => c.has_data === false ? { ...c, name: (c.name || '') + ' · noch keine Daten' } : c);
     window.SQP_API_CLIENTS = CLIENTS.map(c => c.id);
   }).catch(() => { CLIENTS = []; });
   window.SQP_CLIENTS_READY = clientsReady;

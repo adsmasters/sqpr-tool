@@ -867,16 +867,23 @@
         // Init
         async function init() {
             const app = document.getElementById('app');
-            const clientId = localStorage.getItem('sqpr_active_client');
-
-            if (!clientId) {
-                app.innerHTML = '<div class="empty-state"><h2>Bitte wähle einen Kunden aus</h2><p><a href="clients.html">Zur Kundenübersicht →</a></p></div>';
-                return;
-            }
+            let clientId = localStorage.getItem('sqpr_active_client');
 
             // Load all clients (for the in-header client switcher)
             const { data: allClientsData } = await sb.from('sqpr_clients').select('id,name,marketplace').order('name', { ascending: true });
             allClients = allClientsData || [];
+
+            // Kein (oder leerer) Kunde gewählt -> auf ersten Kunden MIT Reports defaulten
+            const { data: repIdx } = await sb.from('sqpr_reports').select('client_id');
+            const withReports = new Set((repIdx || []).map(r => r.client_id));
+            if (!clientId || !withReports.has(clientId)) {
+                const fallback = allClients.find(c => withReports.has(c.id));
+                if (fallback) { clientId = fallback.id; localStorage.setItem('sqpr_active_client', clientId); }
+            }
+            if (!clientId) {
+                app.innerHTML = '<div class="empty-state"><h2>Noch keine Reports vorhanden</h2><p><a href="upload.html">Ersten Report hochladen →</a></p></div>';
+                return;
+            }
 
             // Load client
             const { data: clientData } = await sb.from('sqpr_clients').select('*').eq('id', clientId).single();

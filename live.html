@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="sqp-adapter.js?v=6"></script>
+    <script src="sqp-adapter.js?v=7"></script>
     <style>
         /* Theme variables — Light (default) */
         :root {
@@ -670,6 +670,13 @@
 
         // Supabase init (via SQP-API-Adapter)
         const sb = createSqpAdapter();
+        // Perioden-Label: Wochen als "dd.mm.", Monate als "Mon JJ" (fixt X-Achse bei Wochen-Granularität)
+        function repLabel(r){
+            const s = new Date(r.report_date_start), e = new Date(r.report_date_end || r.report_date_start);
+            const spanDays = (e - s) / 864e5;
+            if (spanDays > 0 && spanDays <= 8) return s.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+            return s.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+        }
 
         // State
         let client = null;
@@ -1287,7 +1294,7 @@
             // One row per report month, Suchvolumen per cluster
             const dataRows = sortedReports.map(r => {
                 const d = new Date(r.report_date_start);
-                const monthLabel = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+                const monthLabel = repLabel(r);
                 const reportRows = getReportRows(r.id);
                 const clMap = matchTermsToClusters(reportRows, clusters);
                 const values = clusters.map(c => {
@@ -1382,8 +1389,7 @@
 
             const sortedReports = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
             const labels = sortedReports.map(r => {
-                const d = new Date(r.report_date_start);
-                return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+                return repLabel(r);
             });
 
             const datasets = clusters.map((c, i) => {
@@ -2568,8 +2574,7 @@
 
             const sortedReps = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
             const labels = sortedReps.map(r => {
-                const d = new Date(r.report_date_start);
-                return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+                return repLabel(r);
             });
 
             let datasets, isPercent;
@@ -2708,8 +2713,7 @@
 
             const sortedReports = [...reports].sort((a, b) => new Date(a.report_date_start) - new Date(b.report_date_start));
             const labels = sortedReports.map(r => {
-                const d = new Date(r.report_date_start);
-                return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+                return repLabel(r);
             });
 
             const isDualAxis = trendMetric === 'purchase_share_market';

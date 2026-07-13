@@ -152,8 +152,14 @@ function refreshAll(){try{Object.keys(sessionStorage).filter(k=>k.startsWith('sq
 async function boot(){
   try{CLIENTS=(await jget(`${API}/clients`,'clients')).clients||[];}catch(e){}
   if(!CLIENTS.length){document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>';return;}
-  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}</option>`).join('');
+  CLIENTS.sort((a,b)=>(b.has_data!==false)-(a.has_data!==false)||a.name.localeCompare(b.name));
+  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
   onClient();
+}
+function noDataInfo(spid){
+  const c=CLIENTS.find(x=>x.spid===spid);
+  if(c&&c.has_data===false)return `<div class="loading"><b style="color:var(--ink)">${c.name} ist verbunden, hat aber noch keine Daten.</b><br><br>Die SQP-Daten werden nach dem Verbinden automatisch abgerufen (spätestens beim wöchentlichen Abruf am Montag).<br>Für die volle Historie sofort: Backfill durchs Team anstoßen.</div>`;
+  return null;
 }
 async function onClient(){
   const spid=document.getElementById('clientSel').value;
@@ -192,7 +198,7 @@ function shareOf(rows){ // gewichtete ASIN-Shares für eine Periode
 }
 function render(){
   const asin=document.getElementById('asinSel').value; if(!asin)return;
-  const P=periods(); if(!P.length){document.getElementById('content').innerHTML='<div class="loading">Keine Daten für diese Granularität.</div>';return;}
+  const P=periods(); if(!P.length){document.getElementById('content').innerHTML=noDataInfo(document.getElementById('clientSel').value)||'<div class="loading">Keine Daten für diese Granularität.</div>';return;}
   const cur=(SELPERIOD&&P.includes(SELPERIOD))?SELPERIOD:P[P.length-1];
   const ci=P.indexOf(cur); const prev=ci>0?P[ci-1]:null;
   const curS=shareOf(asinRows(cur)), prevS=prev?shareOf(asinRows(prev)):null;
@@ -287,7 +293,8 @@ function draw(){
   if(metrics.vol)ds.push({label:'Suchvolumen',data:series.map(x=>x.vol),borderColor:col('--c-vol'),yAxisID:valAxis,tension:.35,pointRadius:3,borderWidth:2,backgroundColor:'transparent'});
   const grid=col('--line'),txt=col('--muted');
   if(chart)chart.destroy();
-  chart=new Chart(cv,{type:'line',data:{labels:P.map(mLabel),datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+  const xLab=p=>GRAN==='WEEK'?new Date(p+'T00:00:00Z').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',timeZone:'UTC'}):mLabel(p);
+  chart=new Chart(cv,{type:'line',data:{labels:P.map(xLab),datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     plugins:{legend:{labels:{color:txt,usePointStyle:true,pointStyleWidth:10,boxHeight:7,font:{size:12}}}},
     scales:{x:{grid:{display:false},ticks:{color:txt}},
       y:{position:'left',grid:{color:grid},ticks:{color:txt,callback:v=>v+'%'},title:{display:true,text:'Share %',color:txt}},

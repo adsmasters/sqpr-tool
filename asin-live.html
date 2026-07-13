@@ -161,7 +161,8 @@ let sortKey='vol', sortDir=-1, gapsOnly=true;
 async function boot(){
   try{ CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[]; }catch(e){ CLIENTS=[]; }
   if(!CLIENTS.length){ document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>'; return; }
-  document.getElementById('clientSelect').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}</option>`).join('');
+  CLIENTS.sort((a,b)=>(b.has_data!==false)-(a.has_data!==false)||(a.name||'').localeCompare(b.name||''));
+  document.getElementById('clientSelect').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
   onClient();
 }
 async function onClient(){

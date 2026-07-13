@@ -127,8 +127,15 @@ function refreshAll(){try{Object.keys(sessionStorage).filter(k=>k.startsWith('sq
 async function boot(){
   try{CLIENTS=(await jget(`${API}/clients`,'clients')).clients||[];}catch(e){}
   if(!CLIENTS.length){document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>';return;}
-  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}</option>`).join('');
+  // Kunden mit Daten zuerst; ohne Daten markieren
+  CLIENTS.sort((a,b)=>(b.has_data!==false)-(a.has_data!==false)||a.name.localeCompare(b.name));
+  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
   onClient();
+}
+function noDataInfo(spid){
+  const c=CLIENTS.find(x=>x.spid===spid);
+  if(c&&c.has_data===false)return `<div class="loading"><b style="color:var(--ink)">${c.name} ist verbunden, hat aber noch keine Daten.</b><br><br>Die SQP-Daten werden nach dem Verbinden automatisch abgerufen (spätestens beim wöchentlichen Abruf am Montag).<br>Für die volle Historie sofort: Backfill durchs Team anstoßen.</div>`;
+  return null;
 }
 async function onClient(){
   const spid=document.getElementById('clientSel').value;
@@ -172,7 +179,7 @@ function flagOf(cur,prev){
 }
 const FLAGDESC={pr:'Marktanteil oder Ad-Umsatz fällt → handeln',op:'Nachfrage oder Anteil wächst → ausbauen',ef:'weniger Ad-Spend bei gehaltenem Anteil',st:'kaum Veränderung → beobachten',pe:'keine Vorperiode zum Vergleich'};
 function render(){
-  const P=periods(); if(!P.length){document.getElementById('content').innerHTML='<div class="loading">Keine Daten für diese Granularität.</div>';return;}
+  const P=periods(); if(!P.length){document.getElementById('content').innerHTML=noDataInfo(document.getElementById('clientSel').value)||'<div class="loading">Keine Daten für diese Granularität.</div>';return;}
   const cur=(SELPERIOD&&P.includes(SELPERIOD))?SELPERIOD:P[P.length-1];
   const ci=P.indexOf(cur); const prev=ci>0?P[ci-1]:null;
   const ASINS=[...new Set(SQP[GRAN].map(r=>r.asin))];
