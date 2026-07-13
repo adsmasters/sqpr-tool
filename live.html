@@ -86,10 +86,10 @@
         }
         .topbar-left { display: flex; align-items: center; gap: 32px; }
         .topbar-logo { font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
-        .topbar-nav { display: flex; gap: 4px; }
+        .topbar-nav{display:flex;gap:4px;flex-wrap:wrap;}
         .topbar-nav a {
-            color: var(--text-secondary); text-decoration: none; font-size: 14px;
-            padding: 8px 14px; border-radius: 6px; transition: color 0.2s, background 0.2s;
+            color: var(--text-secondary); text-decoration: none; font-size: 13px;
+            padding: 6px 10px; border-radius: 6px; transition: color 0.2s, background 0.2s;
         }
         .topbar-nav a:hover { color: var(--text-primary); background: var(--bg-hover); }
         .topbar-nav a.active { color: var(--text-primary); background: var(--bg-hover); }
@@ -558,18 +558,7 @@
     <div class="topbar">
         <div class="topbar-left">
             <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
-            <nav class="topbar-nav">
-                <a href="dashboard.html">Marken-Analyse</a>
-                <a href="asin.html">ASIN-Analyse</a>
-                <a href="live.html" class="active">Live-Analyse</a>
-
-                <a href="asin-live.html">ASIN-Live</a>
-                <a href="overview.html">Übersicht</a>
-                <a href="analyse.html">Deep-Dive</a>
-                <a href="connect.html">Kunde verbinden</a>                <a href="clients.html">Kunden</a>
-                <a href="upload.html">Upload</a>
-                <a href="help.html">Hilfe</a>
-            </nav>
+            <nav class="topbar-nav"><a href="overview.html">Übersicht</a><a href="analyse.html">Deep-Dive</a><a href="dashboard.html">Marken-Analyse</a><a href="live.html" class="active">Live-Analyse</a><a href="asin-live.html">ASIN-Live</a><a href="asin.html">ASIN-Analyse</a><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a><a href="upload.html">Upload</a><a href="help.html">Hilfe</a></nav>
         </div>
         <div class="topbar-right">
             <button class="btn-theme-toggle" id="themeToggle" title="Theme wechseln" onclick="toggleTheme()">&#9789;</button>

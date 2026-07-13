@@ -17,8 +17,8 @@
   .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 40px;}
   .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.02em;}
   .brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;}
-  .nav{display:flex;gap:2px;}
-  .nav a{color:var(--muted);text-decoration:none;font-size:14px;padding:8px 14px;border-radius:999px;font-weight:500;}
+  .nav{display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;}
+  .nav a{color:var(--muted);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:999px;font-weight:500;}
   .nav a:hover{color:var(--ink);background:var(--card);}
   .nav a.active{color:var(--ink);background:var(--card);box-shadow:var(--shadow);}
   .icon-btn{width:36px;height:36px;border-radius:999px;border:none;background:var(--card);box-shadow:var(--shadow);color:var(--muted);cursor:pointer;font-size:16px;}
@@ -66,7 +66,7 @@
 <body>
   <div class="topbar">
     <div class="brand"><span class="logo">◑</span> SQPR <span style="color:var(--muted);font-weight:500;">Übersicht</span></div>
-    <div class="nav"><a href="dashboard.html">Marken-Analyse</a><a href="live.html">Live-Analyse</a><a href="asin-live.html">ASIN-Live</a><a href="overview.html" class="active">Übersicht</a><a href="analyse.html">Deep-Dive</a></div>
+    <div class="nav"><a href="overview.html" class="active">Übersicht</a><a href="analyse.html">Deep-Dive</a><a href="dashboard.html">Marken-Analyse</a><a href="live.html">Live-Analyse</a><a href="asin-live.html">ASIN-Live</a><a href="asin.html">ASIN-Analyse</a><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a><a href="upload.html">Upload</a><a href="help.html">Hilfe</a></div>
     <div style="display:flex;gap:8px;"><button class="icon-btn" onclick="toggleTheme()">◐</button><button class="icon-btn" onclick="logout()">⏻</button></div>
   </div>
   <div class="wrap">

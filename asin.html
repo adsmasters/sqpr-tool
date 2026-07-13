@@ -24,10 +24,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
 
-        .topbar { background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0 32px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .topbar { background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0 32px; min-height:56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
         .topbar-left { display: flex; align-items: center; gap: 32px; }
         .topbar-logo { font-size: 18px; font-weight: 700; color: var(--accent); text-decoration: none; }
-        .topbar-nav { display: flex; gap: 4px; }
+        .topbar-nav{display:flex;gap:4px;flex-wrap:wrap;}
         .topbar-nav a { color: var(--text-secondary); text-decoration: none; font-size: 14px; padding: 8px 14px; border-radius: 6px; transition: color .2s, background .2s; }
         .topbar-nav a:hover { color: var(--text-primary); background: var(--bg-hover); }
         .topbar-nav a.active { color: var(--text-primary); background: var(--bg-hover); }
@@ -147,16 +147,7 @@
 <div class="topbar">
     <div class="topbar-left">
         <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
-        <nav class="topbar-nav">
-            <a href="dashboard.html">Marken-Analyse</a>
-            <a href="asin.html" class="active">ASIN-Analyse</a>
-
-            <a href="live.html">Live-Analyse</a>
-
-            <a href="asin-live.html">ASIN-Live</a>                <a href="overview.html">Übersicht</a>                <a href="analyse.html">Deep-Dive</a>                <a href="connect.html">Kunde verbinden</a>            <a href="clients.html">Kunden</a>
-            <a href="upload.html">Upload</a>
-            <a href="help.html">Hilfe</a>
-        </nav>
+        <nav class="topbar-nav"><a href="overview.html">Übersicht</a><a href="analyse.html">Deep-Dive</a><a href="dashboard.html">Marken-Analyse</a><a href="live.html">Live-Analyse</a><a href="asin-live.html">ASIN-Live</a><a href="asin.html" class="active">ASIN-Analyse</a><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a><a href="upload.html">Upload</a><a href="help.html">Hilfe</a></nav>
     </div>
     <div class="topbar-right">
         <button class="btn-theme-toggle" id="themeToggle" title="Theme wechseln" onclick="toggleTheme()">☽</button>
