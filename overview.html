@@ -134,8 +134,31 @@ async function boot(){
 }
 function noDataInfo(spid){
   const c=CLIENTS.find(x=>x.spid===spid);
-  if(c&&c.has_data===false)return `<div class="loading"><b style="color:var(--ink)">${c.name} ist verbunden, hat aber noch keine Daten.</b><br><br>Die SQP-Daten werden nach dem Verbinden automatisch abgerufen (spätestens beim wöchentlichen Abruf am Montag).<br>Für die volle Historie sofort: Backfill durchs Team anstoßen.</div>`;
-  return null;
+  if(!(c&&c.has_data===false))return null;
+  setTimeout(()=>ndLoad(spid),50);
+  return `<div class="loading"><b style="color:var(--ink);font-size:16px;">${c.name} ist verbunden — die Daten wurden noch nicht geladen.</b><div id="ndstatus" style="margin-top:16px;">Prüfe Status…</div></div>`;
+}
+async function ndLoad(spid){
+  const el=document.getElementById('ndstatus'); if(!el)return;
+  let s=null; try{s=await (await fetch(`${API}/status?spid=${spid}`)).json();}catch(e){}
+  if(!s||s.error){el.textContent='Status derzeit nicht abrufbar.';return;}
+  if(s.rows>0){refreshAll();return;} // erste Daten da -> Ansicht neu laden
+  const bar=(d,t,l)=>`<div style="margin:8px auto;max-width:340px;text-align:left;font-size:13px;">${l}: <b>${d}/${t}</b><div style="height:8px;border-radius:99px;background:var(--line);margin-top:4px;"><div style="height:8px;border-radius:99px;background:var(--accent);width:${t?Math.round(100*d/t):0}%"></div></div></div>`;
+  const hhmm=x=>new Date(x).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  let jobHtml=''; const j=s.job;
+  if(!j||j.status==='done'||j.status==='error'){
+    jobHtml=`<button style="border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:999px;margin-top:16px;box-shadow:var(--shadow);" onclick="ndStart('${spid}')">Daten jetzt laden (12 Monate + 12 Wochen)</button>`;
+  }else if(j.status==='queued'){
+    jobHtml=`<div style="margin-top:14px;">⏳ <b style="color:var(--ink)">In der Warteschlange</b> (seit ${hhmm(j.requested_at)} Uhr) — startet automatisch, sobald der Lade-Dienst frei ist.</div>`;
+  }else if(j.status==='running'){
+    jobHtml=`<div style="margin-top:14px;">🔄 <b style="color:var(--ink)">Lädt gerade…</b> (seit ${hhmm(j.started_at)} Uhr). Amazon begrenzt das Tempo — die volle Historie dauert ca. 2–4 Std. Die Balken füllen sich laufend, erste Zahlen erscheinen automatisch.</div>`;
+  }
+  el.innerHTML=bar(s.months_done,s.months_total,'Monate')+bar(s.weeks_done,s.weeks_total,'Wochen')+jobHtml;
+  clearTimeout(window._ndT); window._ndT=setTimeout(()=>ndLoad(spid),60000);
+}
+async function ndStart(spid){
+  try{await fetch(`${API}/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid})});}catch(e){}
+  ndLoad(spid);
 }
 async function onClient(){
   const spid=document.getElementById('clientSel').value;
