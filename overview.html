@@ -147,7 +147,7 @@ async function ndLoad(spid){
   const hhmm=x=>new Date(x).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
   let jobHtml=''; const j=s.job;
   if(!j||j.status==='done'||j.status==='error'){
-    jobHtml=`<button style="border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:999px;margin-top:16px;box-shadow:var(--shadow);" onclick="ndStart('${spid}')">Daten jetzt laden (12 Monate + 12 Wochen)</button>`;
+    jobHtml=`<button style="border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:999px;margin-top:16px;box-shadow:var(--shadow);" onclick="ndStart('${spid}')">Alle Daten jetzt laden (SQP + PPC)</button>`;
   }else if(j.status==='queued'){
     jobHtml=`<div style="margin-top:14px;">⏳ <b style="color:var(--ink)">In der Warteschlange</b> (seit ${hhmm(j.requested_at)} Uhr) — startet automatisch, sobald der Lade-Dienst frei ist.</div>`;
   }else if(j.status==='running'){

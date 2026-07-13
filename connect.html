@@ -98,8 +98,8 @@
         <div class="card">
             <h2>Verbundene Kunden (Live-API)</h2>
             <table>
-                <thead><tr><th>Kunde</th><th>Marktplatz</th><th>Seller (SP-API)</th><th>Ads-Profil</th></tr></thead>
-                <tbody id="clientsBody"><tr><td colspan="4" class="empty">Lade…</td></tr></tbody>
+                <thead><tr><th>Kunde</th><th>Marktplatz</th><th>Seller (SP-API)</th><th>Ads-Profil</th><th>Daten</th></tr></thead>
+                <tbody id="clientsBody"><tr><td colspan="5" class="empty">Lade…</td></tr></tbody>
             </table>
         </div>
 
@@ -144,10 +144,9 @@
                 <div class="step-num">4</div>
                 <div class="step-body">
                     <div class="step-title">Speichern</div>
-                    <div class="step-hint">Verknüpft Kunde ↔ Seller ↔ Ads-Profil. Danach den Backfill anstoßen (siehe Hinweis).</div>
-                    <button class="btn primary" id="saveBtn" onclick="saveClient()">Verbindung speichern</button>
+                    <div class="step-hint">Verknüpft Kunde ↔ Seller ↔ Ads-Profil und startet den Datenimport (SQP + PPC) automatisch.</div>
+                    <button class="btn primary" id="saveBtn" onclick="saveClient()">Verbindung speichern &amp; Daten laden</button>
                     <div class="msg" id="saveMsg"></div>
-                    <div class="step-hint" style="margin-top:12px;">Nach dem Speichern: der Datenimport (12 Monate SQP) wird angestoßen — aktuell manuell durch das Team. Der automatische Nacht-Job folgt.</div>
                 </div>
             </div>
         </div>
@@ -169,10 +168,11 @@ const esc=s=>(s==null?'':String(s)).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;',
 async function loadConnected(){
   try { const r=await fetch(`${API}/api/sqp/clients`); const j=await r.json(); CONNECTED=j.clients||[]; } catch(e){ CONNECTED=[]; }
   const b=document.getElementById('clientsBody');
-  if(!CONNECTED.length){ b.innerHTML='<tr><td colspan="4" class="empty">Noch keine Kunden per API verbunden.</td></tr>'; return; }
+  if(!CONNECTED.length){ b.innerHTML='<tr><td colspan="5" class="empty">Noch keine Kunden per API verbunden.</td></tr>'; return; }
   b.innerHTML=CONNECTED.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.marketplace||'')}</td>
     <td>${c.spid?`<span class="badge ok">${esc(c.spid)}</span>`:'<span class="badge miss">fehlt</span>'}</td>
-    <td>${c.ads_profile_id?`<span class="badge ok">${esc(c.ads_profile_id)}</span>`:'<span class="badge miss">fehlt</span>'}</td></tr>`).join('');
+    <td>${c.ads_profile_id?`<span class="badge ok">${esc(c.ads_profile_id)}</span>`:'<span class="badge miss">fehlt</span>'}</td>
+    <td>${c.has_data===false?`<button class="btn" id="bf-${esc(c.spid)}" onclick="startBackfill('${esc(c.spid)}')">Daten laden (SQP+PPC)</button>`:'<span class="badge ok">Daten ✓</span>'}</td></tr>`).join('');
 }
 
 async function loadSqprClients(){
@@ -224,10 +224,21 @@ async function saveClient(){
     const r=await fetch(`${API}/api/sqp/clients`,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({id,name,marketplace,spid,ads_profile_id:ads})});
     const j=await r.json();
-    if(j.ok){ msg.className='msg ok'; msg.innerHTML=`✅ <b>${esc(name)}</b> verbunden. Erscheint in der Live-Analyse, sobald der Backfill gelaufen ist.`; loadConnected(); }
+    if(j.ok){
+      // Datenimport (SQP + PPC) automatisch einreihen — kein Extra-Schritt nötig
+      let bf=null; try{ bf=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid})})).json(); }catch(e){}
+      const when=bf&&bf.triggered?'Der Import läuft bereits':'Der Import startet automatisch (spätestens heute Nacht)';
+      msg.className='msg ok'; msg.innerHTML=`✅ <b>${esc(name)}</b> verbunden. ${when} — SQP (12 Monate + Wochen) und PPC werden geladen. Fortschritt: Übersicht → Kunde wählen.`;
+      loadConnected();
+    }
     else { msg.className='msg err'; msg.textContent='Fehler: '+JSON.stringify(j); }
   } catch(e){ msg.className='msg err'; msg.textContent='Fehler: '+e.message; }
   btn.disabled=false; btn.textContent='Verbindung speichern';
+}
+async function startBackfill(spid){
+  const btn=document.getElementById('bf-'+spid); if(btn){btn.disabled=true;btn.textContent='reihe ein…';}
+  let j=null; try{ j=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid})})).json(); }catch(e){}
+  if(btn){ btn.textContent=j&&j.ok?(j.triggered?'läuft ✓':'eingereiht ✓ (startet automatisch)'):'Fehler'; }
 }
 
 (async function init(){
