@@ -17,19 +17,19 @@
             --text-primary: #1f2328;
             --text-secondary: #656d76;
             --text-muted: #8b949e;
-            --accent: #3551FF;
-            --accent-hover: #2a41cc;
-            --error: #cf222e;
-            --success: #1a7f37;
-            --row-border: #d8dee4;
+            --accent: #0EA5A0;
+            --accent-hover: #0c8f8b;
+            --error: #E5484D;
+            --success: #12A150;
+            --row-border: #eef0f2;
             --info-popup-bg: #f0f3f6;
             --info-popup-border: #d0d7de;
             --info-popup-text: #424a53;
             --skeleton-from: #f6f8fa;
             --skeleton-mid: #eef1f5;
             --modal-overlay: rgba(0,0,0,0.3);
-            --chart-grid: #d8dee4;
-            --month-header-bg: #eef1f5;
+            --chart-grid: #eef0f2;
+            --month-header-bg: #f4f5f7;
             --placeholder: #8b949e;
             --code-bg: #f6f8fa;
         }
@@ -43,10 +43,10 @@
             --text-primary: #e6edf3;
             --text-secondary: #8b949e;
             --text-muted: #8b949e;
-            --accent: #3551FF;
-            --accent-hover: #2a44dd;
-            --error: #f85149;
-            --success: #3fb950;
+            --accent: #2DD4BF;
+            --accent-hover: #0EA5A0;
+            --error: #F0616D;
+            --success: #3FB950;
             --row-border: #21262d;
             --info-popup-bg: #1c2333;
             --info-popup-border: #484f58;
@@ -529,6 +529,27 @@
             .topbar { padding: 0 16px; }
             .search-input { width: 100%; }
         }
+
+        /* ===== Premium-Refresh (SUPA-Stil): weiche Karten, teal Akzent, ruhiger Rahmen ===== */
+        body { background: #F6F6F7; }
+        [data-theme="dark"] body { background: #0B0C0E; }
+        .topbar { border-bottom: 1px solid rgba(16,24,40,.05); }
+        [data-theme="dark"] .topbar { border-bottom: 1px solid rgba(255,255,255,.06); }
+        .phead { max-width: 1280px; margin: 0 auto; padding: 24px 32px 2px; }
+        .phead h1 { font-size: 28px; font-weight: 800; letter-spacing: -.035em; line-height: 1.1; }
+        .phead p { color: var(--text-secondary); font-size: 14.5px; margin-top: 6px; letter-spacing: -.01em; }
+        .kpi-card, .table-section, .trend-section {
+            border: none !important; border-radius: 20px !important; background: #ffffff;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.05) !important;
+        }
+        [data-theme="dark"] .kpi-card, [data-theme="dark"] .table-section, [data-theme="dark"] .trend-section {
+            background: #161819; box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.4) !important;
+        }
+        .kpi-card { transition: transform .12s, box-shadow .12s; }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 2px 6px rgba(16,24,40,.06), 0 12px 32px rgba(16,24,40,.09) !important; }
+        .kpi-value { font-weight: 800 !important; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+        .kpi-diff, .table-count, .kpi-label { font-variant-numeric: tabular-nums; }
+        .btn-theme-toggle, .btn-logout, .table-view-btn, .table-view-toggle { border-radius: 999px !important; }
     </style>
 </head>
 <body>
@@ -554,6 +575,7 @@
     </div>
 
     <!-- Main Content -->
+    <div class="phead"><h1>Marken-Analyse</h1><p>Wie deine Marke bei den wichtigsten Suchbegriffen abschneidet — Anteile, Bewegungen und PPC-Abdeckung.</p></div>
     <div class="main" id="app">
         <div id="loadingState">
             <div class="skeleton-wrap">
