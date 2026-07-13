@@ -125,7 +125,7 @@ async function jget(url,ck){let raw=cGet(ck);if(!raw){raw=await fetch(url).then(
 function refreshAll(){try{Object.keys(sessionStorage).filter(k=>k.startsWith('sqpc_')).forEach(k=>sessionStorage.removeItem(k));}catch(e){}onClient();}
 
 async function boot(){
-  try{CLIENTS=(await jget(`${API}/clients`,'clients')).clients||[];}catch(e){}
+  try{CLIENTS=(await jget(`${API}/clients`,'clients_v2')).clients||[];}catch(e){}
   if(!CLIENTS.length){document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>';return;}
   // Kunden mit Daten zuerst; ohne Daten markieren
   CLIENTS.sort((a,b)=>(b.has_data!==false)-(a.has_data!==false)||a.name.localeCompare(b.name));
