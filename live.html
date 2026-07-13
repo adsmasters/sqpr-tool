@@ -904,7 +904,7 @@
             reports = reportData || [];
 
             if (reports.length === 0) {
-                app.innerHTML = `<div class="empty-state"><h2>Keine Reports für ${client.name}</h2><p><a href="upload.html">Report hochladen →</a></p></div>`;
+                app.innerHTML = `<div class="empty-state"><h2>Noch keine Live-Daten für ${client.name}</h2><p style="color:var(--text-secondary);margin-bottom:10px;">Dieser Kunde ist noch nicht per Amazon-API verbunden (oder die Daten werden noch geladen).</p><p><a href="connect.html">Kunde per API verbinden →</a></p></div>`;
                 return;
             }
 
