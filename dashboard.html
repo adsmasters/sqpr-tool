@@ -561,6 +561,26 @@
         [data-theme="dark"] .topbar-nav a:hover,[data-theme="dark"] .topbar-nav a.active{background:#161819!important;}
         .btn-theme-toggle,.btn-logout{border:1px solid rgba(16,24,40,.08)!important;background:#fff!important;border-radius:999px!important;color:var(--text-secondary)!important;}
         [data-theme="dark"] .btn-theme-toggle,[data-theme="dark"] .btn-logout{background:#161819!important;border-color:rgba(255,255,255,.1)!important;}
+
+        /* ===== Gruppen-Navigation mit Dropdown ===== */
+        .mainnav{display:flex;align-items:center;gap:2px;font-family:inherit;}
+        .mainnav > a,.navtrigger{color:#6B7177;text-decoration:none;font-size:13px;font-weight:500;padding:7px 12px;border-radius:999px;cursor:pointer;border:none;background:transparent;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:inherit;}
+        .mainnav > a:hover,.navtrigger:hover{color:#17181A;background:#fff;}
+        .mainnav > a.active,.navgroup.active > .navtrigger{color:#17181A;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.05),0 3px 8px rgba(16,24,40,.07);font-weight:600;}
+        .navtrigger .cx{font-size:9px;opacity:.6;}
+        .navgroup{position:relative;}
+        .navmenu{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;box-shadow:0 6px 28px rgba(16,24,40,.14);border-radius:14px;padding:6px;min-width:200px;display:none;z-index:400;}
+        .navgroup:hover .navmenu{display:block;}
+        .navmenu::before{content:"";position:absolute;bottom:100%;left:0;right:0;height:8px;}
+        .navmenu a{display:block;padding:9px 12px;border-radius:9px;color:#3F444A;text-decoration:none;font-size:13.5px;font-weight:500;white-space:nowrap;}
+        .navmenu a:hover{background:#F1F2F4;color:#17181A;}
+        .navmenu a.active{color:#0EA5A0;font-weight:700;}
+        [data-theme="dark"] .mainnav > a,[data-theme="dark"] .navtrigger{color:#9AA0A6;}
+        [data-theme="dark"] .mainnav > a:hover,[data-theme="dark"] .navtrigger:hover,[data-theme="dark"] .mainnav > a.active,[data-theme="dark"] .navgroup.active > .navtrigger{background:#161819;color:#F2F3F5;}
+        [data-theme="dark"] .navmenu{background:#161819;box-shadow:0 6px 28px rgba(0,0,0,.55);}
+        [data-theme="dark"] .navmenu a{color:#C9CED4;}
+        [data-theme="dark"] .navmenu a:hover{background:#21262d;color:#fff;}
+        [data-theme="dark"] .navmenu a.active{color:#2DD4BF;}
 </style>
 </head>
 <body>
@@ -568,7 +588,7 @@
     <div class="topbar">
         <div class="topbar-left">
             <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
-            <nav class="topbar-nav"><a href="overview.html">Übersicht</a><a href="analyse.html">Deep-Dive</a><a href="dashboard.html" class="active">Marken-Analyse</a><a href="live.html">Live-Analyse</a><a href="asin-live.html">ASIN-Live</a><a href="asin.html">ASIN-Analyse</a><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a><a href="upload.html">Upload</a><a href="help.html">Hilfe</a></nav>
+            <div class="mainnav"><div class="navgroup"><button class="navtrigger">API-Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="overview.html">Übersicht</a><a href="analyse.html">Deep-Dive</a><a href="live.html">Live-Analyse</a><a href="asin-live.html">ASIN-Live</a></div></div><div class="navgroup active"><button class="navtrigger">Manuelle Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="dashboard.html" class="active">Marken-Analyse</a><a href="asin.html">ASIN-Analyse</a><a href="upload.html">Upload</a></div></div><div class="navgroup"><button class="navtrigger">Kunden<span class="cx">▾</span></button><div class="navmenu"><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a></div></div><a href="help.html">Hilfe</a></div>
         </div>
         <div class="topbar-right">
             <button class="btn-theme-toggle" id="themeToggle" title="Theme wechseln" onclick="toggleTheme()">&#9789;</button>
