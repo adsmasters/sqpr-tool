@@ -165,13 +165,13 @@ let CONNECTED_SELLERS=[];
 
 async function loadAdsProfiles(){
   const sel=document.getElementById('adsSelect');
-  try { const r=await fetch(`${API}/api/ads/profiles`); const j=await r.json(); ADS_PROFILES=j.profiles||[]; }
+  try { const r=await fetch(`${API}/api/ads/profiles`); const j=await r.json(); ADS_PROFILES=(j.profiles||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||'',undefined,{sensitivity:'base'})||(a.countryCode||'').localeCompare(b.countryCode||'')); }
   catch(e){ ADS_PROFILES=[]; sel.innerHTML='<option value="">Fehler beim Laden</option>'; return; }
   renderAdsOptions();
 }
 function renderAdsOptions(){
   const f=(document.getElementById('adsFilter').value||'').toLowerCase();
-  const list=ADS_PROFILES.filter(p=>!f || (`${p.name} ${p.countryCode} ${p.profileId}`).toLowerCase().includes(f)).slice(0,300);
+  const list=ADS_PROFILES.filter(p=>!f || (`${p.name} ${p.countryCode} ${p.profileId}`).toLowerCase().includes(f)).slice(0,1500);
   const sel=document.getElementById('adsSelect');
   const cur=sel.value;
   sel.innerHTML='<option value="">— Ads-Profil wählen —</option>'+list.map(p=>
