@@ -32,7 +32,7 @@
   .nav a:hover{color:var(--ink);background:var(--card);}
   .nav a.active{color:var(--ink);background:var(--card);box-shadow:var(--shadow);}
   .icon-btn{width:36px;height:36px;border-radius:999px;border:none;background:var(--card);box-shadow:var(--shadow);color:var(--muted);cursor:pointer;font-size:16px;}
-  .wrap{max-width:1180px;margin:0 auto;padding:12px 40px 80px;}
+  .wrap{max-width:1280px;margin:0 auto;padding:12px 40px 80px;}
   .phead{margin:10px 2px 20px;}
   .phead h1{font-size:28px;font-weight:800;letter-spacing:-.035em;line-height:1.1;}
   .phead p{color:var(--muted);font-size:14.5px;margin-top:6px;letter-spacing:-.01em;}
@@ -61,11 +61,12 @@
   .thead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
   .search{border:none;background:var(--bg);border-radius:12px;padding:10px 14px;font-size:13.5px;color:var(--ink);width:240px;}
   .search::placeholder{color:var(--faint);}
-  .tbl{width:100%;border-collapse:collapse;font-size:13.5px;}
-  .tbl th{text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;padding:0 12px 12px;cursor:pointer;white-space:nowrap;}
+  .tblwrap{overflow-x:auto;margin:0 -8px;padding:0 8px;} /* Tabelle bleibt IN der Karte — nie mehr rechts rauslaufen */
+  .tbl{width:100%;border-collapse:collapse;font-size:13px;}
+  .tbl th{text-align:right;font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.02em;padding:0 8px 10px;cursor:pointer;white-space:nowrap;}
   .tbl th:first-child{text-align:left;}
-  .tbl td{text-align:right;padding:13px 12px;border-top:1px solid var(--line);white-space:nowrap;}
-  .tbl td:first-child{text-align:left;font-weight:600;max-width:300px;overflow:hidden;text-overflow:ellipsis;}
+  .tbl td{text-align:right;padding:9px 8px;border-top:1px solid var(--line);white-space:nowrap;width:1%;} /* Zahlenspalten kompakt am Inhalt */
+  .tbl td:first-child{text-align:left;font-weight:600;max-width:280px;width:auto;overflow:hidden;text-overflow:ellipsis;}
   .tbl tr:hover td{background:var(--bg);}
   .cell{display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px;}
   .cell .cd{font-size:11px;font-weight:650;} .cd.up{color:var(--up);} .cd.down{color:var(--down);} .cd.flat{color:var(--faint);}
@@ -352,8 +353,8 @@ function render(){
         </select>
         <button class="chip" id="benchBtn" style="background:var(--accent-soft);color:var(--accent);" onclick="loadBench()">${hasBench?'💡 Benchmarks aktualisieren':'💡 Benchmark-CPCs laden'}</button>
         <input class="search" id="tsearch" placeholder="Filtern…" oninput="render()" value="${flt}"></div></div>
-      <table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Käufe</th><th>Click-Share</th><th>Purchase-Share</th><th title="Käufe × Median-Verkaufspreis (SQP-Näherung) · darunter TACoS = Ad-Spend ÷ Gesamtumsatz">Umsatz gesamt*</th><th>Ad-Spend${adSuf}</th><th>Ad-Sales${adSuf}</th><th title="Ad-Sales ÷ Ad-Spend · darunter eigener CPC">ROAS</th>${hasBench?'<th title="Amazons Gebotsempfehlung (Exact) · darunter Spanne — rot = eigener CPC liegt unter der Markt-Spanne">Benchmark-CPC</th>':''}<th style="text-align:right">PPC</th></tr></thead>
-      <tbody>${body||`<tr><td colspan="${hasBench?11:10}" class="loading">keine Treffer</td></tr>`}</tbody></table>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Käufe</th><th>Click-Share</th><th>Purchase-Share</th><th title="Käufe × Median-Verkaufspreis (SQP-Näherung) · darunter TACoS = Ad-Spend ÷ Gesamtumsatz">Umsatz gesamt*</th><th>Ad-Spend${adSuf}</th><th>Ad-Sales${adSuf}</th><th title="Ad-Sales ÷ Ad-Spend · darunter eigener CPC">ROAS</th>${hasBench?'<th title="Amazons Gebotsempfehlung (Exact) · darunter Spanne — rot = eigener CPC liegt unter der Markt-Spanne">Benchmark-CPC</th>':''}<th style="text-align:right">PPC</th></tr></thead>
+      <tbody>${body||`<tr><td colspan="${hasBench?11:10}" class="loading">keine Treffer</td></tr>`}</tbody></table></div>
     </div>`;
   draw();
 }
