@@ -148,11 +148,13 @@ function toggleTheme(){var c=document.documentElement.getAttribute('data-theme')
 function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index.html');}
 
 const API='https://ppc-callback.vercel.app/api/sqp';
+const API_ADS='https://ppc-callback.vercel.app/api/ads';
 const ASIN_NAMES={B004EDA8HE:'Immun Tonicum Hund',B004EDSTZW:'Herz Tonicum Hund',B004EDSU7E:'Gelenk Hund',B08T6JP93J:'Gelenk Forte Hund',B004EDL20Q:'Immun Katze',B004EDDV00:'Immun Katze (2)',B004EDP2IY:'Herz Tonicum Katze',B004EDQRX8:'Nieren Tonicum Katze',B004EDMYG2:'Nieren Tonicum Katze (2)',B007UOST0W:'Renaltan Tonicum Katze',B07S2MT9L1:'Recovery Immun Katze',B08T6J9TVL:'Recovery Immun Katze (2)',B07RZG9QRT:'Recovery Renal Katze',B08T6G2K86:'Recovery Renal Katze 280ml',B0DMT8HD4N:'Immun Hund'};
 const norm=s=>(s||'').toLowerCase().replace(/\s+/g,' ').trim();
 const fmt=(x,d=1)=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmtInt=x=>x==null||isNaN(x)?'–':Math.round(+x).toLocaleString('de-DE');
 let META={}; // asin -> Titel (aus sqp_asin_meta, alle Kunden)
+let SKUMAP={}; // asin -> SKU (fuer Bulk-Sheet & API-Kampagnen)
 const pname=a=>{const t=META[a]||ASIN_NAMES[a];return t?(t.length>52?t.slice(0,50)+'…':t):a;};
 const asinLabel=a=>(META[a]||ASIN_NAMES[a])?`${pname(a)} · ${a}`:a;
 let GRAN='MONTH';
@@ -192,7 +194,7 @@ async function onClient(){
     fetch(`${API}/asin-meta?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
   ]);
   sqpRows=sqp.rows||[]; ppcRows=ppc.rows||[];
-  META={}; for(const m of (meta.rows||[])) if(m.title) META[m.asin]=m.title;
+  META={}; SKUMAP={}; for(const m of (meta.rows||[])){ if(m.title) META[m.asin]=m.title; if(m.sku) SKUMAP[m.asin]=m.sku; }
   ppcByAsin=new Map();
   for(const r of ppcRows){ if(!ppcByAsin.has(r.asin))ppcByAsin.set(r.asin,new Map()); ppcByAsin.get(r.asin).set(norm(r.search_term),{clicks:+r.clicks||0,cost:+r.cost||0,purch:+r.purchases7d||0,sales:+r.sales7d||0}); }
   MONTHS=[...new Set(sqpRows.map(r=>r.start_date))].sort();
@@ -256,6 +258,28 @@ function toggle(q){ checked.has(q)?checked.delete(q):checked.add(q); const el=do
 function toggleGapsOnly(v){ gapsOnly=v; render(); }
 function toggleAllGaps(v){ const gaps=currentRows().filter(r=>!r.covered).map(r=>r.q); if(v)gaps.forEach(q=>checked.add(q)); else gaps.forEach(q=>checked.delete(q)); render(); }
 
+/* ---------- Direkt-Anlage per Ads-API ---------- */
+async function apiCreate(asin){
+  const box=document.getElementById('apiMsg');
+  const show=(ok,html)=>{box.style.display='block';box.style.background=ok?'rgba(18,161,80,.12)':'rgba(229,72,77,.12)';box.style.color=ok?'var(--success)':'var(--error)';box.innerHTML=html;};
+  const kws=[...checked]; if(!kws.length){show(false,'Keine Keywords ausgewählt.');return;}
+  const matchTypes=[['mE','EXACT'],['mP','PHRASE'],['mB','BROAD']].filter(([id])=>document.getElementById(id).checked).map(([,m])=>m);
+  if(!matchTypes.length){show(false,'Mindestens einen Match Type wählen.');return;}
+  const spid=document.getElementById('clientSelect').value;
+  const name=(document.getElementById('bCamp').value.trim())||`SP_Gap_${asin}`;
+  const bid=+document.getElementById('bBid').value||0.5;
+  const budget=+document.getElementById('bBudget').value||10;
+  const total=kws.length*matchTypes.length;
+  if(!confirm(`Kampagne "${name}" jetzt PAUSIERT im Kunden-Konto anlegen?\n\n${kws.length} Begriffe × ${matchTypes.join('/')} = ${total} Keywords · Bid ${bid.toFixed(2)} € · Budget ${budget} €/Tag\n\nAktivierung danach manuell in der Ads-Konsole.`))return;
+  show(true,'⏳ Lege Kampagne an…');
+  try{
+    const r=await fetch(`${API_ADS}/create-campaign`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,asin,keywords:kws,matchTypes,name,bid,budget})});
+    const j=await r.json();
+    if(j.ok){ show(true,`✅ Kampagne <b>${name}</b> pausiert angelegt (ID ${j.campaignId}) · ${j.keywordsCreated} Keywords${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen`:''} · SKU ${j.sku}.<br>Zum Aktivieren: Ads-Konsole → Kampagne prüfen → Status auf Aktiv.`); }
+    else { show(false,'❌ Fehler'+(j.step?` (Schritt ${j.step})`:'')+': '+(typeof j.error==='string'?j.error:JSON.stringify(j.error||{}).slice(0,250))); }
+  }catch(e){ show(false,'❌ Fehler: '+e.message); }
+}
+
 /* ---------- Bulk-Sheet ---------- */
 let bsType='seller';
 function openBulk(){
@@ -265,13 +289,15 @@ function openBulk(){
   ov.innerHTML=`<div class="modal">
     <h3>Bulk-Sheet — ${checked.size} Keywords · ${asin}</h3>
     <div class="bs-toggle"><button id="tS" class="active" onclick="setBsType('seller')">Seller (SKU)</button><button id="tV" onclick="setBsType('vendor')">Vendor (ASIN)</button></div>
-    <div class="bs-field" id="fSku"><label>SKU</label><input type="text" id="bSku" placeholder="z.B. 3000011025"></div>
+    <div class="bs-field" id="fSku"><label>SKU</label><input type="text" id="bSku" value="${SKUMAP[asin]||''}" placeholder="z.B. 3000011025"></div>
     <div class="bs-field" id="fAsin" style="display:none;"><label>ASIN</label><input type="text" id="bAsin" value="${asin}"></div>
     <div class="bs-field"><label>Kampagnenname</label><input type="text" id="bCamp" placeholder="SP_Gap_${asin}"></div>
     <div class="bs-field"><label>Ad Group Name</label><input type="text" id="bAg" value="AG_${asin}"></div>
     <div class="bs-field"><label>Match Types</label><div class="bs-match-types"><label><input type="checkbox" id="mE" checked> Exact</label><label><input type="checkbox" id="mP"> Phrase</label><label><input type="checkbox" id="mB"> Broad</label></div></div>
     <div class="bs-field"><label>Default Bid (€)</label><input type="number" id="bBid" value="0.50" step="0.01" min="0.02"></div>
-    <div class="bs-actions"><button class="btn" onclick="document.getElementById('ov').remove()">Abbrechen</button><button class="btn" onclick="bulkCsv('${asin}')">⬇ CSV</button><button class="btn btn-primary" onclick="bulkXlsx('${asin}')">📄 Bulk-Sheet (.xlsx)</button></div>
+    <div class="bs-field"><label>Tagesbudget (€) — für Direkt-Anlage</label><input type="number" id="bBudget" value="10" step="1" min="1"></div>
+    <div class="bs-actions"><button class="btn" onclick="document.getElementById('ov').remove()">Abbrechen</button><button class="btn" onclick="bulkCsv('${asin}')">⬇ CSV</button><button class="btn" onclick="bulkXlsx('${asin}')">📄 Bulk-Sheet (.xlsx)</button><button class="btn btn-primary" onclick="apiCreate('${asin}')">🚀 Direkt anlegen (API, pausiert)</button></div>
+    <div class="msg" id="apiMsg" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;"></div>
   </div>`;
   document.body.appendChild(ov); ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
 }
