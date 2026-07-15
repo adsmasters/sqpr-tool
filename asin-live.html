@@ -261,7 +261,7 @@ function render(){
       </table></div>
       <div class="actionbar">
         <span style="font-size:13px;color:var(--text-secondary);"><b id="chkCount">${checked.size}</b> Lücken ausgewählt</span>
-        <button class="btn btn-primary" onclick="openBulk()">📄 Bulk-Sheet aus Auswahl erstellen</button>
+        <button class="btn btn-primary" onclick="openBulk()">🚀 Auswahl einbuchen (API · neue oder bestehende Kampagne)</button>
         <button class="btn" onclick="checked=new Set();render()">Auswahl leeren</button>
       </div>
     </div>`;
@@ -359,7 +359,8 @@ function openBulk(){
   if(!checked.size){ alert('Bitte zuerst Lücken auswählen (Checkboxen).'); return; }
   const ov=document.createElement('div'); ov.className='ov'; ov.id='ov';
   ov.innerHTML=`<div class="modal">
-    <h3>Bulk-Sheet — ${checked.size} Keywords · ${asin}</h3>
+    <h3>Keywords einbuchen — ${checked.size} ausgewählt · ${asin}</h3>
+    <div style="font-size:12px;color:var(--text-secondary);margin:-8px 0 12px;">Direkt per API in eine neue oder bestehende Kampagne — oder klassisch als Bulk-Sheet exportieren.</div>
     <div class="bs-toggle"><button id="tS" class="active" onclick="setBsType('seller')">Seller (SKU)</button><button id="tV" onclick="setBsType('vendor')">Vendor (ASIN)</button></div>
     <div class="bs-field" id="fSku"><label>SKU</label><input type="text" id="bSku" value="${SKUMAP[asin]||''}" placeholder="z.B. 3000011025"></div>
     <div class="bs-field" id="fAsin" style="display:none;"><label>ASIN</label><input type="text" id="bAsin" value="${asin}"></div>
