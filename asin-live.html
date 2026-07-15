@@ -259,6 +259,24 @@ function toggleGapsOnly(v){ gapsOnly=v; render(); }
 function toggleAllGaps(v){ const gaps=currentRows().filter(r=>!r.covered).map(r=>r.q); if(v)gaps.forEach(q=>checked.add(q)); else gaps.forEach(q=>checked.delete(q)); render(); }
 
 /* ---------- Direkt-Anlage per Ads-API ---------- */
+let KWBIDS={}; // "keyword|MATCHTYPE" -> Gebot (aus Amazon-Vorschlägen)
+async function loadBids(asin){
+  const info=document.getElementById('bidInfo');
+  const kws=[...checked]; if(!kws.length){info.textContent='Erst Keywords auswählen.';return;}
+  const matchTypes=[['mE','EXACT'],['mP','PHRASE'],['mB','BROAD']].filter(([id])=>document.getElementById(id).checked).map(([,m])=>m);
+  if(!matchTypes.length){info.textContent='Erst Match Type wählen.';return;}
+  info.textContent='⏳ Hole Vorschläge von Amazon…';
+  try{
+    const r=await fetch(`${API_ADS}/bid-recommendations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid:document.getElementById('clientSelect').value,asin,keywords:kws,matchTypes})});
+    const j=await r.json();
+    if(!j.ok||!j.count){info.textContent='Keine Vorschläge erhalten'+(j.errors&&j.errors.length?' ('+(j.errors[0].detail||j.errors[0].status)+')':'')+'.';return;}
+    KWBIDS={}; const vals=[];
+    for(const [k,v] of Object.entries(j.bids)){ KWBIDS[k]=v.bid; vals.push(v.bid); }
+    vals.sort((a,b)=>a-b); const med=vals[Math.floor(vals.length/2)];
+    document.getElementById('bBid').value=med.toFixed(2);
+    info.innerHTML=`✅ <b>${j.count}</b> Vorschläge übernommen (je Keyword individuell) · Spanne ${vals[0].toFixed(2)}–${vals[vals.length-1].toFixed(2)} € · Median ${med.toFixed(2)} €`;
+  }catch(e){info.textContent='Fehler: '+e.message;}
+}
 async function apiCreate(asin){
   const box=document.getElementById('apiMsg');
   const show=(ok,html)=>{box.style.display='block';box.style.background=ok?'rgba(18,161,80,.12)':'rgba(229,72,77,.12)';box.style.color=ok?'var(--success)':'var(--error)';box.innerHTML=html;};
@@ -273,7 +291,7 @@ async function apiCreate(asin){
   if(!confirm(`Kampagne "${name}" jetzt PAUSIERT im Kunden-Konto anlegen?\n\n${kws.length} Begriffe × ${matchTypes.join('/')} = ${total} Keywords · Bid ${bid.toFixed(2)} € · Budget ${budget} €/Tag\n\nAktivierung danach manuell in der Ads-Konsole.`))return;
   show(true,'⏳ Lege Kampagne an…');
   try{
-    const r=await fetch(`${API_ADS}/create-campaign`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,asin,keywords:kws,matchTypes,name,bid,budget})});
+    const r=await fetch(`${API_ADS}/create-campaign`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,asin,keywords:kws,matchTypes,name,bid,budget,keywordBids:KWBIDS})});
     const j=await r.json();
     if(j.ok){ show(true,`✅ Kampagne <b>${name}</b> pausiert angelegt (ID ${j.campaignId}) · ${j.keywordsCreated} Keywords${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen`:''} · SKU ${j.sku}.<br>Zum Aktivieren: Ads-Konsole → Kampagne prüfen → Status auf Aktiv.`); }
     else { show(false,'❌ Fehler'+(j.step?` (Schritt ${j.step})`:'')+': '+(typeof j.error==='string'?j.error:JSON.stringify(j.error||{}).slice(0,250))); }
@@ -283,6 +301,7 @@ async function apiCreate(asin){
 /* ---------- Bulk-Sheet ---------- */
 let bsType='seller';
 function openBulk(){
+  KWBIDS={}; // frische Auswahl = frische Gebotsvorschläge
   const asin=document.getElementById('asinSelect').value;
   if(!checked.size){ alert('Bitte zuerst Lücken auswählen (Checkboxen).'); return; }
   const ov=document.createElement('div'); ov.className='ov'; ov.id='ov';
@@ -294,7 +313,9 @@ function openBulk(){
     <div class="bs-field"><label>Kampagnenname</label><input type="text" id="bCamp" placeholder="SP_Gap_${asin}"></div>
     <div class="bs-field"><label>Ad Group Name</label><input type="text" id="bAg" value="AG_${asin}"></div>
     <div class="bs-field"><label>Match Types</label><div class="bs-match-types"><label><input type="checkbox" id="mE" checked> Exact</label><label><input type="checkbox" id="mP"> Phrase</label><label><input type="checkbox" id="mB"> Broad</label></div></div>
-    <div class="bs-field"><label>Default Bid (€)</label><input type="number" id="bBid" value="0.50" step="0.01" min="0.02"></div>
+    <div class="bs-field"><label>Default Bid (€)</label><input type="number" id="bBid" value="0.50" step="0.01" min="0.02">
+      <div style="margin-top:8px;"><button class="btn" onclick="loadBids('${asin}')">💡 Amazon-Gebotsvorschläge laden</button></div>
+      <div id="bidInfo" style="font-size:12px;color:var(--text-secondary);margin-top:6px;"></div></div>
     <div class="bs-field"><label>Tagesbudget (€) — für Direkt-Anlage</label><input type="number" id="bBudget" value="10" step="1" min="1"></div>
     <div class="bs-actions"><button class="btn" onclick="document.getElementById('ov').remove()">Abbrechen</button><button class="btn" onclick="bulkCsv('${asin}')">⬇ CSV</button><button class="btn" onclick="bulkXlsx('${asin}')">📄 Bulk-Sheet (.xlsx)</button><button class="btn btn-primary" onclick="apiCreate('${asin}')">🚀 Direkt anlegen (API, pausiert)</button></div>
     <div class="msg" id="apiMsg" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;"></div>
