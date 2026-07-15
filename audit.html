@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQPR Tool — PPC-Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F6F6F7;--card:#FFFFFF;--ink:#17181A;--muted:#6B7177;--faint:#A0A5AB;--line:#ECEDEF;--accent:#0EA5A0;
+    --up:#12A150;--down:#E5484D;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 4px 12px rgba(16,24,40,.05);--shadow-lg:0 2px 6px rgba(16,24,40,.06),0 12px 32px rgba(16,24,40,.09);}
+  [data-theme="dark"]{--bg:#0B0C0E;--card:#161819;--ink:#F2F3F5;--muted:#9AA0A6;--faint:#6B7177;--line:#26292E;--accent:#2DD4BF;
+    --up:#3FB950;--down:#F0616D;--shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.4);--shadow-lg:0 2px 8px rgba(0,0,0,.5),0 14px 36px rgba(0,0,0,.5);}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 40px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.02em;}
+  .brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;}
+  .icon-btn{width:36px;height:36px;border-radius:999px;border:none;background:var(--card);box-shadow:var(--shadow);color:var(--muted);cursor:pointer;font-size:16px;}
+  .wrap{max-width:1240px;margin:0 auto;padding:12px 40px 80px;}
+  .phead{margin:10px 2px 20px;}
+  .phead h1{font-size:28px;font-weight:800;letter-spacing:-.035em;line-height:1.1;}
+  .phead p{color:var(--muted);font-size:14.5px;margin-top:6px;}
+  .pickrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 18px;}
+  .sel{appearance:none;-webkit-appearance:none;background:var(--card);border:none;box-shadow:var(--shadow);color:var(--ink);font-size:15px;font-weight:600;padding:11px 40px 11px 16px;border-radius:14px;cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%239AA0A6' viewBox='0 0 16 16'%3E%3Cpath d='M4.4 7.4l3.4 3.4a.25.25 0 00.35 0l3.4-3.4A.25.25 0 0011.4 7H4.6a.25.25 0 00-.18.43z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;}
+  .btn-go{background:var(--accent);color:#fff;border:none;border-radius:14px;padding:12px 22px;font-size:14.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);font-family:inherit;}
+  .btn-go:hover{filter:brightness(1.05);} .btn-go:disabled{opacity:.55;cursor:default;}
+  .panel{background:var(--card);border-radius:22px;box-shadow:var(--shadow);padding:24px;margin-bottom:22px;}
+  .panel h2{font-size:16.5px;font-weight:750;letter-spacing:-.02em;display:flex;align-items:center;gap:9px;}
+  .panel .ph{color:var(--muted);font-size:12.5px;margin-top:3px;margin-bottom:16px;}
+  .slabel{background:var(--accent);color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;}
+  .kpi{background:var(--bg);border-radius:14px;padding:13px 14px;}
+  .kpi .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:650;margin-bottom:5px;}
+  .kpi .v{font-size:19px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .fmtgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;}
+  .fmtcard{background:var(--bg);border-radius:16px;padding:16px;}
+  .fmtcard h3{font-size:13.5px;font-weight:750;display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .badge{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px;color:#fff;}
+  .badge.sp{background:#0EA5A0;} .badge.sb{background:#7C3AED;} .badge.sd{background:#EA580C;}
+  .fstats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+  .fs .l{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:650;} .fs .v{font-size:14px;font-weight:750;font-variant-numeric:tabular-nums;margin-top:2px;}
+  .tblwrap{overflow-x:auto;}
+  .tbl{width:100%;border-collapse:collapse;font-size:13px;}
+  .tbl th{text-align:right;font-size:10.5px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.02em;padding:0 8px 9px;white-space:nowrap;}
+  .tbl th:first-child{text-align:left;}
+  .tbl td{text-align:right;padding:9px 8px;border-top:1px solid var(--line);white-space:nowrap;width:1%;font-variant-numeric:tabular-nums;}
+  .tbl td:first-child{text-align:left;font-weight:600;max-width:340px;width:auto;overflow:hidden;text-overflow:ellipsis;}
+  .tbl tr:hover td{background:var(--bg);}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;}
+  .pill.chance{background:#E7F7EE;color:var(--up);} .pill.problem{background:#FEECEC;color:var(--down);}
+  [data-theme="dark"] .pill.chance{background:#12291c;} [data-theme="dark"] .pill.problem{background:#3a1f22;}
+  .note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;font-size:12px;color:#1e40af;margin-top:14px;line-height:1.5;}
+  [data-theme="dark"] .note{background:#101b2e;border-color:#1e3a5f;color:#93c5fd;}
+  .prog{max-width:560px;margin:0 auto;}
+  .prog .pstep{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;font-weight:550;}
+  .prog .pstep:last-child{border-bottom:none;}
+  .prog .st{margin-left:auto;font-size:12px;font-weight:700;color:var(--muted);}
+  .prog .st.done{color:var(--up);} .prog .st.err{color:var(--down);}
+  .loading{text-align:center;padding:80px;color:var(--muted);}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;margin:0 auto 14px;}
+  @keyframes s{to{transform:rotate(360deg);}}
+  .hidden{display:none;}
+  /* Nav */
+  .mainnav{display:flex;align-items:center;gap:2px;font-family:inherit;}
+  .mainnav > a,.navtrigger{color:#6B7177;text-decoration:none;font-size:13px;font-weight:500;padding:7px 12px;border-radius:999px;cursor:pointer;border:none;background:transparent;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:inherit;}
+  .mainnav > a:hover,.navtrigger:hover{color:#17181A;background:#fff;}
+  .mainnav > a.active,.navgroup.active > .navtrigger{color:#17181A;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.05),0 3px 8px rgba(16,24,40,.07);font-weight:600;}
+  .navtrigger .cx{font-size:9px;opacity:.6;}
+  .navgroup{position:relative;}
+  .navmenu{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;box-shadow:0 6px 28px rgba(16,24,40,.14);border-radius:14px;padding:6px;min-width:200px;display:none;z-index:400;}
+  .navgroup:hover .navmenu{display:block;}
+  .navmenu::before{content:"";position:absolute;bottom:100%;left:0;right:0;height:8px;}
+  .navmenu a{display:block;padding:9px 12px;border-radius:9px;color:#3F444A;text-decoration:none;font-size:13.5px;font-weight:500;white-space:nowrap;}
+  .navmenu a:hover{background:#F1F2F4;color:#17181A;}
+  .navmenu a.active{color:#0EA5A0;font-weight:700;}
+  [data-theme="dark"] .mainnav > a,[data-theme="dark"] .navtrigger{color:#9AA0A6;}
+  [data-theme="dark"] .mainnav > a:hover,[data-theme="dark"] .navtrigger:hover,[data-theme="dark"] .mainnav > a.active,[data-theme="dark"] .navgroup.active > .navtrigger{background:#161819;color:#F2F3F5;}
+  [data-theme="dark"] .navmenu{background:#161819;box-shadow:0 6px 28px rgba(0,0,0,.55);}
+  [data-theme="dark"] .navmenu a{color:#C9CED4;}
+  [data-theme="dark"] .navmenu a:hover{background:#21262d;color:#fff;}
+  [data-theme="dark"] .navmenu a.active{color:#2DD4BF;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="logo">◑</span> SQPR <span style="color:var(--muted);font-weight:500;">PPC-Audit</span></div>
+    <div class="mainnav"><div class="navgroup active"><button class="navtrigger">API-Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="overview.html">Übersicht</a><a href="analyse.html">Produkt-Detail</a><a href="live.html">Marken-Trend</a><a href="asin-live.html">PPC-Lücken</a><a href="audit.html" class="active">PPC-Audit</a></div></div><div class="navgroup"><button class="navtrigger">Manuelle Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="dashboard.html">Marken-Analyse</a><a href="asin.html">ASIN-Analyse</a><a href="upload.html">Upload</a></div></div><div class="navgroup"><button class="navtrigger">Kunden<span class="cx">▾</span></button><div class="navmenu"><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a></div></div><a href="help.html">Hilfe</a></div>
+    <div style="display:flex;gap:8px;"><button class="icon-btn" onclick="toggleTheme()">◐</button><button class="icon-btn" onclick="logout()">⏻</button></div>
+  </div>
+  <div class="wrap">
+    <div class="phead"><h1>PPC-Audit</h1><p>Konto-Audit über SP, SB und SD — live aus der Amazon Ads API, ohne Bulk-Sheet-Upload.</p></div>
+    <div class="pickrow">
+      <select class="sel" id="clientSel"></select>
+      <select class="sel" id="daysSel"><option value="30">Letzte 30 Tage</option><option value="60">Letzte 60 Tage</option><option value="90">Letzte 90 Tage</option></select>
+      <button class="btn-go" id="goBtn" onclick="startAudit()">🚀 Jetzt PPC-Audit</button>
+      <span id="lastNote" style="font-size:12.5px;color:var(--muted);"></span>
+    </div>
+    <div id="content"><div class="loading">Kunde und Zeitraum wählen, dann <b>Jetzt PPC-Audit</b> klicken.<br><span style="font-size:12px;">Amazon generiert die Berichte on-demand — das dauert typischerweise 2–5 Minuten.</span></div></div>
+  </div>
+<script>
+if(sessionStorage.getItem('sqpr_auth')!=='true')location.replace('index.html');
+function toggleTheme(){var c=document.documentElement.getAttribute('data-theme');var n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('sqpr_theme',n);}
+function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index.html');}
+if(localStorage.getItem('sqpr_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');
+
+const API='https://ppc-callback.vercel.app/api/sqp';
+const API_ADS='https://ppc-callback.vercel.app/api/ads';
+const eur=x=>'€'+(+x||0).toLocaleString('de-DE',{maximumFractionDigits:0});
+const eur2=x=>'€'+(+x||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtInt=x=>(+x||0).toLocaleString('de-DE');
+const fmt2=x=>(+x||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt1=x=>(+x||0).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1});
+const esc=s=>(s==null?'':String(s)).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+let CLIENTS=[],RUN=null; // RUN = {spid,days,reports,timer}
+const REPORT_LABELS={sp_campaigns:'SP Kampagnen',sp_placements:'SP Platzierungen',sp_targeting:'SP Keywords/Targets',sb_campaigns:'SB Kampagnen',sb_search_terms:'SB Suchbegriffe',sd_campaigns:'SD Kampagnen'};
+
+async function boot(){
+  try{ CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[]; }catch(e){ CLIENTS=[]; }
+  CLIENTS=CLIENTS.filter(c=>c.ads_profile_id);
+  CLIENTS.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${esc(c.name)}</option>`).join('');
+  const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid===_saved))document.getElementById('clientSel').value=_saved;
+  // letztes Audit dieses Kunden aus dem Session-Cache?
+  restoreCached();
+  document.getElementById('clientSel').onchange=()=>{try{localStorage.setItem('sqpr_api_spid',document.getElementById('clientSel').value);}catch(e){} restoreCached();};
+}
+function cacheKey(){ return 'audit_'+document.getElementById('clientSel').value+'_'+document.getElementById('daysSel').value; }
+function restoreCached(){
+  let d=null; try{ d=JSON.parse(sessionStorage.getItem(cacheKey())||'null'); }catch(e){}
+  if(d&&d.ready){ renderAudit(d); document.getElementById('lastNote').textContent='(Ergebnis aus dieser Sitzung — für frische Daten neu starten)'; }
+  else { document.getElementById('content').innerHTML='<div class="loading">Kunde und Zeitraum wählen, dann <b>Jetzt PPC-Audit</b> klicken.<br><span style="font-size:12px;">Amazon generiert die Berichte on-demand — das dauert typischerweise 2–5 Minuten.</span></div>'; document.getElementById('lastNote').textContent=''; }
+}
+
+async function startAudit(){
+  const spid=document.getElementById('clientSel').value, days=+document.getElementById('daysSel').value;
+  if(!spid)return;
+  const btn=document.getElementById('goBtn'); btn.disabled=true; btn.textContent='⏳ Berichte angefordert…';
+  document.getElementById('lastNote').textContent='';
+  RUN={spid,days,reports:{},tries:0};
+  renderProgress('Berichte werden bei Amazon angefordert…');
+  // Schritt 1: Reports anlegen (ggf. mehrfach — Amazon drosselt Creates)
+  for(let a=0;a<4;a++){
+    let j=null;
+    try{ j=await (await fetch(`${API_ADS}/audit-start`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,days,existing:RUN.reports})})).json(); }catch(e){}
+    if(j&&j.reports){ for(const[k,v]of Object.entries(j.reports)) if(v)RUN.reports[k]=v; }
+    if(j&&j.complete)break;
+    renderProgress('Amazon drosselt — fordere restliche Berichte an…');
+    await new Promise(r=>setTimeout(r,12000));
+  }
+  const missing=Object.keys(REPORT_LABELS).filter(k=>!RUN.reports[k]);
+  if(Object.keys(RUN.reports).length===0){ document.getElementById('content').innerHTML='<div class="loading">❌ Berichte konnten nicht angefordert werden. Später erneut versuchen.</div>'; btn.disabled=false; btn.textContent='🚀 Jetzt PPC-Audit'; return; }
+  btn.textContent='⏳ Amazon generiert…';
+  pollLoop(missing);
+}
+
+function renderProgress(msg,status){
+  const steps=Object.entries(REPORT_LABELS).map(([k,l])=>{
+    let st='wartet', cls='';
+    if(RUN&&RUN.reports[k]){ st='angefordert'; }
+    if(status&&status[k]==='COMPLETED'){ st='✓ fertig'; cls='done'; }
+    else if(status&&status[k]==='FAILURE'){ st='fehlgeschlagen'; cls='err'; }
+    else if(status&&status[k]){ st=status[k]==='PENDING'||status[k]==='PROCESSING'?'⏳ generiert…':status[k]; }
+    else if(RUN&&!RUN.reports[k]&&status){ st='nicht verfügbar'; cls='err'; }
+    return `<div class="pstep">${l}<span class="st ${cls}">${st}</span></div>`;
+  }).join('');
+  document.getElementById('content').innerHTML=`<div class="panel"><div class="loading" style="padding:30px 0 10px;"><div class="spin"></div>${esc(msg)}</div><div class="prog">${steps}</div>
+    <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:14px;">Du kannst die Seite offen lassen — das Audit erscheint automatisch (typisch 2–5 Min).</div></div>`;
+}
+
+async function pollLoop(missing){
+  const ids=Object.entries(RUN.reports).map(([k,v])=>k+':'+v).join(',');
+  for(let i=0;i<40;i++){
+    let j=null;
+    try{ j=await (await fetch(`${API_ADS}/audit-fetch?spid=${RUN.spid}&ids=${encodeURIComponent(ids)}`)).json(); }catch(e){}
+    if(j&&j.ready){ j.days=RUN.days; try{sessionStorage.setItem(cacheKey(),JSON.stringify(j));}catch(e){}
+      renderAudit(j); const btn=document.getElementById('goBtn'); btn.disabled=false; btn.textContent='🚀 Jetzt PPC-Audit'; return; }
+    renderProgress('Amazon generiert die Berichte…',j&&j.status);
+    await new Promise(r=>setTimeout(r,15000));
+  }
+  document.getElementById('content').innerHTML='<div class="loading">⏱ Amazon braucht ungewöhnlich lange. Seite offen lassen und in ein paar Minuten erneut „Jetzt PPC-Audit" klicken — bereits angeforderte Berichte werden wiederverwendet.</div>';
+  const btn=document.getElementById('goBtn'); btn.disabled=false; btn.textContent='🚀 Jetzt PPC-Audit';
+}
+
+function kpi(l,v){ return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`; }
+function derive(d){ const roas=d.spend>0?d.sales/d.spend:0, acos=d.sales>0?100*d.spend/d.sales:0, cpc=d.clicks>0?d.spend/d.clicks:0, ctr=d.impressions>0?100*d.clicks/d.impressions:0, cvr=d.clicks>0?100*d.orders/d.clicks:0; return {roas,acos,cpc,ctr,cvr}; }
+
+function renderAudit(j){
+  const t=j.totals||{spend:0,sales:0,orders:0,clicks:0,impressions:0};
+  const dv=derive(t);
+  const days=j.days||30;
+  const fmtLabels={SP:'Sponsored Products',SB:'Sponsored Brands',SD:'Sponsored Display'};
+  const badge={SP:'sp',SB:'sb',SD:'sd'};
+  const fs=(l,v)=>`<div class="fs"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+
+  // B: Format-Karten
+  const totalSpend=Object.values(j.formats||{}).reduce((s,d)=>s+d.spend,0)||1;
+  const fmtCards=['SP','SB','SD'].filter(f=>j.formats&&j.formats[f]).map(f=>{
+    const d=j.formats[f], x=derive(d);
+    return `<div class="fmtcard"><h3><span class="badge ${badge[f]}">${f}</span> ${fmtLabels[f]}</h3><div class="fstats">
+      ${fs('Spend',eur(d.spend)+` <span style="font-size:10px;color:var(--muted)">(${fmt1(100*d.spend/totalSpend)}%)</span>`)}
+      ${fs('Sales',eur(d.sales))}${fs('ROAS',fmt2(x.roas))}${fs('ACoS',fmt1(x.acos)+'%')}${fs('Orders',fmtInt(d.orders))}${fs('Klicks',fmtInt(d.clicks))}
+    </div></div>`;
+  }).join('');
+
+  // C: SP Auto vs. Manuell
+  let typeRows='';
+  const typeLabel={auto:'Auto-Kampagnen',manual:'Manuelle Kampagnen',unknown:'Archivierte/Unbekannt'};
+  for(const[k,d]of Object.entries(j.spTypes||{})){
+    const x=derive(d);
+    typeRows+=`<tr><td>${typeLabel[k]||k} <span style="color:var(--muted);font-weight:500;">(${d.campaigns})</span></td><td>${eur(d.spend)}</td><td>${eur(d.sales)}</td><td>${fmt2(x.roas)}</td><td>${fmt1(x.acos)}%</td><td>${fmtInt(d.orders)}</td><td>${fmtInt(d.clicks)}</td><td>${eur2(x.cpc)}</td></tr>`;
+  }
+
+  // D: Platzierungen
+  const plRows=(j.placements||[]).map(p=>{const x=derive(p);
+    return `<tr><td>${esc(p.placement)}</td><td>${fmtInt(p.impressions)}</td><td>${fmtInt(p.clicks)}</td><td>${eur(p.spend)}</td><td>${eur(p.sales)}</td><td>${fmt2(x.roas)}</td><td>${fmt1(x.acos)}%</td><td>${eur2(x.cpc)}</td></tr>`;}).join('');
+
+  // D+: Gebotsanpassungs-Check
+  const baRows=(j.bidAdj||[]).map(b=>`<tr><td>${esc(b.campaign)}</td><td style="text-align:left;">${esc(b.placement)}</td><td>${b.adjustment}%</td><td>${fmt2(b.placRoas)}</td><td>${fmt2(b.campRoas)}</td><td>${eur2(b.spend)}</td><td>${b.verdict==='chance'?'<span class="pill chance">Chance: Anpassung erhöhen</span>':'<span class="pill problem">Problem: Anpassung prüfen</span>'}</td></tr>`).join('');
+
+  // E: Top Targets
+  const tgRows=(j.topTargets||[]).map(r=>{const roas=r.spend>0?r.sales/r.spend:0;
+    return `<tr><td title="${esc(r.campaign)} › ${esc(r.adGroup)}">${esc(r.targeting)}</td><td style="text-align:left;color:var(--muted);">${esc(r.matchType||r.type)}</td><td>${fmtInt(r.impressions)}</td><td>${fmtInt(r.clicks)}</td><td>${eur2(r.spend)}</td><td>${eur2(r.sales)}</td><td>${fmtInt(r.orders)}</td><td>${fmt2(roas)}</td></tr>`;}).join('');
+
+  // F: SB Suchbegriffe
+  const sbRows=(j.sbTerms||[]).map(r=>{const roas=r.spend>0?r.sales/r.spend:0;
+    return `<tr><td>${esc(r.searchTerm)}</td><td style="text-align:left;color:var(--muted);">${esc(r.keyword||'')} ${esc(r.matchType||'')}</td><td>${fmtInt(r.impressions)}</td><td>${fmtInt(r.clicks)}</td><td>${eur2(r.spend)}</td><td>${eur2(r.sales)}</td><td>${fmtInt(r.orders)}</td><td>${fmt2(roas)}</td></tr>`;}).join('');
+
+  // G: SD Kampagnen
+  const sdRows=(j.sdCampaigns||[]).map(r=>{const roas=r.spend>0?r.sales/r.spend:0;
+    return `<tr><td>${esc(r.campaign)}</td><td>${fmtInt(r.impressions)}</td><td>${fmtInt(r.clicks)}</td><td>${eur2(r.spend)}</td><td>${eur2(r.sales)}</td><td>${fmtInt(r.orders)}</td><td>${fmt2(roas)}</td></tr>`;}).join('');
+
+  const failedNote=(j.failed&&j.failed.length)?`<div class="note">⚠️ Nicht verfügbar: ${j.failed.map(k=>REPORT_LABELS[k]||k).join(', ')} — Sektionen entsprechend unvollständig.</div>`:'';
+
+  document.getElementById('content').innerHTML=`
+    <div class="panel"><h2><span class="slabel">A</span> Gesamt-Performance <span style="font-size:12px;color:var(--muted);font-weight:500;">letzte ${days} Tage (bis gestern)</span></h2><div class="ph">Alle Werbeformate zusammen — direkt aus der Ads-API.</div>
+      <div class="kpis">${kpi('Gesamt Ad-Spend',eur(t.spend))}${kpi('Gesamt Sales',eur(t.sales))}${kpi('ROAS',fmt2(dv.roas))}${kpi('ACoS',fmt1(dv.acos)+'%')}${kpi('Orders',fmtInt(t.orders))}${kpi('Klicks',fmtInt(t.clicks))}${kpi('Ø CPC',eur2(dv.cpc))}${kpi('CTR',fmt1(dv.ctr)+'%')}${kpi('CVR',fmt1(dv.cvr)+'%')}</div>
+      <div class="note">ℹ️ SP = 7-Tage-Attribution, SB/SD = 14 Tage (Amazon-Standard). Kleine Abweichungen zur Ads-Konsole sind normal (Attributionszeitpunkt); Kosten sind exakt.</div>${failedNote}</div>
+    ${fmtCards?`<div class="panel"><h2><span class="slabel">B</span> Übersicht nach Werbeformat</h2><div class="ph">Spend-/Sales-Verteilung über SP, SB und SD.</div><div class="fmtgrid">${fmtCards}</div></div>`:''}
+    ${typeRows?`<div class="panel"><h2><span class="slabel">C</span> SP Kampagnentyp-Analyse</h2><div class="ph">Auto vs. Manuell — erkannt über den Targeting-Typ der Kampagne (live aus der API).</div>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>Typ</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>ACoS</th><th>Orders</th><th>Klicks</th><th>Ø CPC</th></tr></thead><tbody>${typeRows}</tbody></table></div></div>`:''}
+    ${plRows?`<div class="panel"><h2><span class="slabel">D</span> Platzierungsanalyse</h2><div class="ph">SP-Performance nach Anzeigenplatzierung.</div>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>Platzierung</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>ACoS</th><th>Ø CPC</th></tr></thead><tbody>${plRows}</tbody></table></div></div>`:''}
+    ${baRows?`<div class="panel"><h2><span class="slabel">D+</span> Gebotsanpassungs-Check (Platzierungen)</h2><div class="ph">Bewertet Platzierungs-Anpassungen RELATIV zur Kampagnen-Performance. Chance = Platzierung schlägt den Kampagnenschnitt deutlich, hat aber keine Anpassung. Problem = Anpassung &gt;0% obwohl die Platzierung unter dem Schnitt liegt. (Nur aktive Kampagnen mit genug Daten.)</div>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>Kampagne</th><th style="text-align:left;">Platzierung</th><th>Anpassung</th><th>Platz.-ROAS</th><th>Kamp.-ROAS</th><th>Spend</th><th style="text-align:right;">Bewertung</th></tr></thead><tbody>${baRows}</tbody></table></div></div>`:''}
+    ${tgRows?`<div class="panel"><h2><span class="slabel">E</span> SP Top Keywords/Targets <span style="font-size:12px;color:var(--muted);font-weight:500;">nach Sales</span></h2><div class="ph">Die 25 umsatzstärksten Targets (Keywords + Produkt-Targets), Kampagne/AdGroup im Tooltip.</div>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>Target</th><th style="text-align:left;">Match</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th></tr></thead><tbody>${tgRows}</tbody></table></div></div>`:''}
+    ${sbRows?`<div class="panel"><h2><span class="slabel">F</span> Sponsored Brands — Top Suchbegriffe</h2><div class="ph">Die 25 umsatzstärksten SB-Suchbegriffe. Legacy-SB-Kampagnen (vor 2022) liefern keine Suchbegriffsdaten.</div>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>Suchbegriff</th><th style="text-align:left;">Keyword · Match</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th></tr></thead><tbody>${sbRows}</tbody></table></div></div>`:''}
+    ${sdRows?`<div class="panel"><h2><span class="slabel">G</span> Sponsored Display — Kampagnen-Performance</h2><div class="ph">SD-Kampagnen nach Spend (kein Suchbegriff-Bericht verfügbar für SD).</div>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>Kampagne</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th></tr></thead><tbody>${sdRows}</tbody></table></div></div>`:''}`;
+}
+boot();
+</script>
+<script defer src="https://adsmasters.github.io/hub/backlink.js"></script>
+</body>
+</html>
