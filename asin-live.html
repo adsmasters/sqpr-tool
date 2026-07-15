@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQPR Tool — ASIN-Live</title>
+    <title>SQPR Tool — PPC-Lücken</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
@@ -121,14 +121,14 @@
     <div class="topbar">
         <div class="topbar-left">
             <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
-            <div class="mainnav"><div class="navgroup active"><button class="navtrigger">API-Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="overview.html">Übersicht</a><a href="analyse.html">Deep-Dive</a><a href="live.html">Live-Analyse</a><a href="asin-live.html" class="active">ASIN-Live</a></div></div><div class="navgroup"><button class="navtrigger">Manuelle Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="dashboard.html">Marken-Analyse</a><a href="asin.html">ASIN-Analyse</a><a href="upload.html">Upload</a></div></div><div class="navgroup"><button class="navtrigger">Kunden<span class="cx">▾</span></button><div class="navmenu"><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a></div></div><a href="help.html">Hilfe</a></div>
+            <div class="mainnav"><div class="navgroup active"><button class="navtrigger">API-Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="overview.html">Übersicht</a><a href="analyse.html">Produkt-Detail</a><a href="live.html">Marken-Trend</a><a href="asin-live.html" class="active">PPC-Lücken</a></div></div><div class="navgroup"><button class="navtrigger">Manuelle Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="dashboard.html">Marken-Analyse</a><a href="asin.html">ASIN-Analyse</a><a href="upload.html">Upload</a></div></div><div class="navgroup"><button class="navtrigger">Kunden<span class="cx">▾</span></button><div class="navmenu"><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a></div></div><a href="help.html">Hilfe</a></div>
         </div>
         <div class="topbar-right" style="display:flex;gap:10px;align-items:center;">
             <button class="btn-theme-toggle" title="Theme" onclick="toggleTheme()">&#9789;</button>
             <button class="btn-logout" onclick="logout()">Logout</button>
         </div>
     </div>
-    <div class="phead"><h1>ASIN-Live</h1><p>SQP je ASIN neben den PPC-Lücken — mit Bulk-Sheet zum Nachziehen fehlender Keywords.</p></div>
+    <div class="phead"><h1>PPC-Lücken</h1><p>SQP je ASIN neben den PPC-Lücken — mit Bulk-Sheet zum Nachziehen fehlender Keywords.</p></div>
     <div class="main">
         <div class="head-row">
             <select id="clientSelect" onchange="onClient()"></select>
@@ -184,10 +184,11 @@ async function boot(){
   if(!CLIENTS.length){ document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>'; return; }
   CLIENTS.sort((a,b)=>(b.has_data!==false)-(a.has_data!==false)||(a.name||'').localeCompare(b.name||''));
   document.getElementById('clientSelect').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
+  const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid===_saved))document.getElementById('clientSelect').value=_saved;
   onClient();
 }
 async function onClient(){
-  const spid=document.getElementById('clientSelect').value;
+  const spid=document.getElementById('clientSelect').value; try{localStorage.setItem('sqpr_api_spid',spid);}catch(e){}
   const c=CLIENTS.find(c=>c.spid===spid)||CLIENTS[0];
   document.getElementById('mkt').textContent=c.marketplace||'DE';
   document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div>Lade SQP + PPC…</div>';

@@ -21,6 +21,7 @@
       .sort((a, b) => (b.has_data !== false) - (a.has_data !== false) || (a.name || '').localeCompare(b.name || ''))
       .map(c => c.has_data === false ? { ...c, name: (c.name || '') + ' · noch keine Daten' } : c);
     window.SQP_API_CLIENTS = CLIENTS.map(c => c.id);
+    window.SQP_CLIENTS_FULL = CLIENTS; // fuer seitenuebergreifende Kundenwahl (spid<->id)
   }).catch(() => { CLIENTS = []; });
   window.SQP_CLIENTS_READY = clientsReady;
   const VIRTUAL = new Set(['sqpr_clients', 'sqpr_reports', 'sqpr_rows', 'sqpr_str_terms']);

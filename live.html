@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQPR Tool — Live-Analyse</title>
+    <title>SQPR Tool — Marken-Trend</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="sqp-adapter.js?v=7"></script>
+    <script src="sqp-adapter.js?v=8"></script>
     <style>
         /* Theme variables — Light (default) */
         :root {
@@ -589,7 +589,7 @@
     <div class="topbar">
         <div class="topbar-left">
             <a href="dashboard.html" class="topbar-logo">SQPR Tool</a>
-            <div class="mainnav"><div class="navgroup active"><button class="navtrigger">API-Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="overview.html">Übersicht</a><a href="analyse.html">Deep-Dive</a><a href="live.html" class="active">Live-Analyse</a><a href="asin-live.html">ASIN-Live</a></div></div><div class="navgroup"><button class="navtrigger">Manuelle Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="dashboard.html">Marken-Analyse</a><a href="asin.html">ASIN-Analyse</a><a href="upload.html">Upload</a></div></div><div class="navgroup"><button class="navtrigger">Kunden<span class="cx">▾</span></button><div class="navmenu"><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a></div></div><a href="help.html">Hilfe</a></div>
+            <div class="mainnav"><div class="navgroup active"><button class="navtrigger">API-Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="overview.html">Übersicht</a><a href="analyse.html">Produkt-Detail</a><a href="live.html" class="active">Marken-Trend</a><a href="asin-live.html">PPC-Lücken</a></div></div><div class="navgroup"><button class="navtrigger">Manuelle Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="dashboard.html">Marken-Analyse</a><a href="asin.html">ASIN-Analyse</a><a href="upload.html">Upload</a></div></div><div class="navgroup"><button class="navtrigger">Kunden<span class="cx">▾</span></button><div class="navmenu"><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a></div></div><a href="help.html">Hilfe</a></div>
         </div>
         <div class="topbar-right">
             <button class="btn-theme-toggle" id="themeToggle" title="Theme wechseln" onclick="toggleTheme()">&#9789;</button>
@@ -598,7 +598,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="phead"><h1>Live-Analyse</h1><p>Aktuelle Marken-Performance direkt aus der API — Anteile, Top-Bewegungen und PPC-Abdeckung.</p></div>
+    <div class="phead"><h1>Marken-Trend</h1><p>Aktuelle Marken-Performance direkt aus der API — Anteile, Top-Bewegungen und PPC-Abdeckung.</p></div>
     <div class="main" id="app">
         <div id="loadingState">
             <div class="skeleton-wrap">
@@ -887,7 +887,10 @@
             await (window.SQP_CLIENTS_READY || Promise.resolve()); // API-Kundenliste aus DB abwarten
             // Live-Analyse nutzt eigenen Kunden-Key (isoliert von der CSV-Marken-Analyse)
             // und defaultet auf den ersten API-Kunden.
-            const clientId = localStorage.getItem('sqpr_live_client') || (window.SQP_API_CLIENTS || [])[0];
+            // Seitenübergreifende Kundenwahl: spid von den anderen API-Seiten hat Vorrang
+            const _savedSpid = localStorage.getItem('sqpr_api_spid');
+            const _bySpid = _savedSpid && (window.SQP_CLIENTS_FULL || []).find(c => c.spid === _savedSpid);
+            const clientId = (_bySpid && _bySpid.id) || localStorage.getItem('sqpr_live_client') || (window.SQP_API_CLIENTS || [])[0];
 
             if (!clientId) {
                 app.innerHTML = '<div class="empty-state"><h2>Bitte wähle einen Kunden aus</h2><p><a href="clients.html">Zur Kundenübersicht →</a></p></div>';
@@ -1995,6 +1998,8 @@
                     const newId = this.value;
                     if (!newId || newId === (client && client.id)) return;
                     localStorage.setItem('sqpr_live_client', newId);
+                    // Kundenwahl seitenübergreifend merken (spid für Übersicht/Produkt-Detail/PPC-Lücken)
+                    try { const _c = (window.SQP_CLIENTS_FULL || []).find(c => c.id === newId); if (_c && _c.spid) localStorage.setItem('sqpr_api_spid', _c.spid); } catch (e) {}
                     // Reset per-client view state, then reload everything for the new client
                     selectedReportId = 'all';
                     compareReportId = 'auto';
