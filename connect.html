@@ -167,12 +167,24 @@ const esc=s=>(s==null?'':String(s)).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;',
 
 async function loadConnected(){
   try { const r=await fetch(`${API}/api/sqp/clients`); const j=await r.json(); CONNECTED=j.clients||[]; } catch(e){ CONNECTED=[]; }
+  renderConnected();
+}
+function renderConnected(){
   const b=document.getElementById('clientsBody');
   if(!CONNECTED.length){ b.innerHTML='<tr><td colspan="5" class="empty">Noch keine Kunden per API verbunden.</td></tr>'; return; }
   b.innerHTML=CONNECTED.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.marketplace||'')}</td>
     <td>${c.spid?`<span class="badge ok">${esc(c.spid)}</span>`:'<span class="badge miss">fehlt</span>'}</td>
     <td>${c.ads_profile_id?`<span class="badge ok">${esc(c.ads_profile_id)}</span>`:'<span class="badge miss">fehlt</span>'}</td>
-    <td>${c.has_data===false?`<button class="btn" id="bf-${esc(c.spid)}" onclick="startBackfill('${esc(c.spid)}')">Daten laden (SQP+PPC)</button>`:'<span class="badge ok">Daten ✓</span>'}</td></tr>`).join('');
+    <td>${datenCell(c)}</td></tr>`).join('');
+}
+
+// Status kommt vom Server (sqp_backfill_jobs) — ueberlebt Seitenwechsel/Reload
+function datenCell(c){
+  const js=c.job&&c.job.status;
+  if(js==='running') return '<span class="badge">⏳ lädt gerade — Cloud-Worker aktiv, Seite kann verlassen werden</span>';
+  if(js==='queued') return '<span class="badge">🕓 eingereiht ✓ — startet automatisch, Seite kann verlassen werden</span>';
+  if(c.has_data===false) return `<button class="btn" id="bf-${esc(c.spid)}" onclick="startBackfill('${esc(c.spid)}')">Daten laden (SQP+PPC)</button>`;
+  return '<span class="badge ok">Daten ✓</span>';
 }
 
 async function loadSqprClients(){
@@ -238,8 +250,11 @@ async function saveClient(){
 async function startBackfill(spid){
   const btn=document.getElementById('bf-'+spid); if(btn){btn.disabled=true;btn.textContent='reihe ein…';}
   let j=null; try{ j=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid})})).json(); }catch(e){}
-  if(btn){ btn.textContent=j&&j.ok?(j.triggered?'läuft ✓':'eingereiht ✓ (startet automatisch)'):'Fehler'; }
+  if(j&&j.ok){ CONNECTED.forEach(c=>{ if(c.spid===spid) c.job={status:'queued'}; }); renderConnected(); }
+  else if(btn){ btn.disabled=false; btn.textContent='Fehler — nochmal versuchen'; }
 }
+// Status-Auffrischung, solange Jobs offen sind (eingereiht/laeuft -> fertig)
+setInterval(()=>{ if(CONNECTED.some(c=>c.job&&(c.job.status==='queued'||c.job.status==='running'))) loadConnected(); }, 60000);
 
 (async function init(){
   await loadConnected();
