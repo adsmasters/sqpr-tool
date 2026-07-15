@@ -123,15 +123,27 @@ async function boot(){
   CLIENTS.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${esc(c.name)}</option>`).join('');
   const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid===_saved))document.getElementById('clientSel').value=_saved;
-  // letztes Audit dieses Kunden aus dem Session-Cache?
+  // gespeichertes Audit sofort anzeigen (naechtlich vorgeladen bzw. letzter Lauf)
   restoreCached();
   document.getElementById('clientSel').onchange=()=>{try{localStorage.setItem('sqpr_api_spid',document.getElementById('clientSel').value);}catch(e){} restoreCached();};
+  document.getElementById('daysSel').onchange=restoreCached;
 }
-function cacheKey(){ return 'audit_'+document.getElementById('clientSel').value+'_'+document.getElementById('daysSel').value; }
-function restoreCached(){
-  let d=null; try{ d=JSON.parse(sessionStorage.getItem(cacheKey())||'null'); }catch(e){}
-  if(d&&d.ready){ renderAudit(d); document.getElementById('lastNote').textContent='(Ergebnis aus dieser Sitzung — für frische Daten neu starten)'; }
-  else { document.getElementById('content').innerHTML='<div class="loading">Kunde und Zeitraum wählen, dann <b>Jetzt PPC-Audit</b> klicken.<br><span style="font-size:12px;">Amazon generiert die Berichte on-demand — das dauert typischerweise 2–5 Minuten.</span></div>'; document.getElementById('lastNote').textContent=''; }
+async function restoreCached(){
+  const spid=document.getElementById('clientSel').value, days=document.getElementById('daysSel').value;
+  if(!spid)return;
+  document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade Audit…</div>';
+  let d=null; try{ d=await (await fetch(`${API_ADS}/audit-fetch?spid=${spid}&days=${days}&cached=1`)).json(); }catch(e){}
+  const btn=document.getElementById('goBtn');
+  if(d&&d.cached&&d.ready){
+    renderAudit(d);
+    const ts=new Date(d.updated_at);
+    document.getElementById('lastNote').textContent='Stand: '+ts.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' Uhr';
+    btn.textContent='🔄 Audit aktualisieren';
+  } else {
+    document.getElementById('content').innerHTML='<div class="loading">Für diesen Kunden/Zeitraum liegt noch kein Audit vor.<br><b>Jetzt PPC-Audit</b> klicken — die Amazon-Berichte brauchen beim ersten Mal 2–5 Minuten.<br><span style="font-size:12px;">Danach wird das Audit nächtlich vorgeladen und öffnet sofort.</span></div>';
+    document.getElementById('lastNote').textContent='';
+    btn.textContent='🚀 Jetzt PPC-Audit';
+  }
 }
 
 async function startAudit(){
@@ -174,13 +186,14 @@ async function pollLoop(missing){
   const ids=Object.entries(RUN.reports).map(([k,v])=>k+':'+v).join(',');
   for(let i=0;i<40;i++){
     let j=null;
-    try{ j=await (await fetch(`${API_ADS}/audit-fetch?spid=${RUN.spid}&ids=${encodeURIComponent(ids)}`)).json(); }catch(e){}
-    if(j&&j.ready){ j.days=RUN.days; try{sessionStorage.setItem(cacheKey(),JSON.stringify(j));}catch(e){}
-      renderAudit(j); const btn=document.getElementById('goBtn'); btn.disabled=false; btn.textContent='🚀 Jetzt PPC-Audit'; return; }
+    try{ j=await (await fetch(`${API_ADS}/audit-fetch?spid=${RUN.spid}&days=${RUN.days}&ids=${encodeURIComponent(ids)}`)).json(); }catch(e){}
+    if(j&&j.ready){
+      renderAudit(j); const btn=document.getElementById('goBtn'); btn.disabled=false; btn.textContent='🔄 Audit aktualisieren';
+      document.getElementById('lastNote').textContent='Stand: gerade eben'; return; }
     renderProgress('Amazon generiert die Berichte…',j&&j.status);
     await new Promise(r=>setTimeout(r,15000));
   }
-  document.getElementById('content').innerHTML='<div class="loading">⏱ Amazon braucht ungewöhnlich lange. Seite offen lassen und in ein paar Minuten erneut „Jetzt PPC-Audit" klicken — bereits angeforderte Berichte werden wiederverwendet.</div>';
+  document.getElementById('content').innerHTML='<div class="loading">⏱ Amazon braucht ungewöhnlich lange. Seite offen lassen und in ein paar Minuten erneut versuchen — bereits angeforderte Berichte werden wiederverwendet.</div>';
   const btn=document.getElementById('goBtn'); btn.disabled=false; btn.textContent='🚀 Jetzt PPC-Audit';
 }
 
