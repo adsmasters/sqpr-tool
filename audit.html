@@ -48,6 +48,9 @@
   .tbl td{text-align:right;padding:9px 8px;border-top:1px solid var(--line);white-space:nowrap;width:1%;font-variant-numeric:tabular-nums;}
   .tbl td:first-child{text-align:left;font-weight:600;max-width:340px;width:auto;overflow:hidden;text-overflow:ellipsis;}
   .tbl tr:hover td{background:var(--bg);}
+  .btn-sm{border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:999px;cursor:pointer;font-family:inherit;}
+  .btn-sm:hover{color:var(--ink);}
+  .btn-sm.on{background:var(--accent);color:#fff;border-color:var(--accent);}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;}
   .pill.chance{background:#E7F7EE;color:var(--up);} .pill.problem{background:#FEECEC;color:var(--down);}
   [data-theme="dark"] .pill.chance{background:#12291c;} [data-theme="dark"] .pill.problem{background:#3a1f22;}
@@ -115,7 +118,7 @@ const fmt1=x=>(+x||0).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFra
 const esc=s=>(s==null?'':String(s)).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 
 let CLIENTS=[],RUN=null; // RUN = {spid,days,reports,timer}
-const REPORT_LABELS={sp_campaigns:'SP Kampagnen',sp_placements:'SP Platzierungen',sp_targeting:'SP Keywords/Targets',sb_campaigns:'SB Kampagnen',sb_search_terms:'SB Suchbegriffe',sd_campaigns:'SD Kampagnen'};
+const REPORT_LABELS={sp_campaigns:'SP Kampagnen',sp_placements:'SP Platzierungen',sp_targeting:'SP Keywords/Targets',sp_search_terms:'SP Suchbegriffe',sb_campaigns:'SB Kampagnen',sb_search_terms:'SB Suchbegriffe',sd_campaigns:'SD Kampagnen'};
 
 async function boot(){
   try{ CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[]; }catch(e){ CLIENTS=[]; }
@@ -233,14 +236,6 @@ function renderAudit(j){
   // D+: Gebotsanpassungs-Check
   const baRows=(j.bidAdj||[]).map(b=>`<tr><td>${esc(b.campaign)}</td><td style="text-align:left;">${esc(b.placement)}</td><td>${b.adjustment}%</td><td>${fmt2(b.placRoas)}</td><td>${fmt2(b.campRoas)}</td><td>${eur2(b.spend)}</td><td>${b.verdict==='chance'?'<span class="pill chance">Chance: Anpassung erhöhen</span>':'<span class="pill problem">Problem: Anpassung prüfen</span>'}</td></tr>`).join('');
 
-  // E: Top Targets
-  const tgRows=(j.topTargets||[]).map(r=>{const roas=r.spend>0?r.sales/r.spend:0;
-    return `<tr><td title="${esc(r.campaign)} › ${esc(r.adGroup)}">${esc(r.targeting)}</td><td style="text-align:left;color:var(--muted);">${esc(r.matchType||r.type)}</td><td>${fmtInt(r.impressions)}</td><td>${fmtInt(r.clicks)}</td><td>${eur2(r.spend)}</td><td>${eur2(r.sales)}</td><td>${fmtInt(r.orders)}</td><td>${fmt2(roas)}</td></tr>`;}).join('');
-
-  // F: SB Suchbegriffe
-  const sbRows=(j.sbTerms||[]).map(r=>{const roas=r.spend>0?r.sales/r.spend:0;
-    return `<tr><td>${esc(r.searchTerm)}</td><td style="text-align:left;color:var(--muted);">${esc(r.keyword||'')} ${esc(r.matchType||'')}</td><td>${fmtInt(r.impressions)}</td><td>${fmtInt(r.clicks)}</td><td>${eur2(r.spend)}</td><td>${eur2(r.sales)}</td><td>${fmtInt(r.orders)}</td><td>${fmt2(roas)}</td></tr>`;}).join('');
-
   // G: SD Kampagnen
   const sdRows=(j.sdCampaigns||[]).map(r=>{const roas=r.spend>0?r.sales/r.spend:0;
     return `<tr><td>${esc(r.campaign)}</td><td>${fmtInt(r.impressions)}</td><td>${fmtInt(r.clicks)}</td><td>${eur2(r.spend)}</td><td>${eur2(r.sales)}</td><td>${fmtInt(r.orders)}</td><td>${fmt2(roas)}</td></tr>`;}).join('');
@@ -258,12 +253,103 @@ function renderAudit(j){
       <div class="tblwrap"><table class="tbl"><thead><tr><th>Platzierung</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>ACoS</th><th>Ø CPC</th></tr></thead><tbody>${plRows}</tbody></table></div></div>`:''}
     ${baRows?`<div class="panel"><h2><span class="slabel">D+</span> Gebotsanpassungs-Check (Platzierungen)</h2><div class="ph">Bewertet Platzierungs-Anpassungen RELATIV zur Kampagnen-Performance. Chance = Platzierung schlägt den Kampagnenschnitt deutlich, hat aber keine Anpassung. Problem = Anpassung &gt;0% obwohl die Platzierung unter dem Schnitt liegt. (Nur aktive Kampagnen mit genug Daten.)</div>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>Kampagne</th><th style="text-align:left;">Platzierung</th><th>Anpassung</th><th>Platz.-ROAS</th><th>Kamp.-ROAS</th><th>Spend</th><th style="text-align:right;">Bewertung</th></tr></thead><tbody>${baRows}</tbody></table></div></div>`:''}
-    ${tgRows?`<div class="panel"><h2><span class="slabel">E</span> SP Top Keywords/Targets <span style="font-size:12px;color:var(--muted);font-weight:500;">nach Sales</span></h2><div class="ph">Die 25 umsatzstärksten Targets (Keywords + Produkt-Targets), Kampagne/AdGroup im Tooltip.</div>
-      <div class="tblwrap"><table class="tbl"><thead><tr><th>Target</th><th style="text-align:left;">Match</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th></tr></thead><tbody>${tgRows}</tbody></table></div></div>`:''}
-    ${sbRows?`<div class="panel"><h2><span class="slabel">F</span> Sponsored Brands — Top Suchbegriffe</h2><div class="ph">Die 25 umsatzstärksten SB-Suchbegriffe. Legacy-SB-Kampagnen (vor 2022) liefern keine Suchbegriffsdaten.</div>
-      <div class="tblwrap"><table class="tbl"><thead><tr><th>Suchbegriff</th><th style="text-align:left;">Keyword · Match</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th></tr></thead><tbody>${sbRows}</tbody></table></div></div>`:''}
+    <div id="secE"></div>
+    <div id="secF"></div>
     ${sdRows?`<div class="panel"><h2><span class="slabel">G</span> Sponsored Display — Kampagnen-Performance</h2><div class="ph">SD-Kampagnen nach Spend (kein Suchbegriff-Bericht verfügbar für SD).</div>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>Kampagne</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th></tr></thead><tbody>${sdRows}</tbody></table></div></div>`:''}`;
+  AUD=j; buildE(); buildF();
+}
+
+/* ===== Sektion E/F — wie das Bulksheet-Audit: Account-/Kampagnenebene, Suchbegriffe, Wasted ===== */
+let AUD=null, spMode='keywords', topView='account', sbView='account', sbWasted=false;
+let spWRoas=1.0, spWClicks=10, sbWRoas=1.0, sbWClicks=10;
+function setSpMode(m){spMode=m;buildE();} function setTopView(v){topView=v;buildE();}
+function setSbView(v){sbView=v;buildF();} function toggleSbWasted(){sbWasted=!sbWasted;buildF();}
+const unpack=p=>((p&&p.rows)||[]).map(r=>({term:r[0],campaign:r[1],match:r[2],impressions:r[3],clicks:r[4],spend:r[5],sales:r[6],orders:r[7]}));
+// aggregieren: Accountebene = je Begriff ueber alle Kampagnen; Kampagnenebene = je Begriff×Kampagne
+function aggRows(rows,byAccount){
+  const m={};
+  for(const r of rows){
+    const key=byAccount?r.term.toLowerCase().trim():r.term+'|||'+r.campaign;
+    if(!m[key])m[key]={term:r.term,campaigns:new Set(),spend:0,sales:0,orders:0,clicks:0,impressions:0};
+    m[key].campaigns.add(r.campaign);m[key].spend+=r.spend;m[key].sales+=r.sales;m[key].orders+=r.orders;m[key].clicks+=r.clicks;m[key].impressions+=r.impressions;
+  }
+  return Object.values(m).sort((a,b)=>b.sales-a.sales);
+}
+const segBtn=(on,label,fn)=>`<button class="btn-sm${on?' on':''}" onclick="${fn}">${label}</button>`;
+const winp=(id,label,val,step,fn)=>`<label style="font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;">${label} <input type="number" id="${id}" value="${val}" step="${step}" min="0" style="width:64px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;font-family:inherit;" oninput="${fn}"></label>`;
+function termTable(displayData,colLabel,showCampaign,withCpc){
+  const head=`<tr><th style="text-align:left;">#</th><th style="text-align:left;">${colLabel}</th>${showCampaign?'<th style="text-align:left;">Kampagne</th>':'<th>Kampagnen</th>'}<th>Spend</th><th>Sales</th><th>ROAS</th><th>ACoS</th><th>Orders</th><th>Klicks</th>${withCpc?'<th>CPC</th>':''}</tr>`;
+  const body=displayData.map((d,i)=>{
+    const roas=d.spend>0?d.sales/d.spend:null;
+    const roasCol=roas==null?'':roas>=2?'color:var(--up);':roas<1?'color:var(--down);':'';
+    const camp=showCampaign?`<td style="text-align:left;max-width:240px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-weight:500;" title="${esc([...d.campaigns].join(', '))}">${esc([...d.campaigns][0])}</td>`:`<td>${d.campaigns.size}</td>`;
+    return `<tr><td style="color:var(--muted);">${i+1}</td><td>${esc(d.term)}</td>${camp}<td>${eur2(d.spend)}</td><td>${eur2(d.sales)}</td><td style="${roasCol}">${roas!=null?fmt2(roas):'–'}</td><td>${d.sales>0?fmt1(100*d.spend/d.sales)+'%':'–'}</td><td>${fmtInt(d.orders)}</td><td>${fmtInt(d.clicks)}</td>${withCpc?`<td>${d.clicks>0?eur2(d.spend/d.clicks):'–'}</td>`:''}</tr>`;
+  }).join('');
+  return `<div class="tblwrap"><table class="tbl"><thead>${head}</thead><tbody>${body||'<tr><td colspan="10" class="loading" style="padding:30px;">keine Daten</td></tr>'}</tbody></table></div>`;
+}
+function buildE(){
+  const el=document.getElementById('secE'); if(!el||!AUD)return;
+  const targets=unpack(AUD.spTargets), terms=unpack(AUD.spTerms);
+  if(!targets.length&&!terms.length){el.innerHTML='';return;}
+  spWRoas=+(document.getElementById('spWastedRoas')?.value??spWRoas)||spWRoas;
+  spWClicks=+(document.getElementById('spWastedClicks')?.value??spWClicks);
+  const byAccount=topView==='account';
+  const src=spMode==='keywords'?targets:terms;
+  const sorted=aggRows(src,byAccount);
+  // Wasted IMMER aus Suchbegriffen (was der Kunde gesucht hat)
+  const allST=aggRows(terms,byAccount);
+  const wasted=allST.filter(s=>s.clicks>=spWClicks&&s.spend>0&&(s.sales/s.spend)<spWRoas).sort((a,b)=>b.spend-a.spend);
+  const wastedSpend=wasted.reduce((s,r)=>s+r.spend,0);
+  const spSpend=(AUD.formats&&AUD.formats.SP&&AUD.formats.SP.spend)||0;
+  const spCampSales=(AUD.formats&&AUD.formats.SP&&AUD.formats.SP.sales)||0;
+  const totalSpend=sorted.reduce((s,r)=>s+r.spend,0), totalSales=sorted.reduce((s,r)=>s+r.sales,0);
+  const display=spMode==='wasted'?wasted.slice(0,50):sorted.slice(0,20);
+  const title=spMode==='wasted'?`Wasted Suchbegriffe (${fmtInt(wasted.length)})`:spMode==='searchterms'?'Top 20 Suchbegriffe nach Sales':'Top 20 Keywords/Targets nach Sales';
+  const colLabel=spMode==='keywords'?'Keyword/Target':'Suchbegriff';
+  const attrNote=(spMode==='keywords'&&spCampSales>0&&totalSales>spCampSales*1.02)
+    ?`<div class="note">ℹ️ <b>Warum weichen die Zahlen von Sektion B ab?</b> Kampagnen-Sales: <b>${eur(spCampSales)}</b> · Keyword-attributierte Sales: <b>${eur(totalSales)}</b>. Amazon rechnet im 7-Tage-Fenster denselben Kauf ggf. mehreren Keywords gleichzeitig an — die Keyword-Summe kann daher höher sein. Normales Amazon-Verhalten.</div>`:'';
+  el.innerHTML=`<div class="panel"><h2><span class="slabel">E</span> SP ${title}</h2>
+    <div class="ph">${spMode==='keywords'?'Eingebuchte Keywords und Targets.':spMode==='searchterms'?'Echte Kundensuchen aus dem SP-Suchbegriff-Bericht.':'Suchbegriffe mit Klicks aber niedrigem ROAS — Schwellwerte einstellbar.'} ${byAccount?'Accountebene: über alle Kampagnen aggregiert.':'Kampagnenebene: je Begriff und Kampagne.'}</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+      ${segBtn(topView==='account','Accountebene',"setTopView('account')")}${segBtn(topView==='campaign','Kampagnenebene',"setTopView('campaign')")}
+      <span style="width:10px;"></span>
+      ${segBtn(spMode==='keywords','Keywords/Targets',"setSpMode('keywords')")}${segBtn(spMode==='searchterms','Top Suchbegriffe',"setSpMode('searchterms')")}${segBtn(spMode==='wasted','Wasted Spend',"setSpMode('wasted')")}
+      <span style="margin-left:auto;display:flex;gap:12px;">${winp('spWastedRoas','Max. ROAS',spWRoas,'0.1','buildE()')}${winp('spWastedClicks','Min. Klicks',spWClicks,'1','buildE()')}</span>
+    </div>
+    <div class="kpis" style="margin-bottom:14px;">
+      ${kpi(spMode==='keywords'?'Keywords/Targets':'Suchbegriffe',fmtInt(sorted.length))}${kpi('Spend',eur(totalSpend))}${kpi(spMode==='keywords'?'Attr. Sales':'Sales',eur(totalSales))}${kpi('ROAS',totalSpend>0?fmt2(totalSales/totalSpend):'–')}
+      ${kpi(`Wasted (ROAS<${spWRoas}, ≥${spWClicks} Kl.)`,terms.length?`<span style="color:var(--down)">${eur(wastedSpend)}</span> <span style="font-size:11px;color:var(--muted)">${spSpend>0?fmt1(100*wastedSpend/spSpend)+'% v. SP':''}</span>`:'–')}
+    </div>${attrNote}
+    ${termTable(display,colLabel,topView==='campaign',true)}</div>`;
+}
+function buildF(){
+  const el=document.getElementById('secF'); if(!el||!AUD)return;
+  const terms=unpack(AUD.sbTerms);
+  if(!terms.length){el.innerHTML='';return;}
+  sbWRoas=+(document.getElementById('sbWastedRoas')?.value??sbWRoas)||sbWRoas;
+  sbWClicks=+(document.getElementById('sbWastedClicks')?.value??sbWClicks);
+  const sorted=aggRows(terms,sbView==='account');
+  const wasted=sorted.filter(s=>s.clicks>=sbWClicks&&s.spend>0&&(s.sales/s.spend)<sbWRoas).sort((a,b)=>b.spend-a.spend);
+  const wastedSpend=wasted.reduce((s,r)=>s+r.spend,0);
+  const totalSpend=sorted.reduce((s,r)=>s+r.spend,0), totalSales=sorted.reduce((s,r)=>s+r.sales,0);
+  const sbCampSpend=(AUD.formats&&AUD.formats.SB&&AUD.formats.SB.spend)||0;
+  const coverage=sbCampSpend>0?100*totalSpend/sbCampSpend:null;
+  const covNote=(coverage!=null&&coverage<80)?`<div class="note">Die Suchbegriffsdaten decken ${fmt1(coverage)}% des SB-Gesamt-Spends ab (${eur(totalSpend)} von ${eur(sbCampSpend)}). Legacy-SB-Kampagnen (vor 2022) liefern keine Suchbegriffsdaten.</div>`:'';
+  const display=sbWasted?wasted.slice(0,50):sorted.slice(0,20);
+  const title=sbWasted?`Wasted Suchbegriffe (${fmtInt(wasted.length)})`:'Top 20 Suchbegriffe nach Sales';
+  el.innerHTML=`<div class="panel"><h2><span class="slabel">F</span> SB ${title}</h2>
+    <div class="ph">Suchbegriffe aus dem SB-Suchbegriff-Bericht. ${sbView==='account'?'Accountebene: über alle Kampagnen aggregiert.':'Kampagnenebene: je Begriff und Kampagne.'}</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+      ${segBtn(sbView==='account','Accountebene',"setSbView('account')")}${segBtn(sbView==='campaign','Kampagnenebene',"setSbView('campaign')")}
+      ${segBtn(sbWasted,'Wasted Spend anzeigen','toggleSbWasted()')}
+      <span style="margin-left:auto;display:flex;gap:12px;">${winp('sbWastedRoas','Max. ROAS',sbWRoas,'0.1','buildF()')}${winp('sbWastedClicks','Min. Klicks',sbWClicks,'1','buildF()')}</span>
+    </div>
+    <div class="kpis" style="margin-bottom:14px;">
+      ${kpi('Suchbegriffe',fmtInt(sorted.length))}${kpi('Spend (Suchbegriffe)',eur(totalSpend))}${kpi('Sales (Suchbegriffe)',eur(totalSales))}${kpi('ROAS',totalSpend>0?fmt2(totalSales/totalSpend):'–')}
+      ${kpi(`Wasted (ROAS<${sbWRoas}, ≥${sbWClicks} Kl.)`,`<span style="color:var(--down)">${eur(wastedSpend)}</span> <span style="font-size:11px;color:var(--muted)">${totalSpend>0?fmt1(100*wastedSpend/totalSpend)+'%':''}</span>`)}
+    </div>${covNote}
+    ${termTable(display,'Suchbegriff',sbView==='campaign',false)}</div>`;
 }
 boot();
 </script>
