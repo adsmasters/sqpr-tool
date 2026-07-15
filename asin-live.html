@@ -188,9 +188,10 @@ async function onClient(){
   const c=CLIENTS.find(c=>c.spid===spid)||CLIENTS[0];
   document.getElementById('mkt').textContent=c.marketplace||'DE';
   document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div>Lade SQP + PPC…</div>';
+  const expand=r=>{if(r&&r.compact&&r.data){return {...r,rows:r.data.map(a=>{const o={};r.cols.forEach((c,i)=>o[c]=a[i]);return o;})};}return r;};
   const [sqp,ppc,meta]=await Promise.all([
-    fetch(`${API}/data?spid=${encodeURIComponent(spid)}&period=${GRAN}`).then(r=>r.json()).catch(()=>({rows:[]})),
-    fetch(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
+    fetch(`${API}/data?spid=${encodeURIComponent(spid)}&period=${GRAN}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
+    fetch(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
     fetch(`${API}/asin-meta?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
   ]);
   sqpRows=sqp.rows||[]; ppcRows=ppc.rows||[];
