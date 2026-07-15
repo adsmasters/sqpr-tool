@@ -52,6 +52,7 @@
         .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
         .pill-gap{background:rgba(207,34,46,.12);color:var(--error);}
         .pill-ok{background:rgba(26,127,55,.12);color:var(--success);}
+        .pill-book{background:rgba(210,153,34,.14);color:#B7791F;}
         .actionbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--border);background:var(--bg-primary);flex-wrap:wrap;}
         .loading{text-align:center;padding:70px;color:var(--text-secondary);}
         .spinner{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px;}
@@ -179,6 +180,30 @@ let CLIENTS=[], sqpRows=[], ppcRows=[], MONTHS=[], ASINS=[];
 let ppcByAsin=new Map();      // asin -> Map(normTerm -> {clicks,cost,purch,sales})
 let checked=new Set();        // ausgewählte Lücken (search_query)
 let sortKey='vol', sortDir=-1, gapsOnly=true;
+let BOOKED=new Map();         // asin -> Set(normText) — im Konto eingebuchte Keywords (live aus Ads-API)
+let BOOKED_LOADING=new Set();
+
+// Nach erfolgreichem Einbuchen sofort als "eingebucht" markieren (ohne API-Roundtrip)
+function markBooked(asin,kws){
+  if(!BOOKED.has(asin))BOOKED.set(asin,new Set());
+  const s=BOOKED.get(asin);
+  for(const k of kws){ s.add(norm(k)); checked.delete(k); }
+  render();
+}
+// Eingebuchte Keywords der ASIN nachladen -> Status "eingebucht" statt "Lücke"
+async function loadBooked(asin){
+  const spid=document.getElementById('clientSelect').value;
+  if(!asin||!spid||BOOKED.has(asin)||BOOKED_LOADING.has(asin))return;
+  BOOKED_LOADING.add(asin);
+  try{
+    const j=await (await fetch(`${API_ADS}/asin-keywords?spid=${encodeURIComponent(spid)}&asin=${encodeURIComponent(asin)}`)).json();
+    const s=BOOKED.get(asin)||new Set(); // mergen — frisch eingebuchte nicht ueberschreiben (API-Cache)
+    for(const k of (j.keywords||[])) s.add(norm(k.text));
+    BOOKED.set(asin,s);
+    if(document.getElementById('asinSelect').value===asin)render();
+  }catch(e){ /* Status bleibt Lücke — beim nächsten Wechsel erneut versuchen */ }
+  BOOKED_LOADING.delete(asin);
+}
 
 async function boot(){
   try{ CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[]; }catch(e){ CLIENTS=[]; }
@@ -213,36 +238,38 @@ async function onClient(){
 function currentRows(){
   const asin=document.getElementById('asinSelect').value, month=document.getElementById('monthSelect').value;
   const cov=ppcByAsin.get(asin)||new Map();
+  const booked=BOOKED.get(asin)||new Set();
   return sqpRows.filter(r=>r.asin===asin&&r.start_date===month).map(r=>{ const p=cov.get(norm(r.search_query));
     return { q:r.search_query, vol:+r.search_query_volume||0, impr:+r.asin_impression_share||0, purch:+r.asin_purchase_share||0,
-      covered:!!p, clicks:p?p.clicks:0, cost:p?p.cost:0 }; });
+      covered:!!p, booked:!p&&booked.has(norm(r.search_query)), clicks:p?p.clicks:0, cost:p?p.cost:0 }; });
 }
 function render(){
   const asin=document.getElementById('asinSelect').value, month=document.getElementById('monthSelect').value;
   const pl=document.getElementById('pdpLink'); if(pl){pl.href=asin?pdpUrl(asin):'#';pl.style.display=asin?'inline-flex':'none';}
   if(!asin){document.getElementById('content').innerHTML='<div class="loading">Keine Daten.</div>';return;}
+  loadBooked(asin); // Status "eingebucht" live aus dem Konto nachladen (re-rendert bei Ankunft)
   let rows=currentRows();
-  const total=rows.length, coveredN=rows.filter(r=>r.covered).length, gapN=total-coveredN;
-  const gapVol=rows.filter(r=>!r.covered).reduce((s,r)=>s+r.vol,0);
+  const total=rows.length, coveredN=rows.filter(r=>r.covered).length, bookedN=rows.filter(r=>r.booked).length, gapN=total-coveredN-bookedN;
+  const gapVol=rows.filter(r=>!r.covered&&!r.booked).reduce((s,r)=>s+r.vol,0);
   // Echte PPC-Performance der ASIN (ALLE beworbenen Begriffe, letzte 30 Tage — nicht nur SQP-Überlappung)
   let adSpend=0,adSales=0,adOrders=0,adClicks=0;
   for(const v of (ppcByAsin.get(asin)||new Map()).values()){ adSpend+=v.cost; adSales+=v.sales; adOrders+=v.purch; adClicks+=v.clicks; }
   const roas=adSpend>0?adSales/adSpend:null, cpc=adClicks>0?adSpend/adClicks:null;
   const kpis=[
-    ['SQP-Begriffe',fmtInt(total)],['Beworben',fmtInt(coveredN)],['PPC-Lücken',fmtInt(gapN)],['Lücken-Suchvol.',fmtInt(gapVol)],
+    ['SQP-Begriffe',fmtInt(total)],['Beworben',fmtInt(coveredN)],['Eingebucht (o. Traffic)',fmtInt(bookedN)],['PPC-Lücken',fmtInt(gapN)],['Lücken-Suchvol.',fmtInt(gapVol)],
     ['PPC-Spend (30T)',fmt(adSpend,2)+' €'],['PPC-Sales (30T)',fmt(adSales,2)+' €'],['ROAS (30T)',roas!=null?fmt(roas,2):'–'],['Bestellungen (30T)',fmtInt(adOrders)],['CPC (30T)',cpc!=null?fmt(cpc,2)+' €':'–'],
   ];
-  let list=[...rows]; if(gapsOnly) list=list.filter(r=>!r.covered);
+  let list=[...rows]; if(gapsOnly) list=list.filter(r=>!r.covered&&!r.booked);
   const flt=(document.getElementById('tsearch')?.value||'').toLowerCase(); if(flt)list=list.filter(r=>r.q.toLowerCase().includes(flt));
   list.sort((a,b)=>{const av=a[sortKey],bv=b[sortKey];return typeof av==='string'?sortDir*av.localeCompare(bv):sortDir*(av-bv);});
   const th=(k,l)=>`<th onclick="setSort('${k}')">${l}${sortKey===k?(sortDir<0?' ▼':' ▲'):''}</th>`;
-  const gapList=rows.filter(r=>!r.covered).map(r=>r.q);
+  const gapList=rows.filter(r=>!r.covered&&!r.booked).map(r=>r.q);
   const allGapChecked=gapList.length&&gapList.every(q=>checked.has(q));
   const body=list.map(r=>`<tr>
-    <td>${!r.covered?`<input type="checkbox" ${checked.has(r.q)?'checked':''} onclick="toggle('${r.q.replace(/'/g,"\\'")}')">`:''}</td>
+    <td>${!r.covered&&!r.booked?`<input type="checkbox" ${checked.has(r.q)?'checked':''} onclick="toggle('${r.q.replace(/'/g,"\\'")}')">`:''}</td>
     <td title="${r.q}">${r.q}</td>
     <td>${fmtInt(r.vol)}</td><td>${fmt(r.impr)}%</td><td>${fmt(r.purch)}%</td>
-    <td>${r.covered?'<span class="pill pill-ok">beworben</span>':'<span class="pill pill-gap">Lücke</span>'}</td>
+    <td>${r.covered?'<span class="pill pill-ok">beworben</span>':r.booked?'<span class="pill pill-book" title="Keyword ist im Konto angelegt (Kampagne läuft oder pausiert), hatte im Berichtszeitraum aber noch keinen Traffic.">✓ eingebucht</span>':'<span class="pill pill-gap">Lücke</span>'}</td>
     <td>${r.covered?fmtInt(r.clicks):'–'}</td><td>${r.covered?fmt(r.cost,2)+' €':'–'}</td>
   </tr>`).join('');
   document.getElementById('content').innerHTML=`
@@ -269,7 +296,7 @@ function render(){
 function setSort(k){ if(sortKey===k)sortDir*=-1; else {sortKey=k;sortDir=(k==='q'?1:-1);} render(); }
 function toggle(q){ checked.has(q)?checked.delete(q):checked.add(q); const el=document.getElementById('chkCount'); if(el)el.textContent=checked.size; }
 function toggleGapsOnly(v){ gapsOnly=v; render(); }
-function toggleAllGaps(v){ const gaps=currentRows().filter(r=>!r.covered).map(r=>r.q); if(v)gaps.forEach(q=>checked.add(q)); else gaps.forEach(q=>checked.delete(q)); render(); }
+function toggleAllGaps(v){ const gaps=currentRows().filter(r=>!r.covered&&!r.booked).map(r=>r.q); if(v)gaps.forEach(q=>checked.add(q)); else gaps.forEach(q=>checked.delete(q)); render(); }
 
 /* ---------- Direkt-Anlage per Ads-API ---------- */
 let KWBIDS={}; // "keyword|MATCHTYPE" -> Gebot (aus Amazon-Vorschlägen)
@@ -351,7 +378,7 @@ async function apiCreate(asin){
     try{
       const r=await fetch(`${API_ADS}/add-keywords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,channel,campaignId,adGroupId,keywords:kws,matchTypes,bid,keywordBids:KWBIDS,state:active?'ENABLED':'PAUSED'})});
       const j=await r.json();
-      if(j.ok){ show(true,`✅ ${j.keywordsCreated} Keywords eingebucht in <b>[${channel}] ${t.campaignName||campaignId}</b> › ${t.adGroupName||adGroupId} (${isSB?'Status folgt der Kampagne':(active?'AKTIV':'pausiert')})${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen (z.B. Duplikate)`:''}.`); }
+      if(j.ok){ show(true,`✅ ${j.keywordsCreated} Keywords eingebucht in <b>[${channel}] ${t.campaignName||campaignId}</b> › ${t.adGroupName||adGroupId} (${isSB?'Status folgt der Kampagne':(active?'AKTIV':'pausiert')})${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen (z.B. Duplikate)`:''}.`); markBooked(asin,kws); }
       else { show(false,'❌ Fehler: '+(j.sampleErrors&&j.sampleErrors[0]?j.sampleErrors[0]:JSON.stringify(j).slice(0,250))); }
     }catch(e){ show(false,'❌ Fehler: '+e.message); }
     return;
@@ -363,7 +390,7 @@ async function apiCreate(asin){
   try{
     const r=await fetch(`${API_ADS}/create-campaign`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,asin,keywords:kws,matchTypes,name,bid,budget,keywordBids:KWBIDS})});
     const j=await r.json();
-    if(j.ok){ show(true,`✅ Kampagne <b>${name}</b> pausiert angelegt (ID ${j.campaignId}) · ${j.keywordsCreated} Keywords${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen`:''} · SKU ${j.sku}.<br>Zum Aktivieren: Ads-Konsole → Kampagne prüfen → Status auf Aktiv.`); }
+    if(j.ok){ show(true,`✅ Kampagne <b>${name}</b> pausiert angelegt (ID ${j.campaignId}) · ${j.keywordsCreated} Keywords${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen`:''} · SKU ${j.sku}.<br>Zum Aktivieren: Ads-Konsole → Kampagne prüfen → Status auf Aktiv.`); markBooked(asin,kws); }
     else { show(false,'❌ Fehler'+(j.step?` (Schritt ${j.step})`:'')+': '+(typeof j.error==='string'?j.error:JSON.stringify(j.error||{}).slice(0,250))); }
   }catch(e){ show(false,'❌ Fehler: '+e.message); }
 }
