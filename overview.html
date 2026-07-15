@@ -166,11 +166,11 @@ async function onClient(){
   const spid=document.getElementById('clientSel').value; try{localStorage.setItem('sqpr_api_spid',spid);}catch(e){}
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade SQP + Ads…</div>';
   const [m,w,p,ahM,ahW,meta]=await Promise.all([
-    jget(`${API}/data?spid=${spid}&compact=1`,`data_${spid}`),
-    jget(`${API}/data?spid=${spid}&period=WEEK&compact=1`,`dataW_${spid}`),
-    jget(`${API}/asin-ppc?spid=${spid}&compact=1`,`ppc2_${spid}`),
-    jget(`${API}/ads-history?spid=${spid}&period=MONTH&compact=1`,`ahM2_${spid}`),
-    jget(`${API}/ads-history?spid=${spid}&period=WEEK&compact=1`,`ahW2_${spid}`),
+    jget(`${API}/data?spid=${spid}&compact=1`,`data3_${spid}`),
+    jget(`${API}/data?spid=${spid}&period=WEEK&compact=1`,`dataW3_${spid}`),
+    jget(`${API}/asin-ppc?spid=${spid}&compact=1`,`ppc3_${spid}`),
+    jget(`${API}/ads-history?spid=${spid}&period=MONTH&compact=1`,`ahM3_${spid}`),
+    jget(`${API}/ads-history?spid=${spid}&period=WEEK&compact=1`,`ahW3_${spid}`),
     jget(`${API}/asin-meta?spid=${spid}`,`meta_${spid}`),
   ]);
   META={}; for(const x of (meta.rows||[])) if(x.title) META[x.asin]=x.title;
