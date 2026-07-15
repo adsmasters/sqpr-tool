@@ -72,7 +72,9 @@
   .cell .cd{font-size:11px;font-weight:650;} .cd.up{color:var(--up);} .cd.down{color:var(--down);} .cd.flat{color:var(--faint);}
   .tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;}
   .tag.gap{background:#FEECEC;color:var(--down);} .tag.ok{background:#E7F7EE;color:var(--up);}
+  .tag.book{background:rgba(210,153,34,.14);color:#B7791F;}
   [data-theme="dark"] .tag.gap{background:#3a1f22;} [data-theme="dark"] .tag.ok{background:#12291c;}
+  [data-theme="dark"] .tag.book{background:#33270f;}
   .loading{text-align:center;padding:90px;color:var(--muted);}
   .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;margin:0 auto 14px;}
   @keyframes s{to{transform:rotate(360deg);}}
@@ -131,6 +133,21 @@ function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index
 const API='https://ppc-callback.vercel.app/api/sqp';
 const API_ADS='https://ppc-callback.vercel.app/api/ads';
 let BENCH={},BENCH_ASIN=''; // Benchmark-CPCs (Amazons Gebotsempfehlung) je Begriff, pro ASIN geladen
+// Eingebuchte Keywords je ASIN (live aus Ads-API) -> Status "eingebucht" statt "Lücke"
+let BOOKED=new Map(),BOOKED_LOADING=new Set();
+async function loadBooked(asin){
+  const spid=document.getElementById('clientSel')?.value;
+  if(!asin||!spid||BOOKED.has(asin)||BOOKED_LOADING.has(asin))return;
+  BOOKED_LOADING.add(asin);
+  try{
+    const j=await (await fetch(`${API_ADS}/asin-keywords?spid=${encodeURIComponent(spid)}&asin=${encodeURIComponent(asin)}`)).json();
+    const s=BOOKED.get(asin)||new Set();
+    for(const k of (j.keywords||[])) s.add(norm(k.text));
+    BOOKED.set(asin,s);
+    if(document.getElementById('asinSel')?.value===asin)render();
+  }catch(e){ /* beim nächsten Wechsel erneut versuchen */ }
+  BOOKED_LOADING.delete(asin);
+}
 // Tabellen-Sortierung: Default Käufe absteigend (hohes Volumen ist oft irrelevant)
 let TSORT=localStorage.getItem('sqpr_pd_sort')||'units';
 function onTsort(){TSORT=document.getElementById('tsortSel').value;try{localStorage.setItem('sqpr_pd_sort',TSORT);}catch(e){}render();}
@@ -292,6 +309,8 @@ function render(){
   const adPrevMap=prev?((ADHIST_TERM[GRAN].get(asin)||{})[prev]):undefined;
   const adPeriodReal=!!adCurMap;                                      // diese Periode hat echte Ad-Werte
   const prevByQ=new Map(); asinRows(prev||'').forEach(r=>prevByQ.set(norm(r.search_query),r));
+  loadBooked(asin); // eingebuchte Keywords live nachladen (re-rendert bei Ankunft)
+  const bookedSet=BOOKED.get(asin)||new Set();
   let rows=asinRows(cur).map(r=>{const nq=norm(r.search_query);const a=cov.get(nq);const pr=prevByQ.get(nq);
     const vol=+r.search_query_volume||0, click=+r.asin_click_share||0, purch=+r.asin_purchase_share||0, units=+r.asin_purchase_count||0;
     let spend,sales,clicks=0,dSpend=null,dSales=null;
@@ -309,7 +328,8 @@ function render(){
       dClick:pr?click-(+pr.asin_click_share||0):null,
       dPurch:pr?purch-(+pr.asin_purchase_share||0):null,
       // beworben = Traffic im 30T-Schnappschuss ODER Ad-Werte in der Periode (nie "Lücke" mit Ad-Sales daneben)
-      spend, sales, dSpend, dSales, adReal:adPeriodReal, covered:!!a||spend>0||sales>0||clicks>0};});
+      spend, sales, dSpend, dSales, adReal:adPeriodReal, covered:!!a||spend>0||sales>0||clicks>0,
+      booked:bookedSet.has(nq)};});
   const flt=(document.getElementById('tsearch')?.value||'').toLowerCase();
   const SK={units:r=>r.units,vol:r=>r.vol,revenue:r=>r.revenue||0,spend:r=>r.spend,roas:r=>r.roas||0};
   const skFn=SK[TSORT]||SK.units;
@@ -332,7 +352,7 @@ function render(){
     <td><span class="cell">${(r.adReal||r.covered)?eur(r.sales):'–'}${r.adReal?dcell(r.dSales,'eur'):''}</span></td>
     <td><span class="cell">${r.roas!=null?fmt2(r.roas):'–'}${sub(r.cpc!=null?'CPC '+fmt2(r.cpc)+' €':'')}</span></td>
     ${hasBench?`<td><span class="cell"${cpcWarn?' style="color:var(--down)" title="Eigener CPC liegt unter der Markt-Spanne — vermutlich zu niedrig geboten"':''}>${b?fmt2(b.bid)+' €':'–'}${sub(b&&b.low!=null?fmt2(b.low)+'–'+(b.high!=null?fmt2(b.high):'?')+' €':'')}</span></td>`:''}
-    <td>${r.covered?'<span class="tag ok">beworben</span>':'<span class="tag gap">Lücke</span>'}</td>
+    <td>${r.covered?'<span class="tag ok">beworben</span>':r.booked?'<span class="tag book" title="Keyword ist im Konto angelegt, hatte im Zeitraum aber noch keinen Traffic.">✓ eingebucht</span>':'<span class="tag gap">Lücke</span>'}</td>
   </tr>`;}).join('');
 
   document.getElementById('content').innerHTML=`
