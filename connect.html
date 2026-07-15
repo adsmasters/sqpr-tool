@@ -151,6 +151,21 @@
             <div class="step">
                 <div class="step-num">4</div>
                 <div class="step-body">
+                    <div class="step-title">Marken wählen (optional)</div>
+                    <div class="step-hint">Hat der Kunde mehrere Marken, kannst du den Import auf bestimmte Marken begrenzen — spart Speicher und der Import läuft schneller. Ohne Auswahl werden alle Marken importiert.</div>
+                    <button class="btn" id="brandLoadBtn" onclick="loadBrands()">Marken vom Seller-Konto laden</button>
+                    <div id="brandBox" style="display:none;margin-top:10px;">
+                        <label style="margin-bottom:6px;"><input type="radio" name="brandMode" value="all" checked onchange="brandModeChanged()"> Alle Marken importieren</label>
+                        <label style="margin-bottom:6px;"><input type="radio" name="brandMode" value="pick" onchange="brandModeChanged()"> Nur ausgewählte Marken:</label>
+                        <div id="brandList" style="margin:6px 0 0 22px;display:none;"></div>
+                    </div>
+                    <div class="msg" id="brandMsg"></div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">5</div>
+                <div class="step-body">
                     <div class="step-title">Speichern</div>
                     <div class="step-hint">Verknüpft Kunde ↔ Seller ↔ Ads-Profil und startet den Datenimport (SQP + PPC) automatisch.</div>
                     <button class="btn primary" id="saveBtn" onclick="saveClient()">Verbindung speichern &amp; Daten laden</button>
@@ -180,7 +195,7 @@ async function loadConnected(){
 function renderConnected(){
   const b=document.getElementById('clientsBody');
   if(!CONNECTED.length){ b.innerHTML='<tr><td colspan="5" class="empty">Noch keine Kunden per API verbunden.</td></tr>'; return; }
-  b.innerHTML=CONNECTED.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${esc(c.marketplace||'')}</td>
+  b.innerHTML=CONNECTED.map(c=>`<tr><td><b>${esc(c.name)}</b>${c.brand_filter&&c.brand_filter.length?`<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">nur Marken: ${esc(c.brand_filter.join(', '))}</div>`:''}</td><td>${esc(c.marketplace||'')}</td>
     <td>${c.spid?`<span class="badge ok">${esc(c.spid)}</span>`:'<span class="badge miss">fehlt</span>'}</td>
     <td>${c.ads_profile_id?`<span class="badge ok">${esc(c.ads_profile_id)}</span>`:'<span class="badge miss">fehlt</span>'}</td>
     <td>${datenCell(c)}</td></tr>`).join('');
@@ -267,6 +282,34 @@ function renderAdsOptions(){
   if(cur) sel.value=cur;
 }
 
+// Marken-Auswahl (optional): Liste live vom Seller-Konto (Listings + Catalog-API, wird gecacht)
+async function loadBrands(){
+  const spid=document.getElementById('sellerSelect').value;
+  const msg=document.getElementById('brandMsg'); msg.className='msg'; msg.textContent='';
+  if(!spid){ msg.className='msg err'; msg.textContent='Bitte zuerst den Seller wählen (Schritt 2).'; return; }
+  const opt=document.getElementById('clientSelect').selectedOptions[0];
+  const mkt=(opt&&opt.dataset.mkt)||'DE';
+  const btn=document.getElementById('brandLoadBtn'); btn.disabled=true; btn.textContent='Lade Marken… (kann ~30 Sek dauern)';
+  let j=null; try{ j=await (await fetch(`${API}/api/spapi/brands?spid=${spid}&marketplace=${encodeURIComponent(mkt)}`)).json(); }catch(e){}
+  btn.disabled=false; btn.textContent='Marken vom Seller-Konto laden';
+  if(!j||!j.ok){ msg.className='msg err'; msg.textContent='Marken konnten nicht geladen werden'+(j&&j.error?': '+j.error:'.'); return; }
+  if(!j.brands.length){ msg.textContent='Keine Marken gefunden — es werden alle ASINs importiert.'; return; }
+  document.getElementById('brandBox').style.display='block';
+  document.getElementById('brandList').innerHTML=j.brands.map(b=>
+    `<label style="display:block;margin:3px 0;font-weight:400;color:var(--text-primary);"><input type="checkbox" class="brandChk" value="${esc(b.brand)}" checked> ${esc(b.brand)} <span style="color:var(--text-secondary);">(${b.asins} ASINs)</span></label>`).join('');
+  msg.textContent=`${j.brands.length} Marke(n) gefunden.`+(j.truncated?' (Katalog sehr groß — Liste evtl. unvollständig)':'');
+}
+function brandModeChanged(){
+  const pick=document.querySelector('input[name="brandMode"]:checked').value==='pick';
+  document.getElementById('brandList').style.display=pick?'block':'none';
+}
+function selectedBrandFilter(){
+  const mode=document.querySelector('input[name="brandMode"]:checked');
+  if(!mode||mode.value!=='pick') return null; // null = alle Marken
+  const sel=[...document.querySelectorAll('.brandChk:checked')].map(c=>c.value);
+  return sel.length?sel:null;
+}
+
 async function saveClient(){
   const msg=document.getElementById('saveMsg'); msg.className='msg'; msg.textContent='';
   const opt=document.getElementById('clientSelect').selectedOptions[0];
@@ -279,7 +322,7 @@ async function saveClient(){
   const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='Speichere…';
   try {
     const r=await fetch(`${API}/api/sqp/clients`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({id,name,marketplace,spid,ads_profile_id:ads})});
+      body:JSON.stringify({id,name,marketplace,spid,ads_profile_id:ads,brand_filter:selectedBrandFilter()})});
     const j=await r.json();
     if(j.ok){
       // Datenimport (SQP + PPC) automatisch einreihen — kein Extra-Schritt nötig
