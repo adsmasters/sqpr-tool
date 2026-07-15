@@ -128,6 +128,21 @@ function toggleTheme(){var c=document.documentElement.getAttribute('data-theme')
 function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index.html');}
 
 const API='https://ppc-callback.vercel.app/api/sqp';
+const API_ADS='https://ppc-callback.vercel.app/api/ads';
+let BENCH={},BENCH_ASIN=''; // Benchmark-CPCs (Amazons Gebotsempfehlung) je Begriff, pro ASIN geladen
+async function loadBench(){
+  const asin=document.getElementById('asinSel').value; if(!asin)return;
+  const P=periods(); const cur=(SELPERIOD&&P.includes(SELPERIOD))?SELPERIOD:P[P.length-1];
+  const terms=[...asinRows(cur)].sort((a,b)=>(+b.search_query_volume||0)-(+a.search_query_volume||0)).slice(0,60).map(r=>r.search_query);
+  if(!terms.length)return;
+  const btn=document.getElementById('benchBtn'); if(btn){btn.disabled=true;btn.textContent='⏳ hole Benchmarks…';}
+  try{
+    const j=await (await fetch(`${API_ADS}/bid-recommendations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid:document.getElementById('clientSel').value,asin,keywords:terms,matchTypes:['EXACT']})})).json();
+    BENCH={}; BENCH_ASIN=asin;
+    for(const [k,v] of Object.entries(j.bids||{})){ const term=k.split('|')[0]; BENCH[norm(term)]=v; }
+  }catch(e){}
+  render();
+}
 const NAMES={B004EDA8HE:'Immun Tonicum Hund',B004EDSTZW:'Herz Tonicum Hund',B004EDSU7E:'Gelenk Hund',B08T6JP93J:'Gelenk Forte Hund',B004EDL20Q:'Immun Katze',B004EDDV00:'Immun Katze (2)',B004EDP2IY:'Herz Tonicum Katze',B004EDQRX8:'Nieren Tonicum Katze',B004EDMYG2:'Nieren Tonicum Katze (2)',B007UOST0W:'Renaltan Tonicum Katze',B07S2MT9L1:'Recovery Immun Katze',B08T6J9TVL:'Recovery Immun Katze (2)',B07RZG9QRT:'Recovery Renal Katze',B08T6G2K86:'Recovery Renal Katze 280ml',B0DMT8HD4N:'Immun Hund'};
 const norm=s=>(s||'').toLowerCase().replace(/\s+/g,' ').trim();
 const fmtInt=x=>x==null||isNaN(x)?'–':Math.round(+x).toLocaleString('de-DE');
@@ -203,7 +218,7 @@ async function onClient(){
   PPC=new Map(); for(const r of (p.rows||[])){ if(!PPC.has(r.asin))PPC.set(r.asin,new Map()); PPC.get(r.asin).set(norm(r.search_term),{spend:+r.cost||0,sales:+r.sales7d||0,clicks:+r.clicks||0}); }
   const buildHist=rows=>{const map=new Map();for(const r of (rows||[])){if(!map.has(r.asin))map.set(r.asin,{});const b=map.get(r.asin);const k=r.period_start;if(!b[k])b[k]={spend:0,sales:0};b[k].spend+=+r.cost||0;b[k].sales+=+r.sales7d||0;}return map;};
   ADHIST={MONTH:buildHist(ahM.rows), WEEK:buildHist(ahW.rows)};
-  const buildHistTerm=rows=>{const map=new Map();for(const r of (rows||[])){if(!map.has(r.asin))map.set(r.asin,{});const b=map.get(r.asin);const k=r.period_start;if(!b[k])b[k]={};const t=norm(r.search_term);if(!b[k][t])b[k][t]={spend:0,sales:0};b[k][t].spend+=+r.cost||0;b[k][t].sales+=+r.sales7d||0;}return map;};
+  const buildHistTerm=rows=>{const map=new Map();for(const r of (rows||[])){if(!map.has(r.asin))map.set(r.asin,{});const b=map.get(r.asin);const k=r.period_start;if(!b[k])b[k]={};const t=norm(r.search_term);if(!b[k][t])b[k][t]={spend:0,sales:0,clicks:0};b[k][t].spend+=+r.cost||0;b[k][t].sales+=+r.sales7d||0;b[k][t].clicks+=+r.clicks||0;}return map;};
   ADHIST_TERM={MONTH:buildHistTerm(ahM.rows), WEEK:buildHistTerm(ahW.rows)};
   MONTHS=[...new Set(SQP.MONTH.map(r=>r.start_date))].sort();
   WEEKS=[...new Set(SQP.WEEK.map(r=>r.start_date))].sort();
@@ -236,6 +251,7 @@ function shareOf(rows){ // gewichtete ASIN-Shares für eine Periode
 }
 function render(){
   const asin=document.getElementById('asinSel').value; if(!asin)return;
+  if(BENCH_ASIN&&BENCH_ASIN!==asin){BENCH={};BENCH_ASIN='';} // Benchmarks gelten je ASIN
   const P=periods(); if(!P.length){document.getElementById('content').innerHTML=noDataInfo(document.getElementById('clientSel').value)||'<div class="loading">Keine Daten für diese Granularität.</div>';return;}
   const cur=(SELPERIOD&&P.includes(SELPERIOD))?SELPERIOD:P[P.length-1];
   const ci=P.indexOf(cur); const prev=ci>0?P[ci-1]:null;
@@ -271,10 +287,16 @@ function render(){
   const prevByQ=new Map(); asinRows(prev||'').forEach(r=>prevByQ.set(norm(r.search_query),r));
   let rows=asinRows(cur).map(r=>{const nq=norm(r.search_query);const a=cov.get(nq);const pr=prevByQ.get(nq);
     const vol=+r.search_query_volume||0, click=+r.asin_click_share||0, purch=+r.asin_purchase_share||0, units=+r.asin_purchase_count||0;
-    let spend,sales,dSpend=null,dSales=null;
-    if(adPeriodReal){ const c=adCurMap[nq]; spend=c?c.spend:0; sales=c?c.sales:0; if(adPrevMap){const p=adPrevMap[nq]; dSpend=spend-(p?p.spend:0); dSales=sales-(p?p.sales:0);} }
-    else { spend=a?a.spend:0; sales=a?a.sales:0; }
-    return {q:r.search_query, vol, click, purch, units,
+    let spend,sales,clicks=0,dSpend=null,dSales=null;
+    if(adPeriodReal){ const c=adCurMap[nq]; spend=c?c.spend:0; sales=c?c.sales:0; clicks=c?(c.clicks||0):0; if(adPrevMap){const p=adPrevMap[nq]; dSpend=spend-(p?p.spend:0); dSales=sales-(p?p.sales:0);} }
+    else { spend=a?a.spend:0; sales=a?a.sales:0; clicks=a?(a.clicks||0):0; }
+    // Gesamtumsatz über das Keyword (SQP): Käufe × Median-Verkaufspreis (Näherung)
+    const price=+r.asin_median_purchase_price||0;
+    const revenue=units>0&&price>0?units*price:null;
+    const roas=spend>0&&sales>0?sales/spend:null;
+    const cpc=clicks>0&&spend>0?spend/clicks:null;
+    const tacos=revenue&&spend>0?100*spend/revenue:null;
+    return {q:r.search_query, vol, click, purch, units, revenue, roas, cpc, tacos,
       dVol:pr?vol-(+pr.search_query_volume||0):null,
       dUnits:pr?units-(+pr.asin_purchase_count||0):null,
       dClick:pr?click-(+pr.asin_click_share||0):null,
@@ -284,16 +306,23 @@ function render(){
   rows.sort((a,b)=>b.vol-a.vol); if(flt)rows=rows.filter(r=>r.q.toLowerCase().includes(flt));
   const adSuf=adPeriodReal?'':' (30T)';
   const dcell=(d,suf)=>d==null?'':`<span class="cd ${Math.abs(d)<0.05?'flat':d>0?'up':'down'}">${d>0?'▲':d<0?'▼':''} ${d>0?'+':''}${suf==='pp'?d.toFixed(1):suf==='eur'?(d<0?'−€'+fmtInt(-d):'€'+fmtInt(d)):fmtInt(d)}</span>`;
-  const body=rows.slice(0,60).map(r=>`<tr>
+  const sub=t=>t?`<span class="cd flat">${t}</span>`:'';
+  const body=rows.slice(0,60).map(r=>{
+    const b=BENCH[norm(r.q)];
+    const cpcWarn=b&&r.cpc!=null&&r.cpc<b.low; // eigener CPC unter Markt-Spanne -> vermutlich unterboten
+    return `<tr>
     <td>${r.q}</td>
     <td><span class="cell">${fmtInt(r.vol)}${dcell(r.dVol,'int')}</span></td>
     <td><span class="cell">${fmtInt(r.units)}${dcell(r.dUnits,'int')}</span></td>
     <td><span class="cell">${fmtPct(r.click)}${dcell(r.dClick,'pp')}</span></td>
     <td><span class="cell">${fmtPct(r.purch)}${dcell(r.dPurch,'pp')}</span></td>
+    <td><span class="cell">${r.revenue!=null?eur(r.revenue):'–'}${sub(r.tacos!=null?'TACoS '+r.tacos.toFixed(1)+'%':'')}</span></td>
     <td><span class="cell">${(r.adReal||r.covered)?eur(r.spend):'–'}${r.adReal?dcell(r.dSpend,'eur'):''}</span></td>
     <td><span class="cell">${(r.adReal||r.covered)?eur(r.sales):'–'}${r.adReal?dcell(r.dSales,'eur'):''}</span></td>
+    <td><span class="cell">${r.roas!=null?r.roas.toFixed(2):'–'}${sub(r.cpc!=null?'CPC '+r.cpc.toFixed(2)+' €':'')}</span></td>
+    <td><span class="cell"${cpcWarn?' style="color:var(--down)" title="Eigener CPC liegt unter der Markt-Spanne — vermutlich zu niedrig geboten"':''}>${b?b.bid.toFixed(2)+' €':'–'}${sub(b&&b.low!=null?b.low.toFixed(2)+'–'+(b.high!=null?b.high.toFixed(2):'?')+' €':'')}</span></td>
     <td>${r.covered?'<span class="tag ok">beworben</span>':'<span class="tag gap">Lücke</span>'}</td>
-  </tr>`).join('');
+  </tr>`;}).join('');
 
   document.getElementById('content').innerHTML=`
     <div class="hint">💡 Purchase-Share neben Ad-Spend: so siehst du, ob Umsatz an weniger Werbung, verlorenem Marktanteil oder schwächerer Conversion liegt.</div>
@@ -305,8 +334,9 @@ function render(){
     </div>
     <div class="panel">
       <div class="thead"><div><h2>Suchbegriffe</h2><div class="ph">Volumen/Shares = <b>${pLabel(cur)}</b> · Δ vs. Vorperiode · Ad-Spend/Sales = ${adPeriodReal?'<b>'+pLabel(cur)+'</b> (Δ vs. Vorperiode)':'letzte 30 Tage'}</div></div>
-        <input class="search" id="tsearch" placeholder="Filtern…" oninput="render()" value="${flt}"></div>
-      <table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Käufe</th><th>Click-Share</th><th>Purchase-Share</th><th>Ad-Spend${adSuf}</th><th>Ad-Sales${adSuf}</th><th style="text-align:right">PPC</th></tr></thead>
+        <div style="display:flex;gap:8px;align-items:center;"><button class="chip" id="benchBtn" style="background:var(--accent-soft);color:var(--accent);" onclick="loadBench()">${Object.keys(BENCH).length&&BENCH_ASIN===asin?'💡 Benchmarks aktualisieren':'💡 Benchmark-CPCs laden'}</button>
+        <input class="search" id="tsearch" placeholder="Filtern…" oninput="render()" value="${flt}"></div></div>
+      <table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Käufe</th><th>Click-Share</th><th>Purchase-Share</th><th title="Käufe × Median-Verkaufspreis (SQP-Näherung) · darunter TACoS = Ad-Spend ÷ Gesamtumsatz">Umsatz gesamt*</th><th>Ad-Spend${adSuf}</th><th>Ad-Sales${adSuf}</th><th title="Ad-Sales ÷ Ad-Spend · darunter eigener CPC">ROAS</th><th title="Amazons Gebotsempfehlung (Exact) · darunter Spanne — rot = eigener CPC liegt unter der Markt-Spanne">Benchmark-CPC</th><th style="text-align:right">PPC</th></tr></thead>
       <tbody>${body||'<tr><td colspan="7" class="loading">keine Treffer</td></tr>'}</tbody></table>
     </div>`;
   draw();
