@@ -133,6 +133,7 @@
         <div class="head-row">
             <select id="clientSelect" onchange="onClient()"></select>
             <span class="badge" id="mkt">DE</span>
+            <input class="inp" id="asinFilter" placeholder="ASIN / Produkt suchen…" oninput="fillAsins()" style="width:200px;">
             <select id="asinSelect" onchange="render()"></select>
             <span class="bs-toggle" id="granSeg" style="margin-bottom:0;"><button class="active" data-p="MONTH" onclick="setGran('MONTH')">Monatlich</button><button data-p="WEEK" onclick="setGran('WEEK')">Wöchentlich</button></span>
             <select id="monthSelect" onchange="render()"></select>
@@ -157,6 +158,16 @@ const asinLabel=a=>(META[a]||ASIN_NAMES[a])?`${pname(a)} · ${a}`:a;
 let GRAN='MONTH';
 const monthLabel=m=>{const d=new Date(m+'T00:00:00Z');if(GRAN==='WEEK'){const e=new Date(d);e.setUTCDate(d.getUTCDate()+6);const f=x=>x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',timeZone:'UTC'});return `Woche ${f(d)}–${f(e)}`;}return d.toLocaleDateString('de-DE',{month:'short',year:'numeric',timeZone:'UTC'});};
 function setGran(p){GRAN=p;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('active',b.dataset.p===p));onClient();}
+function fillAsins(){
+  const aSel=document.getElementById('asinSelect');
+  const q=(document.getElementById('asinFilter')?.value||'').toLowerCase().trim();
+  const list=ASINS.filter(a=>!q||a.toLowerCase().includes(q)||pname(a).toLowerCase().includes(q));
+  const prev=aSel.value;
+  aSel.innerHTML=list.map(a=>`<option value="${a}">${asinLabel(a)}</option>`).join('');
+  if(!list.length){aSel.innerHTML='<option value="">keine Treffer</option>';return;}
+  aSel.value=list.includes(prev)?prev:list[0];
+  if(aSel.value!==prev)render();
+}
 
 let CLIENTS=[], sqpRows=[], ppcRows=[], MONTHS=[], ASINS=[];
 let ppcByAsin=new Map();      // asin -> Map(normTerm -> {clicks,cost,purch,sales})
@@ -186,7 +197,7 @@ async function onClient(){
   for(const r of ppcRows){ if(!ppcByAsin.has(r.asin))ppcByAsin.set(r.asin,new Map()); ppcByAsin.get(r.asin).set(norm(r.search_term),{clicks:+r.clicks||0,cost:+r.cost||0,purch:+r.purchases7d||0,sales:+r.sales7d||0}); }
   MONTHS=[...new Set(sqpRows.map(r=>r.start_date))].sort();
   ASINS=[...new Set(sqpRows.map(r=>r.asin))].sort((a,b)=>pname(a).localeCompare(pname(b)));
-  const aSel=document.getElementById('asinSelect'); aSel.innerHTML=ASINS.map(a=>`<option value="${a}">${asinLabel(a)}</option>`).join(''); if(ASINS[0])aSel.value=ASINS[0];
+  fillAsins();
   const mSel=document.getElementById('monthSelect'); mSel.innerHTML=[...MONTHS].reverse().map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join(''); if(MONTHS.length)mSel.value=MONTHS[MONTHS.length-1];
   document.getElementById('info').textContent=`· ${ppcRows.length.toLocaleString('de-DE')} beworbene (ASIN×Begriff) · ${ASINS.length} ASINs mit SQP`;
   checked=new Set(); render();

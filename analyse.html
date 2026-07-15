@@ -109,6 +109,7 @@
     <div class="phead"><h1>Deep-Dive</h1><p>Ein Produkt im Detail — Marktanteile, Nachfrage und Werbung über die Zeit.</p></div>
     <div class="pickrow">
       <select class="sel" id="clientSel" onchange="onClient()"></select>
+      <input class="search" id="asinFilter" placeholder="ASIN / Produkt suchen…" oninput="fillAsins()" style="margin-left:0;width:200px;">
       <select class="sel" id="asinSel" onchange="render()"></select>
       <div class="seg" id="granSeg">
         <button data-p="MONTH" class="on" onclick="setGran('MONTH')">Monatlich</button>
@@ -206,9 +207,19 @@ async function onClient(){
   MONTHS=[...new Set(SQP.MONTH.map(r=>r.start_date))].sort();
   WEEKS=[...new Set(SQP.WEEK.map(r=>r.start_date))].sort();
   ASINS=[...new Set(SQP.MONTH.map(r=>r.asin))].sort((a,b)=>name(a).localeCompare(name(b)));
-  document.getElementById('asinSel').innerHTML=ASINS.map(a=>`<option value="${a}">${name(a)} · ${a}</option>`).join('');
+  fillAsins();
   const qa=new URLSearchParams(location.search).get('asin'); if(qa&&ASINS.includes(qa))document.getElementById('asinSel').value=qa;
   fillPeriods();render();
+}
+function fillAsins(){
+  const aSel=document.getElementById('asinSel');
+  const q=(document.getElementById('asinFilter')?.value||'').toLowerCase().trim();
+  const list=ASINS.filter(a=>!q||a.toLowerCase().includes(q)||name(a).toLowerCase().includes(q));
+  const prev=aSel.value;
+  aSel.innerHTML=list.map(a=>`<option value="${a}">${name(a)} · ${a}</option>`).join('');
+  if(!list.length){aSel.innerHTML='<option value="">keine Treffer</option>';return;}
+  aSel.value=list.includes(prev)?prev:list[0];
+  if(aSel.value!==prev)render();
 }
 function fillPeriods(){const P=periods();const sel=document.getElementById('periodSel');if(!sel)return;sel.innerHTML=[...P].reverse().map((d,i)=>`<option value="${d}">${pLabel(d)}${i===0?' (neueste)':''}</option>`).join('');sel.value=SELPERIOD||P[P.length-1]||'';}
 function onPeriod(){SELPERIOD=document.getElementById('periodSel').value;render();}
