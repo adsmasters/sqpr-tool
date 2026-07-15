@@ -262,7 +262,7 @@ async function loadAccounts(){
   try { const r=await fetch(`${API}/api/spapi/accounts`); const j=await r.json(); CONNECTED_SELLERS=j.accounts||[]; }
   catch(e){ CONNECTED_SELLERS=[]; }
   sel.innerHTML='<option value="">— Seller wählen —</option>'+CONNECTED_SELLERS.map(a=>
-    `<option value="${esc(a.selling_partner_id)}">${esc(a.selling_partner_id)} · verbunden ${esc((a.created_at||'').slice(0,10))}</option>`).join('');
+    `<option value="${esc(a.selling_partner_id)}">${a.account_name?esc(a.account_name)+' · ':''}${esc(a.selling_partner_id)} · verbunden ${esc((a.created_at||'').slice(0,10))}</option>`).join('');
 }
 let CONNECTED_SELLERS=[];
 
