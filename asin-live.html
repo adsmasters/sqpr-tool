@@ -28,7 +28,7 @@
         .badge{background:var(--bg-hover);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:3px 10px;border-radius:12px;font-weight:600;}
         .note{font-size:12px;color:var(--text-secondary);margin:2px 0 20px;display:flex;align-items:center;gap:6px;}
         .dot{width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;}
-        .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+        .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
         .kpi{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;}
         .kpi-l{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
         .kpi-v{font-size:20px;font-weight:700;}
@@ -155,8 +155,11 @@ const fmt=(x,d=1)=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumF
 const fmtInt=x=>x==null||isNaN(x)?'–':Math.round(+x).toLocaleString('de-DE');
 let META={}; // asin -> Titel (aus sqp_asin_meta, alle Kunden)
 let SKUMAP={}; // asin -> SKU (fuer Bulk-Sheet & API-Kampagnen)
+let ASTAT={};  // asin -> Listing-Status ('active'/'inactive', aus dem Produktbericht)
+const AMZ_DOMAIN={DE:'amazon.de',FR:'amazon.fr',IT:'amazon.it',ES:'amazon.es',UK:'amazon.co.uk',US:'amazon.com',NL:'amazon.nl'};
+function pdpUrl(asin){const c=CLIENTS.find(x=>x.spid===document.getElementById('clientSelect').value)||{};return `https://www.${AMZ_DOMAIN[(c.marketplace||'DE').toUpperCase()]||'amazon.de'}/dp/${asin}`;}
 const pname=a=>{const t=META[a]||ASIN_NAMES[a];return t?(t.length>52?t.slice(0,50)+'…':t):a;};
-const asinLabel=a=>(META[a]||ASIN_NAMES[a])?`${pname(a)} · ${a}`:a;
+const asinLabel=a=>((META[a]||ASIN_NAMES[a])?`${pname(a)} · ${a}`:a)+(ASTAT[a]==='inactive'?' · ⛔ INAKTIV':'');
 let GRAN='MONTH';
 const monthLabel=m=>{const d=new Date(m+'T00:00:00Z');if(GRAN==='WEEK'){const e=new Date(d);e.setUTCDate(d.getUTCDate()+6);const f=x=>x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',timeZone:'UTC'});return `Woche ${f(d)}–${f(e)}`;}return d.toLocaleDateString('de-DE',{month:'short',year:'numeric',timeZone:'UTC'});};
 function setGran(p){GRAN=p;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('active',b.dataset.p===p));onClient();}
@@ -195,7 +198,7 @@ async function onClient(){
     fetch(`${API}/asin-meta?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
   ]);
   sqpRows=sqp.rows||[]; ppcRows=ppc.rows||[];
-  META={}; SKUMAP={}; for(const m of (meta.rows||[])){ if(m.title) META[m.asin]=m.title; if(m.sku) SKUMAP[m.asin]=m.sku; }
+  META={}; SKUMAP={}; ASTAT={}; for(const m of (meta.rows||[])){ if(m.title) META[m.asin]=m.title; if(m.sku) SKUMAP[m.asin]=m.sku; if(m.status) ASTAT[m.asin]=m.status; }
   ppcByAsin=new Map();
   for(const r of ppcRows){ if(!ppcByAsin.has(r.asin))ppcByAsin.set(r.asin,new Map()); ppcByAsin.get(r.asin).set(norm(r.search_term),{clicks:+r.clicks||0,cost:+r.cost||0,purch:+r.purchases7d||0,sales:+r.sales7d||0}); }
   MONTHS=[...new Set(sqpRows.map(r=>r.start_date))].sort();
@@ -218,8 +221,14 @@ function render(){
   let rows=currentRows();
   const total=rows.length, coveredN=rows.filter(r=>r.covered).length, gapN=total-coveredN;
   const gapVol=rows.filter(r=>!r.covered).reduce((s,r)=>s+r.vol,0);
-  const spend=rows.reduce((s,r)=>s+r.cost,0);
-  const kpis=[['SQP-Begriffe',fmtInt(total)],['Beworben',fmtInt(coveredN)],['PPC-Lücken',fmtInt(gapN)],['Lücken-Suchvolumen',fmtInt(gapVol)],['PPC-Spend (30T)',fmt(spend,2)+' €']];
+  // Echte PPC-Performance der ASIN (ALLE beworbenen Begriffe, letzte 30 Tage — nicht nur SQP-Überlappung)
+  let adSpend=0,adSales=0,adOrders=0,adClicks=0;
+  for(const v of (ppcByAsin.get(asin)||new Map()).values()){ adSpend+=v.cost; adSales+=v.sales; adOrders+=v.purch; adClicks+=v.clicks; }
+  const roas=adSpend>0?adSales/adSpend:null, cpc=adClicks>0?adSpend/adClicks:null;
+  const kpis=[
+    ['SQP-Begriffe',fmtInt(total)],['Beworben',fmtInt(coveredN)],['PPC-Lücken',fmtInt(gapN)],['Lücken-Suchvol.',fmtInt(gapVol)],
+    ['PPC-Spend (30T)',fmt(adSpend,2)+' €'],['PPC-Sales (30T)',fmt(adSales,2)+' €'],['ROAS (30T)',roas!=null?fmt(roas,2):'–'],['Bestellungen (30T)',fmtInt(adOrders)],['CPC (30T)',cpc!=null?fmt(cpc,2)+' €':'–'],
+  ];
   let list=[...rows]; if(gapsOnly) list=list.filter(r=>!r.covered);
   const flt=(document.getElementById('tsearch')?.value||'').toLowerCase(); if(flt)list=list.filter(r=>r.q.toLowerCase().includes(flt));
   list.sort((a,b)=>{const av=a[sortKey],bv=b[sortKey];return typeof av==='string'?sortDir*av.localeCompare(bv):sortDir*(av-bv);});
@@ -237,7 +246,7 @@ function render(){
     <div class="kpis">${kpis.map(k=>`<div class="kpi"><div class="kpi-l">${k[0]}</div><div class="kpi-v">${k[1]}</div></div>`).join('')}</div>
     <div class="card">
       <div class="card-head">
-        <h3>${asinLabel(asin)} — ${monthLabel(month)}</h3>
+        <h3>${asinLabel(asin)} — ${monthLabel(month)} <a href="${pdpUrl(asin)}" target="_blank" rel="noopener" title="Produktseite auf Amazon öffnen" style="text-decoration:none;font-size:13px;color:var(--accent);font-weight:600;margin-left:6px;">↗ Amazon</a>${ASTAT[asin]==='inactive'?' <span class="pill pill-gap" title="Listing ist laut Produktbericht nicht aktiv — keine Kampagnen anlegen!">⛔ Listing inaktiv</span>':''}</h3>
         <div class="controls">
           <label class="chk"><input type="checkbox" ${gapsOnly?'checked':''} onchange="toggleGapsOnly(this.checked)"> Nur Lücken</label>
           <input class="inp search" id="tsearch" placeholder="Suchbegriff filtern…" oninput="render()" value="${flt}">
@@ -288,6 +297,7 @@ async function apiCreate(asin){
   const name=(document.getElementById('bCamp').value.trim())||`SP_Gap_${asin}`;
   const bid=+document.getElementById('bBid').value||0.5;
   const budget=+document.getElementById('bBudget').value||10;
+  if(ASTAT[asin]==='inactive'&&!confirm(`⛔ ACHTUNG: Das Listing ${asin} ist laut Produktbericht INAKTIV!\n\nEine Kampagne für ein inaktives Produkt würde nicht ausliefern.\nTrotzdem fortfahren?`))return;
   const total=kws.length*matchTypes.length;
   if(!confirm(`Kampagne "${name}" jetzt PAUSIERT im Kunden-Konto anlegen?\n\n${kws.length} Begriffe × ${matchTypes.join('/')} = ${total} Keywords · Bid ${bid.toFixed(2)} € · Budget ${budget} €/Tag\n\nAktivierung danach manuell in der Ads-Konsole.`))return;
   show(true,'⏳ Lege Kampagne an…');
