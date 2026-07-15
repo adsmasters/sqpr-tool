@@ -130,10 +130,14 @@ function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index
 const API='https://ppc-callback.vercel.app/api/sqp';
 const API_ADS='https://ppc-callback.vercel.app/api/ads';
 let BENCH={},BENCH_ASIN=''; // Benchmark-CPCs (Amazons Gebotsempfehlung) je Begriff, pro ASIN geladen
+// Tabellen-Sortierung: Default Käufe absteigend (hohes Volumen ist oft irrelevant)
+let TSORT=localStorage.getItem('sqpr_pd_sort')||'units';
+function onTsort(){TSORT=document.getElementById('tsortSel').value;try{localStorage.setItem('sqpr_pd_sort',TSORT);}catch(e){}render();}
 async function loadBench(){
   const asin=document.getElementById('asinSel').value; if(!asin)return;
   const P=periods(); const cur=(SELPERIOD&&P.includes(SELPERIOD))?SELPERIOD:P[P.length-1];
-  const terms=[...asinRows(cur)].sort((a,b)=>(+b.search_query_volume||0)-(+a.search_query_volume||0)).slice(0,60).map(r=>r.search_query);
+  // gleiche Reihenfolge wie die Tabelle (Default Käufe ↓), damit die sichtbaren Zeilen Benchmarks bekommen
+  const terms=[...asinRows(cur)].sort((a,b)=>(+b.asin_purchase_count||0)-(+a.asin_purchase_count||0)||(+b.search_query_volume||0)-(+a.search_query_volume||0)).slice(0,60).map(r=>r.search_query);
   if(!terms.length)return;
   const btn=document.getElementById('benchBtn'); if(btn){btn.disabled=true;btn.textContent='⏳ hole Benchmarks…';}
   try{
@@ -149,6 +153,8 @@ const fmtInt=x=>x==null||isNaN(x)?'–':Math.round(+x).toLocaleString('de-DE');
 const fmtK=x=>{x=+x||0;return x>=1000?(x/1000).toLocaleString('de-DE',{maximumFractionDigits:1})+'k':fmtInt(x);};
 const fmtPct=x=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
 const eur=x=>'€'+(+x||0).toLocaleString('de-DE',{maximumFractionDigits:0});
+const fmt2=x=>(+x).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt1=x=>(+x).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1});
 let META={}; // asin -> Titel (aus sqp_asin_meta)
 const name=a=>{const t=META[a]||NAMES[a];return t?(t.length>60?t.slice(0,58)+'…':t):a;};
 const mLabel=m=>{const d=new Date(m+'T00:00:00Z');return d.toLocaleDateString('de-DE',{month:'short',year:'2-digit',timeZone:'UTC'});};
@@ -303,8 +309,11 @@ function render(){
       dPurch:pr?purch-(+pr.asin_purchase_share||0):null,
       spend, sales, dSpend, dSales, adReal:adPeriodReal, covered:!!a};});
   const flt=(document.getElementById('tsearch')?.value||'').toLowerCase();
-  rows.sort((a,b)=>b.vol-a.vol); if(flt)rows=rows.filter(r=>r.q.toLowerCase().includes(flt));
+  const SK={units:r=>r.units,vol:r=>r.vol,revenue:r=>r.revenue||0,spend:r=>r.spend,roas:r=>r.roas||0};
+  const skFn=SK[TSORT]||SK.units;
+  rows.sort((a,b)=>skFn(b)-skFn(a)||b.vol-a.vol); if(flt)rows=rows.filter(r=>r.q.toLowerCase().includes(flt));
   const adSuf=adPeriodReal?'':' (30T)';
+  const hasBench=!!(Object.keys(BENCH).length&&BENCH_ASIN===asin); // leere Spalte erst zeigen, wenn geladen
   const dcell=(d,suf)=>d==null?'':`<span class="cd ${Math.abs(d)<0.05?'flat':d>0?'up':'down'}">${d>0?'▲':d<0?'▼':''} ${d>0?'+':''}${suf==='pp'?d.toFixed(1):suf==='eur'?(d<0?'−€'+fmtInt(-d):'€'+fmtInt(d)):fmtInt(d)}</span>`;
   const sub=t=>t?`<span class="cd flat">${t}</span>`:'';
   const body=rows.slice(0,60).map(r=>{
@@ -316,11 +325,11 @@ function render(){
     <td><span class="cell">${fmtInt(r.units)}${dcell(r.dUnits,'int')}</span></td>
     <td><span class="cell">${fmtPct(r.click)}${dcell(r.dClick,'pp')}</span></td>
     <td><span class="cell">${fmtPct(r.purch)}${dcell(r.dPurch,'pp')}</span></td>
-    <td><span class="cell">${r.revenue!=null?eur(r.revenue):'–'}${sub(r.tacos!=null?'TACoS '+r.tacos.toFixed(1)+'%':'')}</span></td>
+    <td><span class="cell">${r.revenue!=null?eur(r.revenue):'–'}${sub(r.tacos!=null?'TACoS '+fmt1(r.tacos)+'%':'')}</span></td>
     <td><span class="cell">${(r.adReal||r.covered)?eur(r.spend):'–'}${r.adReal?dcell(r.dSpend,'eur'):''}</span></td>
     <td><span class="cell">${(r.adReal||r.covered)?eur(r.sales):'–'}${r.adReal?dcell(r.dSales,'eur'):''}</span></td>
-    <td><span class="cell">${r.roas!=null?r.roas.toFixed(2):'–'}${sub(r.cpc!=null?'CPC '+r.cpc.toFixed(2)+' €':'')}</span></td>
-    <td><span class="cell"${cpcWarn?' style="color:var(--down)" title="Eigener CPC liegt unter der Markt-Spanne — vermutlich zu niedrig geboten"':''}>${b?b.bid.toFixed(2)+' €':'–'}${sub(b&&b.low!=null?b.low.toFixed(2)+'–'+(b.high!=null?b.high.toFixed(2):'?')+' €':'')}</span></td>
+    <td><span class="cell">${r.roas!=null?fmt2(r.roas):'–'}${sub(r.cpc!=null?'CPC '+fmt2(r.cpc)+' €':'')}</span></td>
+    ${hasBench?`<td><span class="cell"${cpcWarn?' style="color:var(--down)" title="Eigener CPC liegt unter der Markt-Spanne — vermutlich zu niedrig geboten"':''}>${b?fmt2(b.bid)+' €':'–'}${sub(b&&b.low!=null?fmt2(b.low)+'–'+(b.high!=null?fmt2(b.high):'?')+' €':'')}</span></td>`:''}
     <td>${r.covered?'<span class="tag ok">beworben</span>':'<span class="tag gap">Lücke</span>'}</td>
   </tr>`;}).join('');
 
@@ -334,10 +343,17 @@ function render(){
     </div>
     <div class="panel">
       <div class="thead"><div><h2>Suchbegriffe</h2><div class="ph">Volumen/Shares = <b>${pLabel(cur)}</b> · Δ vs. Vorperiode · Ad-Spend/Sales = ${adPeriodReal?'<b>'+pLabel(cur)+'</b> (Δ vs. Vorperiode)':'letzte 30 Tage'}</div></div>
-        <div style="display:flex;gap:8px;align-items:center;"><button class="chip" id="benchBtn" style="background:var(--accent-soft);color:var(--accent);" onclick="loadBench()">${Object.keys(BENCH).length&&BENCH_ASIN===asin?'💡 Benchmarks aktualisieren':'💡 Benchmark-CPCs laden'}</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><select class="search" style="width:auto;cursor:pointer;" id="tsortSel" onchange="onTsort()">
+          <option value="units"${TSORT==='units'?' selected':''}>Sortierung: Käufe ↓</option>
+          <option value="vol"${TSORT==='vol'?' selected':''}>Sortierung: Volumen ↓</option>
+          <option value="revenue"${TSORT==='revenue'?' selected':''}>Sortierung: Umsatz ↓</option>
+          <option value="spend"${TSORT==='spend'?' selected':''}>Sortierung: Ad-Spend ↓</option>
+          <option value="roas"${TSORT==='roas'?' selected':''}>Sortierung: ROAS ↓</option>
+        </select>
+        <button class="chip" id="benchBtn" style="background:var(--accent-soft);color:var(--accent);" onclick="loadBench()">${hasBench?'💡 Benchmarks aktualisieren':'💡 Benchmark-CPCs laden'}</button>
         <input class="search" id="tsearch" placeholder="Filtern…" oninput="render()" value="${flt}"></div></div>
-      <table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Käufe</th><th>Click-Share</th><th>Purchase-Share</th><th title="Käufe × Median-Verkaufspreis (SQP-Näherung) · darunter TACoS = Ad-Spend ÷ Gesamtumsatz">Umsatz gesamt*</th><th>Ad-Spend${adSuf}</th><th>Ad-Sales${adSuf}</th><th title="Ad-Sales ÷ Ad-Spend · darunter eigener CPC">ROAS</th><th title="Amazons Gebotsempfehlung (Exact) · darunter Spanne — rot = eigener CPC liegt unter der Markt-Spanne">Benchmark-CPC</th><th style="text-align:right">PPC</th></tr></thead>
-      <tbody>${body||'<tr><td colspan="7" class="loading">keine Treffer</td></tr>'}</tbody></table>
+      <table class="tbl"><thead><tr><th>Suchbegriff</th><th>Volumen</th><th>Käufe</th><th>Click-Share</th><th>Purchase-Share</th><th title="Käufe × Median-Verkaufspreis (SQP-Näherung) · darunter TACoS = Ad-Spend ÷ Gesamtumsatz">Umsatz gesamt*</th><th>Ad-Spend${adSuf}</th><th>Ad-Sales${adSuf}</th><th title="Ad-Sales ÷ Ad-Spend · darunter eigener CPC">ROAS</th>${hasBench?'<th title="Amazons Gebotsempfehlung (Exact) · darunter Spanne — rot = eigener CPC liegt unter der Markt-Spanne">Benchmark-CPC</th>':''}<th style="text-align:right">PPC</th></tr></thead>
+      <tbody>${body||`<tr><td colspan="${hasBench?11:10}" class="loading">keine Treffer</td></tr>`}</tbody></table>
     </div>`;
   draw();
 }
