@@ -96,6 +96,14 @@
       <div class="seg" id="granSeg"><button data-p="MONTH" class="on" onclick="setGran('MONTH')">Monatlich</button><button data-p="WEEK" onclick="setGran('WEEK')">Wöchentlich</button></div>
       <select class="sel" id="periodSel" onchange="onPeriod()" title="Zeitraum wählen"></select>
       <button class="icon-btn" onclick="refreshAll()" title="Daten neu laden">↻</button>
+      <select class="sel" id="sortSel" onchange="onSort()" title="Sortierung">
+        <option value="purchases">Sortierung: Käufe ↓</option>
+        <option value="vol">Sortierung: Suchvolumen ↓</option>
+        <option value="sales">Sortierung: Ad-Sales ↓</option>
+        <option value="spend">Sortierung: Ad-Spend ↓</option>
+        <option value="purch">Sortierung: Purchase-Share ↓</option>
+        <option value="flag">Sortierung: Status (Problem zuerst)</option>
+      </select>
       <input class="search" id="q" placeholder="ASIN oder Produkt filtern…" oninput="render()">
     </div>
     <div id="content"><div class="loading"><div class="spin"></div>Lade…</div></div>
@@ -118,6 +126,9 @@ const FLAGS={pr:'Problem',op:'Chance',ef:'Effizienz',st:'Stabil',pe:'Neu'};
 const MON=['Jan.','Feb.','März','Apr.','Mai','Juni','Juli','Aug.','Sep.','Okt.','Nov.','Dez.'];
 function pLabel(d){ if(!d)return '–'; if(GRAN==='WEEK'){const s=new Date(d+'T00:00:00Z'),e=new Date(s);e.setUTCDate(s.getUTCDate()+6);const f=x=>x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});return `Woche ${f(s)}–${f(e)}`;} const[y,mo]=d.split('-');return `${MON[+mo-1]} ${y}`;}
 let CLIENTS=[],SQP={MONTH:[],WEEK:[]},PPCbyAsin=new Map(),ADHIST={MONTH:new Map(),WEEK:new Map()},GRAN='MONTH',filterFlag=null,SELPERIOD=null;
+// Sortierung: Default Käufe absteigend (Suchvolumen enthält oft irrelevante Begriffe)
+let SORTKEY=localStorage.getItem('sqpr_ov_sort')||'purchases';
+function onSort(){SORTKEY=document.getElementById('sortSel').value;try{localStorage.setItem('sqpr_ov_sort',SORTKEY);}catch(e){}render();}
 // Session-Cache: gleiche Daten für Übersicht & Deep-Dive, damit Navigation sofort ist
 function cGet(k){try{const v=sessionStorage.getItem('sqpc_'+k);return v?JSON.parse(v):null;}catch(e){return null;}}
 function cSet(k,v){try{sessionStorage.setItem('sqpc_'+k,JSON.stringify(v));}catch(e){}}
@@ -216,7 +227,10 @@ function render(){
   const q=(document.getElementById('q')?.value||'').toLowerCase();
   let show=items.filter(i=>!q||nm(i.asin).toLowerCase().includes(q)||i.asin.toLowerCase().includes(q));
   if(filterFlag)show=show.filter(i=>i.flag.f===filterFlag);
-  const order={pr:0,op:1,ef:2,st:3,pe:4}; show.sort((a,b)=>order[a.flag.f]-order[b.flag.f] || b.c.vol-a.c.vol);
+  const sSel=document.getElementById('sortSel'); if(sSel&&sSel.value!==SORTKEY)sSel.value=SORTKEY;
+  const order={pr:0,op:1,ef:2,st:3,pe:4};
+  if(SORTKEY==='flag') show.sort((a,b)=>order[a.flag.f]-order[b.flag.f] || b.c.purchases-a.c.purchases);
+  else show.sort((a,b)=>(b.c[SORTKEY]||0)-(a.c[SORTKEY]||0) || b.c.purchases-a.c.purchases);
   const dCell=(cur,prev,type)=>{ if(prev==null)return ''; let d,cls,txt; if(type==='pp'){d=cur-prev;cls=Math.abs(d)<0.05?'flat':d>0?'up':'down';txt=(d>0?'+':'')+d.toFixed(1)+' pp';}
     else{const rel=prev?((cur-prev)/prev*100):0;cls=Math.abs(rel)<0.5?'flat':rel>0?'up':'down';txt=(rel>0?'▲':rel<0?'▼':'')+' '+(rel>0?'+':'')+Math.round(rel)+'%';}
     return `<div class="d ${cls}">${txt}</div>`;};
