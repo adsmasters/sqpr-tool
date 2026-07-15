@@ -286,6 +286,9 @@ function existChanged(){
   const v=document.getElementById('existSel').value;
   const isSB=!!v&&v.split('|')[0]==='SB';
   if(document.getElementById('tgtExist').checked)document.getElementById('kwActiveWrap').style.display=isSB?'none':'flex';
+  let n=document.getElementById('sbNote');
+  if(!n&&isSB){n=document.createElement('div');n.id='sbNote';n.style.cssText='font-size:12px;color:var(--text-secondary);margin-top:6px;';document.getElementById('existSel').insertAdjacentElement('afterend',n);}
+  if(n)n.textContent=isSB?'⚠️ SB (Beta): Amazon lehnt Keywords je nach Kampagnentyp ab (Share-of-Voice / neues Kampagnenformat) — die Fehlermeldung wird dann hier angezeigt.':'';
 }
 async function loadTargets(asin){
   const sel=document.getElementById('existSel');
