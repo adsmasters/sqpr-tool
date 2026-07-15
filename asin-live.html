@@ -271,6 +271,24 @@ function toggleAllGaps(v){ const gaps=currentRows().filter(r=>!r.covered).map(r=
 
 /* ---------- Direkt-Anlage per Ads-API ---------- */
 let KWBIDS={}; // "keyword|MATCHTYPE" -> Gebot (aus Amazon-Vorschlägen)
+let TARGETS=null; // bestehende Kampagnen/Anzeigengruppen der ASIN (lazy geladen)
+function tgtChanged(asin){
+  const exist=document.getElementById('tgtExist').checked;
+  document.getElementById('existSel').style.display=exist?'block':'none';
+  document.getElementById('kwActiveWrap').style.display=exist?'flex':'none';
+  if(exist&&TARGETS===null)loadTargets(asin);
+}
+async function loadTargets(asin){
+  const sel=document.getElementById('existSel');
+  sel.innerHTML='<option value="">⏳ lade Kampagnen…</option>';
+  try{
+    const j=await (await fetch(`${API_ADS}/asin-campaigns?spid=${encodeURIComponent(document.getElementById('clientSelect').value)}&asin=${asin}`)).json();
+    TARGETS=(j.targets||[]).sort((a,b)=>(b.keywordCapable-a.keywordCapable)||((b.campaignState==='ENABLED')-(a.campaignState==='ENABLED'))||a.campaignName.localeCompare(b.campaignName));
+    if(!TARGETS.length){sel.innerHTML='<option value="">Keine bestehenden Kampagnen für diese ASIN</option>';return;}
+    sel.innerHTML='<option value="">— Kampagne › Anzeigengruppe wählen —</option>'+TARGETS.map(t=>
+      `<option value="${t.campaignId}|${t.adGroupId}" ${t.keywordCapable?'':'disabled'}>${t.campaignState==='ENABLED'?'🟢':'⏸'} ${t.campaignName} › ${t.adGroupName}${t.keywordCapable?'':' (Auto — keine Keywords möglich)'}</option>`).join('');
+  }catch(e){sel.innerHTML='<option value="">Fehler beim Laden</option>';}
+}
 async function loadBids(asin){
   const info=document.getElementById('bidInfo');
   const kws=[...checked]; if(!kws.length){info.textContent='Erst Keywords auswählen.';return;}
@@ -300,6 +318,27 @@ async function apiCreate(asin){
   const budget=+document.getElementById('bBudget').value||10;
   if(ASTAT[asin]==='inactive'&&!confirm(`⛔ ACHTUNG: Das Listing ${asin} ist laut Produktbericht INAKTIV!\n\nEine Kampagne für ein inaktives Produkt würde nicht ausliefern.\nTrotzdem fortfahren?`))return;
   const total=kws.length*matchTypes.length;
+  const useExist=document.getElementById('tgtExist')&&document.getElementById('tgtExist').checked;
+
+  if(useExist){
+    // ---- In BESTEHENDE Kampagne einbuchen ----
+    const sel=document.getElementById('existSel').value;
+    if(!sel){show(false,'Bitte eine bestehende Kampagne › Anzeigengruppe wählen.');return;}
+    const [campaignId,adGroupId]=sel.split('|');
+    const t=(TARGETS||[]).find(x=>x.campaignId===campaignId&&x.adGroupId===adGroupId)||{};
+    const active=document.getElementById('kwActive').checked;
+    if(!confirm(`${total} Keywords in die BESTEHENDE Kampagne einbuchen?\n\n${t.campaignName||campaignId} › ${t.adGroupName||adGroupId}\n${kws.length} Begriffe × ${matchTypes.join('/')} · Bid ${bid.toFixed(2)} € (bzw. je Keyword-Vorschlag)\nStatus: ${active?'⚠️ SOFORT AKTIV (gibt sofort Geld aus!)':'pausiert (in der Konsole aktivieren)'}`))return;
+    show(true,'⏳ Buche Keywords ein…');
+    try{
+      const r=await fetch(`${API_ADS}/add-keywords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,campaignId,adGroupId,keywords:kws,matchTypes,bid,keywordBids:KWBIDS,state:active?'ENABLED':'PAUSED'})});
+      const j=await r.json();
+      if(j.ok){ show(true,`✅ ${j.keywordsCreated} Keywords ${active?'AKTIV':'pausiert'} eingebucht in <b>${t.campaignName||campaignId}</b> › ${t.adGroupName||adGroupId}${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen (z.B. Duplikate)`:''}.`); }
+      else { show(false,'❌ Fehler: '+(j.sampleErrors&&j.sampleErrors[0]?j.sampleErrors[0]:JSON.stringify(j).slice(0,250))); }
+    }catch(e){ show(false,'❌ Fehler: '+e.message); }
+    return;
+  }
+
+  // ---- NEUE Kampagne anlegen ----
   if(!confirm(`Kampagne "${name}" jetzt PAUSIERT im Kunden-Konto anlegen?\n\n${kws.length} Begriffe × ${matchTypes.join('/')} = ${total} Keywords · Bid ${bid.toFixed(2)} € · Budget ${budget} €/Tag\n\nAktivierung danach manuell in der Ads-Konsole.`))return;
   show(true,'⏳ Lege Kampagne an…');
   try{
@@ -313,7 +352,7 @@ async function apiCreate(asin){
 /* ---------- Bulk-Sheet ---------- */
 let bsType='seller';
 function openBulk(){
-  KWBIDS={}; // frische Auswahl = frische Gebotsvorschläge
+  KWBIDS={}; TARGETS=null; // frische Auswahl = frische Vorschläge/Ziele
   const asin=document.getElementById('asinSelect').value;
   if(!checked.size){ alert('Bitte zuerst Lücken auswählen (Checkboxen).'); return; }
   const ov=document.createElement('div'); ov.className='ov'; ov.id='ov';
@@ -329,6 +368,14 @@ function openBulk(){
       <div style="margin-top:8px;"><button class="btn" onclick="loadBids('${asin}')">💡 Amazon-Gebotsvorschläge laden</button></div>
       <div id="bidInfo" style="font-size:12px;color:var(--text-secondary);margin-top:6px;"></div></div>
     <div class="bs-field"><label>Tagesbudget (€) — für Direkt-Anlage</label><input type="number" id="bBudget" value="10" step="1" min="1"></div>
+    <div class="bs-field"><label>Ziel der Einbuchung</label>
+      <div style="display:flex;gap:16px;font-size:13px;margin-bottom:6px;">
+        <label style="cursor:pointer;"><input type="radio" name="tgt" id="tgtNew" checked onchange="tgtChanged('${asin}')"> Neue Kampagne</label>
+        <label style="cursor:pointer;"><input type="radio" name="tgt" id="tgtExist" onchange="tgtChanged('${asin}')"> Bestehende Kampagne</label>
+      </div>
+      <select id="existSel" style="display:none;width:100%;"></select>
+      <label class="chk" id="kwActiveWrap" style="margin-top:8px;display:none;"><input type="checkbox" id="kwActive"> Keywords sofort <b>&nbsp;aktiv&nbsp;</b> einbuchen (sonst pausiert)</label>
+    </div>
     <div class="bs-actions"><button class="btn" onclick="document.getElementById('ov').remove()">Abbrechen</button><button class="btn" onclick="bulkCsv('${asin}')">⬇ CSV</button><button class="btn" onclick="bulkXlsx('${asin}')">📄 Bulk-Sheet (.xlsx)</button><button class="btn btn-primary" onclick="apiCreate('${asin}')">🚀 Direkt anlegen (API, pausiert)</button></div>
     <div class="msg" id="apiMsg" style="display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;"></div>
   </div>`;
