@@ -134,6 +134,7 @@
             <select id="clientSelect" onchange="onClient()"></select>
             <span class="badge" id="mkt">DE</span>
             <select id="asinSelect" onchange="render()"></select>
+            <span class="bs-toggle" id="granSeg" style="margin-bottom:0;"><button class="active" data-p="MONTH" onclick="setGran('MONTH')">Monatlich</button><button data-p="WEEK" onclick="setGran('WEEK')">Wöchentlich</button></span>
             <select id="monthSelect" onchange="render()"></select>
         </div>
         <div class="note"><span class="dot"></span><span><strong>Automatisch via Amazon SP-API + Ads-API</strong> — SQP je ASIN + PPC-Lücken, kein Upload. <span id="info"></span></span></div>
@@ -150,8 +151,12 @@ const ASIN_NAMES={B004EDA8HE:'Immun Tonicum Hund',B004EDSTZW:'Herz Tonicum Hund'
 const norm=s=>(s||'').toLowerCase().replace(/\s+/g,' ').trim();
 const fmt=(x,d=1)=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmtInt=x=>x==null||isNaN(x)?'–':Math.round(+x).toLocaleString('de-DE');
-const asinLabel=a=>ASIN_NAMES[a]?`${ASIN_NAMES[a]} · ${a}`:a;
-const monthLabel=m=>{const d=new Date(m+'T00:00:00Z');return d.toLocaleDateString('de-DE',{month:'short',year:'numeric',timeZone:'UTC'});};
+let META={}; // asin -> Titel (aus sqp_asin_meta, alle Kunden)
+const pname=a=>{const t=META[a]||ASIN_NAMES[a];return t?(t.length>52?t.slice(0,50)+'…':t):a;};
+const asinLabel=a=>(META[a]||ASIN_NAMES[a])?`${pname(a)} · ${a}`:a;
+let GRAN='MONTH';
+const monthLabel=m=>{const d=new Date(m+'T00:00:00Z');if(GRAN==='WEEK'){const e=new Date(d);e.setUTCDate(d.getUTCDate()+6);const f=x=>x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',timeZone:'UTC'});return `Woche ${f(d)}–${f(e)}`;}return d.toLocaleDateString('de-DE',{month:'short',year:'numeric',timeZone:'UTC'});};
+function setGran(p){GRAN=p;[...document.querySelectorAll('#granSeg button')].forEach(b=>b.classList.toggle('active',b.dataset.p===p));onClient();}
 
 let CLIENTS=[], sqpRows=[], ppcRows=[], MONTHS=[], ASINS=[];
 let ppcByAsin=new Map();      // asin -> Map(normTerm -> {clicks,cost,purch,sales})
@@ -170,15 +175,17 @@ async function onClient(){
   const c=CLIENTS.find(c=>c.spid===spid)||CLIENTS[0];
   document.getElementById('mkt').textContent=c.marketplace||'DE';
   document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div>Lade SQP + PPC…</div>';
-  const [sqp,ppc]=await Promise.all([
-    fetch(`${API}/data?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
+  const [sqp,ppc,meta]=await Promise.all([
+    fetch(`${API}/data?spid=${encodeURIComponent(spid)}&period=${GRAN}`).then(r=>r.json()).catch(()=>({rows:[]})),
     fetch(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
+    fetch(`${API}/asin-meta?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
   ]);
   sqpRows=sqp.rows||[]; ppcRows=ppc.rows||[];
+  META={}; for(const m of (meta.rows||[])) if(m.title) META[m.asin]=m.title;
   ppcByAsin=new Map();
   for(const r of ppcRows){ if(!ppcByAsin.has(r.asin))ppcByAsin.set(r.asin,new Map()); ppcByAsin.get(r.asin).set(norm(r.search_term),{clicks:+r.clicks||0,cost:+r.cost||0,purch:+r.purchases7d||0,sales:+r.sales7d||0}); }
   MONTHS=[...new Set(sqpRows.map(r=>r.start_date))].sort();
-  ASINS=[...new Set(sqpRows.map(r=>r.asin))].sort((a,b)=>(ASIN_NAMES[a]||a).localeCompare(ASIN_NAMES[b]||b));
+  ASINS=[...new Set(sqpRows.map(r=>r.asin))].sort((a,b)=>pname(a).localeCompare(pname(b)));
   const aSel=document.getElementById('asinSelect'); aSel.innerHTML=ASINS.map(a=>`<option value="${a}">${asinLabel(a)}</option>`).join(''); if(ASINS[0])aSel.value=ASINS[0];
   const mSel=document.getElementById('monthSelect'); mSel.innerHTML=[...MONTHS].reverse().map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join(''); if(MONTHS.length)mSel.value=MONTHS[MONTHS.length-1];
   document.getElementById('info').textContent=`· ${ppcRows.length.toLocaleString('de-DE')} beworbene (ASIN×Begriff) · ${ASINS.length} ASINs mit SQP`;

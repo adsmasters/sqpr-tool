@@ -133,7 +133,8 @@ const fmtInt=x=>x==null||isNaN(x)?'–':Math.round(+x).toLocaleString('de-DE');
 const fmtK=x=>{x=+x||0;return x>=1000?(x/1000).toLocaleString('de-DE',{maximumFractionDigits:1})+'k':fmtInt(x);};
 const fmtPct=x=>x==null||isNaN(x)?'–':(+x).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
 const eur=x=>'€'+(+x||0).toLocaleString('de-DE',{maximumFractionDigits:0});
-const name=a=>NAMES[a]||a;
+let META={}; // asin -> Titel (aus sqp_asin_meta)
+const name=a=>{const t=META[a]||NAMES[a];return t?(t.length>60?t.slice(0,58)+'…':t):a;};
 const mLabel=m=>{const d=new Date(m+'T00:00:00Z');return d.toLocaleDateString('de-DE',{month:'short',year:'2-digit',timeZone:'UTC'});};
 const MON=['Jan.','Feb.','März','Apr.','Mai','Juni','Juli','Aug.','Sep.','Okt.','Nov.','Dez.'];
 function pLabel(d){ if(!d)return '–'; if(GRAN==='WEEK'){const s=new Date(d+'T00:00:00Z'),e=new Date(s);e.setUTCDate(s.getUTCDate()+6);const f=x=>x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});return `Woche ${f(s)}–${f(e)}`;} const[y,mo]=d.split('-');return `${MON[+mo-1]} ${y}`;}
@@ -187,13 +188,15 @@ async function ndStart(spid){
 async function onClient(){
   const spid=document.getElementById('clientSel').value;
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade SQP + Ads…</div>';
-  const [m,w,p,ahM,ahW]=await Promise.all([
+  const [m,w,p,ahM,ahW,meta]=await Promise.all([
     jget(`${API}/data?spid=${spid}&compact=1`,`data_${spid}`),
     jget(`${API}/data?spid=${spid}&period=WEEK&compact=1`,`dataW_${spid}`),
     jget(`${API}/asin-ppc?spid=${spid}`,`ppc_${spid}`),
     jget(`${API}/ads-history?spid=${spid}&period=MONTH`,`ahM_${spid}`),
     jget(`${API}/ads-history?spid=${spid}&period=WEEK`,`ahW_${spid}`),
+    jget(`${API}/asin-meta?spid=${spid}`,`meta_${spid}`),
   ]);
+  META={}; for(const x of (meta.rows||[])) if(x.title) META[x.asin]=x.title;
   SQP={MONTH:m.rows||[],WEEK:w.rows||[]};
   PPC=new Map(); for(const r of (p.rows||[])){ if(!PPC.has(r.asin))PPC.set(r.asin,new Map()); PPC.get(r.asin).set(norm(r.search_term),{spend:+r.cost||0,sales:+r.sales7d||0,clicks:+r.clicks||0}); }
   const buildHist=rows=>{const map=new Map();for(const r of (rows||[])){if(!map.has(r.asin))map.set(r.asin,{});const b=map.get(r.asin);const k=r.period_start;if(!b[k])b[k]={spend:0,sales:0};b[k].spend+=+r.cost||0;b[k].sales+=+r.sales7d||0;}return map;};
