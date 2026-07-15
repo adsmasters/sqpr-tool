@@ -29,6 +29,14 @@
         .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:var(--bg-hover); border:1px solid var(--border); color:var(--text-secondary); }
         .badge.ok { color:var(--success); border-color:var(--success); }
         .badge.miss { color:var(--error); border-color:var(--error); }
+        .prog { min-width:250px; max-width:340px; }
+        .prog-head { font-size:12.5px; margin-bottom:6px; }
+        .prog-head b { color:var(--accent); }
+        .prog-sub { display:block; font-size:11px; color:var(--text-secondary); margin-top:2px; }
+        .pbar { position:relative; height:16px; background:var(--bg-hover); border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-top:5px; }
+        .pbar-fill { position:absolute; inset:0 auto 0 0; background:var(--accent); opacity:.35; border-radius:8px; transition:width .6s; }
+        .pbar-label { position:absolute; inset:0; display:flex; align-items:center; padding-left:8px; font-size:10.5px; font-weight:600; color:var(--text-primary); white-space:nowrap; }
+        .prog-rows { font-size:11px; color:var(--text-secondary); margin-top:5px; }
         .step { display:flex; gap:14px; padding:16px 0; border-bottom:1px solid var(--row-border); }
         .step:last-child { border-bottom:none; }
         .step-num { flex-shrink:0; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; }
@@ -181,10 +189,47 @@ function renderConnected(){
 // Status kommt vom Server (sqp_backfill_jobs) — ueberlebt Seitenwechsel/Reload
 function datenCell(c){
   const js=c.job&&c.job.status;
-  if(js==='running') return '<span class="badge">⏳ lädt gerade — Cloud-Worker aktiv, Seite kann verlassen werden</span>';
-  if(js==='queued') return '<span class="badge">🕓 eingereiht ✓ — startet automatisch, Seite kann verlassen werden</span>';
+  if(js==='running'||js==='queued'){
+    const head = js==='running'
+      ? '⏳ <b>Import läuft gerade</b>'
+      : `🕓 <b>Eingereiht${queuePos(c)}</b> — startet automatisch`;
+    return `<div class="prog" data-spid="${esc(c.spid)}">
+      <div class="prog-head">${head}
+        <span class="prog-sub">Läuft in der Cloud — du kannst die Seite jederzeit verlassen. Amazon drosselt die Berichte, rechne mit ~1–2 Std pro Kunde.</span></div>
+      <div class="pbar"><div class="pbar-fill" style="width:0%"></div><div class="pbar-label" data-k="m">Monate: lade Status…</div></div>
+      <div class="pbar"><div class="pbar-fill" style="width:0%"></div><div class="pbar-label" data-k="w">Wochen: lade Status…</div></div>
+      <div class="prog-rows" data-k="rows"></div>
+    </div>`;
+  }
   if(c.has_data===false) return `<button class="btn" id="bf-${esc(c.spid)}" onclick="startBackfill('${esc(c.spid)}')">Daten laden (SQP+PPC)</button>`;
   return '<span class="badge ok">Daten ✓</span>';
+}
+// Wartelisten-Position (nach Einreih-Zeit) — "Platz 2 von 4"
+function queuePos(c){
+  const q=CONNECTED.filter(x=>x.job&&x.job.status==='queued'&&x.job.requested_at)
+    .map(x=>x.job.requested_at).sort();
+  const i=c.job&&c.job.requested_at?q.indexOf(c.job.requested_at):-1;
+  return i>=0&&q.length>1?` (Platz ${i+1} von ${q.length})`:'';
+}
+// Fortschritt (Monate/Wochen/Zeilen) fuer alle aktiven Jobs nachladen
+async function refreshProgress(){
+  const boxes=[...document.querySelectorAll('.prog[data-spid]')];
+  const spids=[...new Set(boxes.map(b=>b.dataset.spid))];
+  await Promise.all(spids.map(async spid=>{
+    let s=null; try{ s=await (await fetch(`${API}/api/sqp/status?spid=${spid}`)).json(); }catch(e){ return; }
+    if(!s||s.error) return;
+    boxes.filter(b=>b.dataset.spid===spid).forEach(b=>{
+      const set=(k,done,total,label)=>{
+        const bar=b.querySelector(`[data-k="${k}"]`); if(!bar) return;
+        bar.textContent=`${label}: ${done} von ${total} geladen`;
+        bar.previousElementSibling.style.width=(total?Math.round(done/total*100):0)+'%';
+      };
+      set('m',s.months_done,s.months_total,'Monate');
+      set('w',s.weeks_done,s.weeks_total,'Wochen');
+      const rw=b.querySelector('[data-k="rows"]');
+      if(rw) rw.textContent=s.rows?`${s.rows.toLocaleString('de-DE')} Suchbegriff-Zeilen bereits in der Datenbank`:'Noch keine Zeilen — der Import beginnt mit den neuesten Monaten.';
+    });
+  }));
 }
 
 async function loadSqprClients(){
@@ -250,14 +295,18 @@ async function saveClient(){
 async function startBackfill(spid){
   const btn=document.getElementById('bf-'+spid); if(btn){btn.disabled=true;btn.textContent='reihe ein…';}
   let j=null; try{ j=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid})})).json(); }catch(e){}
-  if(j&&j.ok){ CONNECTED.forEach(c=>{ if(c.spid===spid) c.job={status:'queued'}; }); renderConnected(); }
+  if(j&&j.ok){ CONNECTED.forEach(c=>{ if(c.spid===spid) c.job={status:'queued',requested_at:new Date().toISOString()}; }); renderConnected(); refreshProgress(); }
   else if(btn){ btn.disabled=false; btn.textContent='Fehler — nochmal versuchen'; }
 }
 // Status-Auffrischung, solange Jobs offen sind (eingereiht/laeuft -> fertig)
-setInterval(()=>{ if(CONNECTED.some(c=>c.job&&(c.job.status==='queued'||c.job.status==='running'))) loadConnected(); }, 60000);
+setInterval(async ()=>{
+  if(!CONNECTED.some(c=>c.job&&(c.job.status==='queued'||c.job.status==='running'))) return;
+  await loadConnected(); refreshProgress();
+}, 45000);
 
 (async function init(){
   await loadConnected();
+  refreshProgress();
   await loadSqprClients();
   loadAccounts();
   loadAdsProfiles();
