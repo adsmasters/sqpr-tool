@@ -130,10 +130,19 @@
     <div class="panel">
       <h2><span class="slabel">3</span> Als geplante Regel speichern</h2>
       <div class="ph">Speichert die Konfiguration aus Schritt 1 für dieses Konto — der Cloud-Worker führt sie automatisch aus (nachts ~04:30). Empfehlung: erst per Vorschau prüfen.</div>
-      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
         <div style="flex:1;min-width:220px;"><label>Regel-Name</label><input type="text" id="ruleName" placeholder="z.B. Standard-Korridore 30T"></div>
-        <div><label>Zeitplan</label><select class="inp" id="ruleSchedule" style="width:auto;"><option value="weekly">Wöchentlich (montags)</option><option value="daily">Täglich</option><option value="manual">Nur manuell (Vorlage)</option></select></div>
+        <div><label>Zeitplan</label><select class="inp" id="ruleSchedule" style="width:auto;" onchange="document.getElementById('schedCfg').style.display=this.value==='auto'?'flex':'none'"><option value="auto">Automatisch (Tage + Zeitfenster)</option><option value="manual">Nur manuell (Vorlage)</option></select></div>
         <button class="btn-go" onclick="saveRule()">💾 Regel speichern</button>
+      </div>
+      <div id="schedCfg" style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-top:10px;">
+        <div><label>An welchen Tagen?</label><div id="dayBoxes" style="display:flex;gap:4px;"></div></div>
+        <div><label>Zeitfenster (deutsche Zeit)</label><select class="inp" id="ruleWindow" style="width:auto;">
+          <option value="0-6">00:00 – 06:00 Uhr</option>
+          <option value="6-12">06:00 – 12:00 Uhr</option>
+          <option value="12-18">12:00 – 18:00 Uhr</option>
+          <option value="18-24" selected>18:00 – 24:00 Uhr</option>
+        </select></div>
       </div>
       <div id="ruleMsg" style="font-size:12.5px;margin-top:8px;"></div>
       <div id="ruleList" style="margin-top:14px;"></div>
@@ -190,7 +199,7 @@ async function boot(){
   const _saved=localStorage.getItem('sqpr_audit_profile');
   if(_saved&&PROFILES.some(p=>p.id===_saved))document.getElementById('profSel').value=_saved;
   document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} resetRun(); loadRules();};
-  renderCorridors(); loadRules();
+  renderCorridors(); renderDayBoxes([1]); loadRules();
 }
 function renderProfileOptions(){
   const f=(document.getElementById('profFilter').value||'').toLowerCase();
@@ -303,18 +312,40 @@ async function applyChanges(){
   } else document.getElementById('runStatus').textContent='❌ Anwenden fehlgeschlagen: '+((j&&j.error)||'Netzwerk');
 }
 
+/* ---------- Zeitplan: Wochentage (Mo-So) + 6h-Fenster ---------- */
+const DAY_LABELS=['So','Mo','Di','Mi','Do','Fr','Sa'];
+const WINDOW_LABELS={'0-6':'00–06 Uhr','6-12':'06–12 Uhr','12-18':'12–18 Uhr','18-24':'18–24 Uhr'};
+function renderDayBoxes(sel){
+  const selected=new Set(sel||[1]); // Default Montag
+  document.getElementById('dayBoxes').innerHTML=[1,2,3,4,5,6,0].map(d=>
+    `<button type="button" class="btn-sm${selected.has(d)?' on':''}" data-day="${d}" onclick="this.classList.toggle('on')" style="padding:6px 10px;">${DAY_LABELS[d]}</button>`).join('');
+}
+function gatherSchedule(){
+  const schedule=document.getElementById('ruleSchedule').value;
+  if(schedule!=='auto')return {schedule:'manual',schedule_cfg:null};
+  const days=[...document.querySelectorAll('#dayBoxes button.on')].map(b=>+b.dataset.day);
+  return {schedule:'auto',schedule_cfg:{days:days.length?days:[1],window:document.getElementById('ruleWindow').value}};
+}
+function schedLabel(r){
+  if(r.schedule==='manual')return 'manuell';
+  if(r.schedule==='daily')return 'täglich (00–06 Uhr)';
+  if(r.schedule==='weekly')return 'Mo (00–06 Uhr)';
+  const c=r.schedule_cfg||{};
+  const days=(c.days||[]).slice().sort((a,b)=>(a===0?7:a)-(b===0?7:b)).map(d=>DAY_LABELS[d]).join(', ');
+  return `${days||'—'} · ${WINDOW_LABELS[c.window]||c.window}`;
+}
+
 /* ---------- Geplante Regeln ---------- */
 async function loadRules(){
   const profileId=document.getElementById('profSel').value; if(!profileId)return;
   let j=null; try{ j=await (await fetch(`${API_ADS}/bid-rules?profileId=${profileId}`)).json(); }catch(e){}
   RULES=(j&&j.rules)||[]; RUNS=(j&&j.runs)||[];
-  const schedLabel={daily:'täglich',weekly:'wöchentlich (Mo)',manual:'manuell'};
   document.getElementById('ruleList').innerHTML=RULES.map(r=>{
     const lastRun=RUNS.find(x=>x.rule_id===r.id);
     return `<div class="rule">
       <span class="badge ${r.active?'on':''}">${r.active?'aktiv':'pausiert'}</span>
       <b>${esc(r.name)}</b>
-      <span class="badge">${schedLabel[r.schedule]||r.schedule}</span>
+      <span class="badge">${esc(schedLabel(r))}</span>
       <span style="color:var(--muted);font-size:12px;">${r.last_run?'zuletzt '+new Date(r.last_run).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'noch nie gelaufen'}${lastRun&&lastRun.summary?` · ${lastRun.summary.changes} Änderungen`:''}</span>
       <span style="margin-left:auto;display:flex;gap:6px;">
         <button class="btn-sm" onclick="editRule('${r.id}')">In Editor laden</button>
@@ -328,9 +359,10 @@ async function saveRule(){
   const name=document.getElementById('ruleName').value.trim();
   const msg=document.getElementById('ruleMsg');
   if(!profileId||!name){ msg.innerHTML='<span style="color:var(--down);">Bitte Konto wählen und Regel-Namen angeben.</span>'; return; }
-  const rule={id:EDIT_RULE_ID||undefined,profile_id:profileId,name,config:gatherConfig(),schedule:document.getElementById('ruleSchedule').value,active:true};
+  const sched=gatherSchedule();
+  const rule={id:EDIT_RULE_ID||undefined,profile_id:profileId,name,config:gatherConfig(),schedule:sched.schedule,schedule_cfg:sched.schedule_cfg,active:true};
   let j=null; try{ j=await (await fetch(`${API_ADS}/bid-rules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',rule})})).json(); }catch(e){}
-  if(j&&j.ok){ EDIT_RULE_ID=j.rule.id; msg.innerHTML=`<span style="color:var(--up);">✓ Regel gespeichert${rule.schedule!=='manual'?' — läuft automatisch '+(rule.schedule==='daily'?'jede Nacht':'jeden Montag')+' (~04:30)':''}</span>`; loadRules(); }
+  if(j&&j.ok){ EDIT_RULE_ID=j.rule.id; msg.innerHTML=`<span style="color:var(--up);">✓ Regel gespeichert${rule.schedule==='auto'?' — läuft automatisch: '+esc(schedLabel(j.rule)):''}</span>`; loadRules(); }
   else msg.innerHTML='<span style="color:var(--down);">Fehler: '+esc((j&&j.error)||'Netzwerk')+'</span>';
 }
 function editRule(id){
@@ -338,13 +370,18 @@ function editRule(id){
   EDIT_RULE_ID=id;
   applyConfig(r.config);
   document.getElementById('ruleName').value=r.name;
-  document.getElementById('ruleSchedule').value=r.schedule;
+  const isAuto=r.schedule!=='manual';
+  document.getElementById('ruleSchedule').value=isAuto?'auto':'manual';
+  document.getElementById('schedCfg').style.display=isAuto?'flex':'none';
+  const c=r.schedule_cfg||(r.schedule==='daily'?{days:[0,1,2,3,4,5,6],window:'0-6'}:r.schedule==='weekly'?{days:[1],window:'0-6'}:{});
+  renderDayBoxes(c.days||[1]);
+  document.getElementById('ruleWindow').value=c.window||'18-24';
   document.getElementById('ruleMsg').innerHTML='<span style="color:var(--muted);">Regel im Editor — „Regel speichern" überschreibt sie, Vorschau testet sie.</span>';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 async function toggleRule(id,active){
   const r=RULES.find(x=>x.id===id); if(!r)return;
-  await fetch(`${API_ADS}/bid-rules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',rule:{id,profile_id:r.profile_id,name:r.name,config:r.config,schedule:r.schedule,active}})});
+  await fetch(`${API_ADS}/bid-rules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',rule:{id,profile_id:r.profile_id,name:r.name,config:r.config,schedule:r.schedule,schedule_cfg:r.schedule_cfg,active}})});
   loadRules();
 }
 async function deleteRule(id,name){
