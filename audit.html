@@ -288,7 +288,7 @@ function renderAudit(j){
 }
 
 /* ===== Sektion E/F — wie das Bulksheet-Audit: Account-/Kampagnenebene, Suchbegriffe, Wasted ===== */
-let AUD=null, spMode='keywords', topView='account', sbView='account', sbWasted=false;
+let AUD=null, spMode='searchterms', topView='account', sbView='account', sbWasted=false;
 let spWRoas=1.0, spWClicks=10, sbWRoas=1.0, sbWClicks=10;
 function setSpMode(m){spMode=m;buildE();} function setTopView(v){topView=v;buildE();}
 function setSbView(v){sbView=v;buildF();} function toggleSbWasted(){sbWasted=!sbWasted;buildF();}
@@ -317,7 +317,8 @@ function termTable(displayData,colLabel,showCampaign,withCpc){
 }
 function buildE(){
   const el=document.getElementById('secE'); if(!el||!AUD)return;
-  const targets=unpack(AUD.spTargets), terms=unpack(AUD.spTerms);
+  // "Keywords" = nur ECHTE eingebuchte Keywords (Broad/Phrase/Exact) — keine Auto-/Produkt-Target-Ausdruecke
+  const targets=unpack(AUD.spTargets).filter(r=>/^(BROAD|PHRASE|EXACT)$/i.test(r.match)), terms=unpack(AUD.spTerms);
   if(!targets.length&&!terms.length){el.innerHTML='';return;}
   spWRoas=+(document.getElementById('spWastedRoas')?.value??spWRoas)||spWRoas;
   spWClicks=+(document.getElementById('spWastedClicks')?.value??spWClicks);
@@ -332,20 +333,20 @@ function buildE(){
   const spCampSales=(AUD.formats&&AUD.formats.SP&&AUD.formats.SP.sales)||0;
   const totalSpend=sorted.reduce((s,r)=>s+r.spend,0), totalSales=sorted.reduce((s,r)=>s+r.sales,0);
   const display=spMode==='wasted'?wasted.slice(0,50):sorted.slice(0,20);
-  const title=spMode==='wasted'?`Wasted Suchbegriffe (${fmtInt(wasted.length)})`:spMode==='searchterms'?'Top 20 Suchbegriffe nach Sales':'Top 20 Keywords/Targets nach Sales';
-  const colLabel=spMode==='keywords'?'Keyword/Target':'Suchbegriff';
+  const title=spMode==='wasted'?`Wasted Suchbegriffe (${fmtInt(wasted.length)})`:spMode==='searchterms'?'Top 20 Suchbegriffe nach Sales':'Top 20 eingebuchte Keywords nach Sales';
+  const colLabel=spMode==='keywords'?'Keyword':'Suchbegriff';
   const attrNote=(spMode==='keywords'&&spCampSales>0&&totalSales>spCampSales*1.02)
     ?`<div class="note">ℹ️ <b>Warum weichen die Zahlen von Sektion B ab?</b> Kampagnen-Sales: <b>${eur(spCampSales)}</b> · Keyword-attributierte Sales: <b>${eur(totalSales)}</b>. Amazon rechnet im 7-Tage-Fenster denselben Kauf ggf. mehreren Keywords gleichzeitig an — die Keyword-Summe kann daher höher sein. Normales Amazon-Verhalten.</div>`:'';
   el.innerHTML=`<div class="panel"><h2><span class="slabel">E</span> SP ${title}</h2>
-    <div class="ph">${spMode==='keywords'?'Eingebuchte Keywords und Targets.':spMode==='searchterms'?'Echte Kundensuchen aus dem SP-Suchbegriff-Bericht.':'Suchbegriffe mit Klicks aber niedrigem ROAS — Schwellwerte einstellbar.'} ${byAccount?'Accountebene: über alle Kampagnen aggregiert.':'Kampagnenebene: je Begriff und Kampagne.'}</div>
+    <div class="ph">${spMode==='keywords'?'Eingebuchte Keywords (Broad/Phrase/Exact).':spMode==='searchterms'?'Echte Kundensuchen aus dem SP-Suchbegriff-Bericht — das, was der Kunde final gesucht hat.':'Suchbegriffe mit Klicks aber niedrigem ROAS — Schwellwerte einstellbar.'} ${byAccount?'Accountebene: über alle Kampagnen aggregiert.':'Kampagnenebene: je Begriff und Kampagne.'}</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
       ${segBtn(topView==='account','Accountebene',"setTopView('account')")}${segBtn(topView==='campaign','Kampagnenebene',"setTopView('campaign')")}
       <span style="width:10px;"></span>
-      ${segBtn(spMode==='keywords','Keywords/Targets',"setSpMode('keywords')")}${segBtn(spMode==='searchterms','Top Suchbegriffe',"setSpMode('searchterms')")}${segBtn(spMode==='wasted','Wasted Spend',"setSpMode('wasted')")}
+      ${segBtn(spMode==='searchterms','Top Suchbegriffe',"setSpMode('searchterms')")}${segBtn(spMode==='keywords','Eingebuchte Keywords',"setSpMode('keywords')")}${segBtn(spMode==='wasted','Wasted Spend',"setSpMode('wasted')")}
       <span style="margin-left:auto;display:flex;gap:12px;">${winp('spWastedRoas','Max. ROAS',spWRoas,'0.1','buildE()')}${winp('spWastedClicks','Min. Klicks',spWClicks,'1','buildE()')}</span>
     </div>
     <div class="kpis" style="margin-bottom:14px;">
-      ${kpi(spMode==='keywords'?'Keywords/Targets':'Suchbegriffe',fmtInt(sorted.length))}${kpi('Spend',eur(totalSpend))}${kpi(spMode==='keywords'?'Attr. Sales':'Sales',eur(totalSales))}${kpi('ROAS',totalSpend>0?fmt2(totalSales/totalSpend):'–')}
+      ${kpi(spMode==='keywords'?'Keywords':'Suchbegriffe',fmtInt(sorted.length))}${kpi('Spend',eur(totalSpend))}${kpi(spMode==='keywords'?'Attr. Sales':'Sales',eur(totalSales))}${kpi('ROAS',totalSpend>0?fmt2(totalSales/totalSpend):'–')}
       ${kpi(`Wasted (ROAS<${spWRoas}, ≥${spWClicks} Kl.)`,terms.length?`<span style="color:var(--down)">${eur(wastedSpend)}</span> <span style="font-size:11px;color:var(--muted)">${spSpend>0?fmt1(100*wastedSpend/spSpend)+'% v. SP':''}</span>`:'–')}
     </div>${attrNote}
     ${termTable(display,colLabel,topView==='campaign',true)}</div>`;
