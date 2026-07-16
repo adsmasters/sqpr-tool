@@ -182,6 +182,7 @@ async function restoreCached(){
     const ts=new Date(d.updated_at);
     document.getElementById('lastNote').textContent='Stand: '+ts.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' Uhr';
     btn.textContent='🔄 Audit aktualisieren';
+    syncBidAdj(profileId,days); // D+ im Hintergrund gegen echte Kampagnenwerte abgleichen
   } else {
     document.getElementById('content').innerHTML='<div class="loading">Für dieses Konto liegt noch kein Audit vor.<br><b>Jetzt PPC-Audit</b> klicken — Amazon braucht für die Berichte meist 5–10 Minuten, zu Stoßzeiten auch länger.<br><span style="font-size:12px;">Danach ist das Audit gespeichert und öffnet sofort.</span></div>';
     document.getElementById('lastNote').textContent='';
@@ -316,6 +317,17 @@ function renderAudit(j){
     ${sdRows?`<div class="panel"><h2><span class="slabel">G</span> Sponsored Display — Kampagnen-Performance</h2><div class="ph">SD-Kampagnen nach Spend (kein Suchbegriff-Bericht verfügbar für SD).</div>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>Kampagne</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th></tr></thead><tbody>${sdRows}</tbody></table></div></div>`:''}`;
   AUD=j; buildE(); buildF();
+}
+
+/* ===== D+: Abgleich mit echten Kampagnenwerten (heilt Drift, blendet Erledigtes aus) ===== */
+async function syncBidAdj(profileId,days){
+  if(!AUD||!(AUD.bidAdj||[]).length)return;
+  let j=null;
+  try{ j=await (await fetch(`${API_ADS}/audit-fetch?profileId=${profileId}&days=${days}&syncadj=1`)).json(); }catch(e){ return; }
+  if(!j||!j.ok||!j.changed)return;
+  if(document.getElementById('profSel').value!==profileId)return; // Nutzer hat weitergeklickt
+  AUD.bidAdj=j.bidAdj;
+  renderAudit(AUD);
 }
 
 /* ===== D+: Gebotsanpassung durchführen (API-Write, mit Bestätigung) ===== */
