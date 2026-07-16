@@ -95,6 +95,14 @@
       <input class="sel" style="cursor:text;min-width:220px;" id="profFilter" placeholder="Konto suchen…" oninput="renderProfileOptions()">
       <select class="sel" id="profSel" style="max-width:420px;"></select>
     </div>
+    <div class="pickrow" style="margin-top:-8px;">
+      <span style="font-size:12.5px;color:var(--muted);font-weight:650;">Setup-Vorlagen:</span>
+      <select class="sel" id="presetSel" style="font-size:13px;padding:8px 36px 8px 13px;"><option value="">— Vorlage wählen —</option></select>
+      <button class="btn-sm" onclick="loadPreset()">Laden</button>
+      <button class="btn-sm" onclick="savePreset()">Speichern</button>
+      <button class="btn-sm" onclick="deletePreset()">Löschen</button>
+      <span style="font-size:11.5px;color:var(--faint);">speichert das komplette Setup (Keywords, Gebote, Vorlagen, Einstellungen) — für Produkt B laden und nur ASIN + Produktname ändern</span>
+    </div>
 
     <div class="panel">
       <h2><span class="slabel">1</span> Produkte &amp; Amazon-Keyword-Vorschläge</h2>
@@ -212,7 +220,7 @@ async function boot(){
   document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} updateAcctInfo();};
   updateAcctInfo();
   document.getElementById('startDate').value=new Date().toISOString().slice(0,10);
-  renderTemplates(); updateSummary();
+  renderTemplates(); refreshPresetDropdown(); updateSummary();
   document.querySelectorAll('textarea,input').forEach(el=>el.addEventListener('input',updateSummary));
 }
 function renderProfileOptions(){
@@ -234,6 +242,50 @@ function updateAcctInfo(){
   el.innerHTML=String(p.type).toLowerCase()==='vendor'
     ?`🏭 <b>Vendor-Konto</b> (${esc(p.name)}) — Produktanzeigen laufen direkt über die ASIN, <b>keine SKU nötig</b>.`
     :`🏪 <b>Seller-Konto</b> (${esc(p.name)}) — die SKU je ASIN wird <b>automatisch ermittelt</b> (Produktbericht, sonst bestehende Anzeigen). Nur wenn keine findbar ist, erscheinen hier SKU-Eingabefelder.`;
+}
+
+/* ---------- Setup-Vorlagen (wie Bulksheet-Tool): komplettes Formular speichern/laden ---------- */
+const PRESET_KEY='sqpr_campaign_presets';
+const PRESET_FIELDS=['asins','prodName','kwGeneric','kwBrand','kwComp','kwSingle','ptOwn','ptComp','budget','bid','strategy','state','plTop','plProd','negExact','negPhrase'];
+function getPresets(){ try{ return JSON.parse(localStorage.getItem(PRESET_KEY))||{}; }catch(e){ return {}; } }
+function gatherSetup(){
+  const s={v:1,fields:{},checks:{crossNeg:document.getElementById('crossNeg').checked},tpl:{},kwbids:KWBIDS,profile:document.getElementById('profSel').value};
+  for(const id of PRESET_FIELDS) s.fields[id]=document.getElementById(id).value;
+  for(const t of TEMPLATES) s.tpl[t.key]={on:document.getElementById('tp-'+t.key).checked,b:document.getElementById('tpb-'+t.key).value,g:document.getElementById('tpg-'+t.key).value};
+  return s;
+}
+function applySetup(s){
+  if(!s)return;
+  for(const id of PRESET_FIELDS){ const el=document.getElementById(id); if(el&&s.fields&&id in s.fields)el.value=s.fields[id]; }
+  if(s.checks)document.getElementById('crossNeg').checked=!!s.checks.crossNeg;
+  for(const t of TEMPLATES){ const c=s.tpl&&s.tpl[t.key]; if(!c)continue;
+    document.getElementById('tp-'+t.key).checked=!!c.on; document.getElementById('tpb-'+t.key).value=c.b||''; document.getElementById('tpg-'+t.key).value=c.g||''; }
+  if(s.kwbids)KWBIDS={...KWBIDS,...s.kwbids};
+  if(s.profile&&PROFILES.some(p=>p.id===s.profile)){ document.getElementById('profSel').value=s.profile; updateAcctInfo(); }
+  document.getElementById('startDate').value=new Date().toISOString().slice(0,10); // Datum nie aus Vorlage
+  updateSummary();
+}
+function refreshPresetDropdown(){
+  const sel=document.getElementById('presetSel'); const cur=sel.value;
+  sel.innerHTML='<option value="">— Vorlage wählen —</option>'+Object.keys(getPresets()).sort().map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if(cur)sel.value=cur;
+}
+function savePreset(){
+  const name=prompt('Vorlagen-Name (z.B. "Standard-Setup Tierfutter"):'); if(!name||!name.trim())return;
+  const p=getPresets(); p[name.trim()]=gatherSetup();
+  try{ localStorage.setItem(PRESET_KEY,JSON.stringify(p)); }catch(e){ alert('Speichern fehlgeschlagen: '+e.message); return; }
+  refreshPresetDropdown(); document.getElementById('presetSel').value=name.trim();
+}
+function loadPreset(){
+  const name=document.getElementById('presetSel').value; if(!name)return;
+  const p=getPresets(); if(!p[name]){alert('Vorlage nicht gefunden.');return;}
+  applySetup(p[name]);
+}
+function deletePreset(){
+  const name=document.getElementById('presetSel').value; if(!name)return;
+  if(!confirm(`Vorlage "${name}" löschen?`))return;
+  const p=getPresets(); delete p[name];
+  localStorage.setItem(PRESET_KEY,JSON.stringify(p)); refreshPresetDropdown();
 }
 
 /* ---------- Amazons Keyword-Vorschläge ---------- */
