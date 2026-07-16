@@ -127,14 +127,24 @@ const REPORT_LABELS={sp_campaigns:'SP Kampagnen',sp_placements:'SP Platzierungen
 // Profil-Auswahl: verbundene SQPR-Kunden zuerst (nächtlich vorgeladen), darunter ALLE Agentur-Konten
 let PROFILES=[];
 async function boot(){
-  const getProfiles=async()=>{ // /profiles kann beim Kaltstart transient fehlschlagen -> Retry
-    for(let a=0;a<3;a++){ try{ const j=await (await fetch(`${API_ADS}/profiles`)).json(); if(j&&j.profiles&&j.profiles.length)return j; }catch(e){} await new Promise(r=>setTimeout(r,1500)); }
+  const getProfiles=async()=>{ // /profiles kann transient fehlschlagen -> Retry, dann localStorage-Fallback
+    for(let a=0;a<3;a++){
+      try{ const j=await (await fetch(`${API_ADS}/profiles`)).json();
+        if(j&&j.profiles&&j.profiles.length){ try{localStorage.setItem('sqpr_profiles_cache',JSON.stringify(j.profiles));}catch(e){} return j; }
+      }catch(e){}
+      await new Promise(r=>setTimeout(r,1500));
+    }
+    try{ const c=JSON.parse(localStorage.getItem('sqpr_profiles_cache')||'null'); if(c&&c.length)return {profiles:c,stale:true}; }catch(e){}
     return {profiles:[]};
   };
   const [clientsR,profR]=await Promise.all([
     fetch(`${API}/clients`).then(r=>r.json()).catch(()=>({clients:[]})),
     getProfiles(),
   ]);
+  if(!(profR.profiles||[]).length){ // NIE stumm leer dastehen
+    document.getElementById('content').innerHTML='<div class="loading">⚠️ Die Konten-Liste konnte gerade nicht geladen werden (Amazon-API kurzzeitig nicht erreichbar).<br><br><button class="btn-go" onclick="location.reload()">↻ Neu laden</button></div>';
+    return;
+  }
   CLIENTS=(clientsR.clients||[]).filter(c=>c.ads_profile_id);
   const connectedIds=new Set(CLIENTS.map(c=>String(c.ads_profile_id)));
   PROFILES=(profR.profiles||[]).map(p=>({id:String(p.profileId),name:p.name||String(p.profileId),cc:p.countryCode||'',type:p.type||'',connected:connectedIds.has(String(p.profileId))}))
