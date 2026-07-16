@@ -50,6 +50,8 @@
   .tbl tr:hover td{background:var(--bg);}
   .btn-sm{border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:999px;cursor:pointer;font-family:inherit;}
   .dplus td:first-child{max-width:200px;}
+  /* Begriff-Spalte in E/F: hart begrenzen — Tabelle darf durch Monster-Suchbegriffe nie sprengen */
+  .tbl td.termcell{text-align:left;font-weight:600;width:100%;max-width:0;min-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .btn-sm:hover{color:var(--ink);}
   .btn-sm.on{background:var(--accent);color:#fff;border-color:var(--accent);}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;}
@@ -367,7 +369,8 @@ function termTable(displayData,colLabel,showCampaign,withCpc){
     const roas=d.spend>0?d.sales/d.spend:null;
     const roasCol=roas==null?'':roas>=2?'color:var(--up);':roas<1?'color:var(--down);':'';
     const camp=showCampaign?`<td style="text-align:left;max-width:240px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-weight:500;" title="${esc([...d.campaigns].join(', '))}">${esc([...d.campaigns][0])}</td>`:`<td>${d.campaigns.size}</td>`;
-    return `<tr><td style="color:var(--muted);">${i+1}</td><td>${esc(d.term)}</td>${camp}<td>${eur2(d.spend)}</td><td>${eur2(d.sales)}</td><td style="${roasCol}">${roas!=null?fmt2(roas):'–'}</td><td>${d.sales>0?fmt1(100*d.spend/d.sales)+'%':'–'}</td><td>${fmtInt(d.orders)}</td><td>${fmtInt(d.clicks)}</td>${withCpc?`<td>${d.clicks>0?eur2(d.spend/d.clicks):'–'}</td>`:''}</tr>`;
+    // Begriff-Zelle MUSS begrenzt sein — SB-"Suchbegriffe" sind teils komplette Produkttitel (200+ Zeichen)
+    return `<tr><td style="color:var(--muted);width:1%;">${i+1}</td><td class="termcell" title="${esc(d.term)}">${esc(d.term)}</td>${camp}<td>${eur2(d.spend)}</td><td>${eur2(d.sales)}</td><td style="${roasCol}">${roas!=null?fmt2(roas):'–'}</td><td>${d.sales>0?fmt1(100*d.spend/d.sales)+'%':'–'}</td><td>${fmtInt(d.orders)}</td><td>${fmtInt(d.clicks)}</td>${withCpc?`<td>${d.clicks>0?eur2(d.spend/d.clicks):'–'}</td>`:''}</tr>`;
   }).join('');
   return `<div class="tblwrap"><table class="tbl"><thead>${head}</thead><tbody>${body||'<tr><td colspan="10" class="loading" style="padding:30px;">keine Daten</td></tr>'}</tbody></table></div>`;
 }
