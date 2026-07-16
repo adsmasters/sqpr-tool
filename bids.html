@@ -98,7 +98,7 @@
       <select class="sel" id="profSel" style="max-width:420px;"></select>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="rulePanel">
       <h2><span class="slabel">1</span> ROAS-Korridore &amp; Regeln</h2>
       <div class="ph">Je ROAS-Bereich die Gebots-Aktion — identische Logik wie der Bulksheet-Bid-Optimizer. Basis: Keyword-/Target-Performance der letzten <select id="days" class="inp" style="width:auto;display:inline-block;padding:3px 8px;font-size:12px;"><option value="30">30</option><option value="14">14</option><option value="60">60</option></select> Tage.</div>
       <div class="cor"><span class="corhead">ROAS von</span><span></span><span class="corhead">bis</span><span class="corhead">Änderung %</span><span class="corhead">Min-Gebot</span><span class="corhead">Max-Gebot</span><span class="corhead">Min-Klicks</span><span class="corhead">Min-Orders</span><span class="corhead">Pause</span><span></span></div>
@@ -202,6 +202,9 @@ async function boot(){
   const _saved=localStorage.getItem('sqpr_audit_profile');
   if(_saved&&PROFILES.some(p=>p.id===_saved))document.getElementById('profSel').value=_saved;
   document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} resetRun(); loadRules();};
+  // Regel-Aenderungen (inkl. Korridore, Ausschluesse) aktualisieren eine vorhandene Vorschau automatisch
+  document.getElementById('rulePanel').addEventListener('change',scheduleRecompute);
+  document.getElementById('rulePanel').addEventListener('input',scheduleRecompute);
   loadRules();
 }
 function renderProfileOptions(){
@@ -256,7 +259,21 @@ function applyConfig(c){
 }
 
 /* ---------- Vorschau & Anwenden ---------- */
-function resetRun(){ PREVIEW=null; REPORT=null; document.getElementById('result').innerHTML=''; document.getElementById('applyBtn').classList.add('hidden'); document.getElementById('runStatus').textContent=''; }
+function resetRun(){ PREVIEW=null; REPORT=null; PREVFILTER=''; document.getElementById('result').innerHTML=''; document.getElementById('applyBtn').classList.add('hidden'); document.getElementById('runStatus').textContent=''; }
+
+// Regel-Aenderungen NACH einer Vorschau wirken sofort: der Amazon-Bericht liegt schon vor,
+// nur die Berechnung laeuft neu (Sekunden statt Minuten)
+let PREVFILTER='', _recompT=null;
+function scheduleRecompute(){ if(!PREVIEW||!REPORT)return; clearTimeout(_recompT); _recompT=setTimeout(recomputePreview,800); }
+async function recomputePreview(){
+  if(!PREVIEW||!REPORT)return;
+  const profileId=document.getElementById('profSel').value;
+  const st=document.getElementById('runStatus'); st.textContent='⏳ Vorschau wird mit den neuen Regeln aktualisiert…';
+  let j=null;
+  try{ j=await (await fetch(`${API_ADS}/bid-run`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,action:'compute',reportId:REPORT,config:gatherConfig(),mode:'preview'})})).json(); }catch(e){}
+  if(j&&j.ready){ PREVIEW=j; renderPreview(j); st.textContent='Vorschau aktualisiert — nichts verändert.'; }
+  else st.textContent='❌ Aktualisierung fehlgeschlagen'+((j&&j.error)?': '+j.error:'.');
+}
 async function runPreview(){
   const profileId=document.getElementById('profSel').value; if(!profileId)return;
   const btn=document.getElementById('prevBtn'); btn.disabled=true;
@@ -283,10 +300,7 @@ function renderPreview(j){
   const s=j.summary;
   const applyBtn=document.getElementById('applyBtn');
   if(s.changes){ applyBtn.textContent=`✍️ ${s.changes} Änderungen jetzt anwenden`; applyBtn.classList.remove('hidden'); }
-  const rows=(j.changes||[]).map(c=>{
-    const roas=c.spend>0?(c.sales/c.spend):0;
-    return `<tr><td class="term" title="${esc(c.keyword)}">${esc(c.keyword)}</td><td class="l" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);" title="${esc(c.campaign)}">${esc(c.campaign)}</td><td class="l" style="color:var(--muted);">${esc(c.matchType||'')}</td><td>${fmtInt(c.clicks)}</td><td>${eur2(c.spend)}</td><td>${eur2(c.sales)}</td><td>${roas?roas.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}):'–'}</td><td>${eur2(c.currentBid)}</td><td class="${c.paused?'down':(c.change>0?'up':'down')}" style="font-weight:700;">${c.paused?'⏸ Pause':eur2(c.newBid)}</td><td class="l" style="color:var(--muted);font-size:11.5px;">${esc(c.reason)}</td></tr>`;
-  }).join('');
+  else applyBtn.classList.add('hidden');
   document.getElementById('result').innerHTML=`
     <div class="kpis">
       <div class="kpi"><div class="l">Keywords/Targets</div><div class="v">${fmtInt(s.items)}</div></div>
@@ -295,8 +309,24 @@ function renderPreview(j){
       <div class="kpi"><div class="l">Senkungen</div><div class="v down">${fmtInt(s.down)}</div></div>
       <div class="kpi"><div class="l">Pausen</div><div class="v down">${fmtInt(s.paused)}</div></div>
     </div>
-    <div class="tblwrap"><table class="tbl"><thead><tr><th class="l">Keyword/Target</th><th class="l">Kampagne</th><th class="l">Match</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>Gebot</th><th>Neu</th><th class="l">Grund</th></tr></thead><tbody>${rows||'<tr><td colspan="10" class="loading" style="padding:26px;">Keine Änderungen — alle Gebote im Zielbereich.</td></tr>'}</tbody></table></div>
+    <div style="display:flex;align-items:center;gap:10px;margin:4px 0 10px;flex-wrap:wrap;">
+      <input type="text" id="prevFilter" placeholder="Ergebnis filtern (Keyword oder Kampagne)…" value="${esc(PREVFILTER)}" style="max-width:340px;" oninput="PREVFILTER=this.value;updatePrevBody()">
+      <span id="prevCount" style="font-size:12px;color:var(--muted);"></span>
+    </div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th class="l">Keyword/Target</th><th class="l">Kampagne</th><th class="l">Match</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>Gebot</th><th>Neu</th><th class="l">Grund</th></tr></thead><tbody id="prevBody"></tbody></table></div>
     ${(j.changes||[]).length>=800?'<div class="note">Anzeige auf 800 Zeilen begrenzt — „Anwenden" schreibt ALLE berechneten Änderungen.</div>':''}`;
+  updatePrevBody();
+}
+// nur den Tabellen-Body neu zeichnen (Filter-Feld behaelt den Fokus beim Tippen)
+function updatePrevBody(){
+  const tb=document.getElementById('prevBody'); if(!tb||!PREVIEW)return;
+  const f=PREVFILTER.toLowerCase();
+  const shown=(PREVIEW.changes||[]).filter(c=>!f||String(c.keyword).toLowerCase().includes(f)||String(c.campaign).toLowerCase().includes(f));
+  tb.innerHTML=shown.map(c=>{
+    const roas=c.spend>0?(c.sales/c.spend):0;
+    return `<tr><td class="term" title="${esc(c.keyword)}">${esc(c.keyword)}</td><td class="l" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);" title="${esc(c.campaign)}">${esc(c.campaign)}</td><td class="l" style="color:var(--muted);">${esc(c.matchType||'')}</td><td>${fmtInt(c.clicks)}</td><td>${eur2(c.spend)}</td><td>${eur2(c.sales)}</td><td>${roas?roas.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}):'–'}</td><td>${eur2(c.currentBid)}</td><td class="${c.paused?'down':(c.change>0?'up':'down')}" style="font-weight:700;">${c.paused?'⏸ Pause':eur2(c.newBid)}</td><td class="l" style="color:var(--muted);font-size:11.5px;">${esc(c.reason)}</td></tr>`;
+  }).join('')||`<tr><td colspan="10" class="loading" style="padding:26px;">${f?'Kein Treffer für „'+esc(PREVFILTER)+'"':'Keine Änderungen — alle Gebote im Zielbereich.'}</td></tr>`;
+  document.getElementById('prevCount').textContent=f?`${shown.length} von ${(PREVIEW.changes||[]).length} Änderungen`:'';
 }
 async function applyChanges(){
   const profileId=document.getElementById('profSel').value;
