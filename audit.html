@@ -101,7 +101,7 @@
       <button class="btn-go" id="goBtn" onclick="startAudit()">🚀 Jetzt PPC-Audit</button>
       <span id="lastNote" style="font-size:12.5px;color:var(--muted);"></span>
     </div>
-    <div id="content"><div class="loading">Kunde und Zeitraum wählen, dann <b>Jetzt PPC-Audit</b> klicken.<br><span style="font-size:12px;">Amazon generiert die Berichte on-demand — meist 2–5 Minuten, zu Stoßzeiten auch 15–30.</span></div></div>
+    <div id="content"><div class="loading">Kunde und Zeitraum wählen, dann <b>Jetzt PPC-Audit</b> klicken.<br><span style="font-size:12px;">Amazon generiert die Berichte on-demand — meist 5–10 Minuten, zu Stoßzeiten auch länger.</span></div></div>
   </div>
 <script>
 if(sessionStorage.getItem('sqpr_auth')!=='true')location.replace('index.html');
@@ -170,7 +170,7 @@ async function restoreCached(){
     document.getElementById('lastNote').textContent='Stand: '+ts.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' Uhr';
     btn.textContent='🔄 Audit aktualisieren';
   } else {
-    document.getElementById('content').innerHTML='<div class="loading">Für dieses Konto liegt noch kein Audit vor.<br><b>Jetzt PPC-Audit</b> klicken — Amazon braucht für die Berichte meist 2–5 Minuten, zu Stoßzeiten auch 15–30.<br><span style="font-size:12px;">Danach ist das Audit gespeichert und öffnet sofort.</span></div>';
+    document.getElementById('content').innerHTML='<div class="loading">Für dieses Konto liegt noch kein Audit vor.<br><b>Jetzt PPC-Audit</b> klicken — Amazon braucht für die Berichte meist 5–10 Minuten, zu Stoßzeiten auch länger.<br><span style="font-size:12px;">Danach ist das Audit gespeichert und öffnet sofort.</span></div>';
     document.getElementById('lastNote').textContent='';
     btn.textContent='🚀 Jetzt PPC-Audit';
   }
@@ -209,7 +209,7 @@ function renderProgress(msg,status){
     return `<div class="pstep">${l}<span class="st ${cls}">${st}</span></div>`;
   }).join('');
   document.getElementById('content').innerHTML=`<div class="panel"><div class="loading" style="padding:30px 0 10px;"><div class="spin"></div>${esc(msg)}</div><div class="prog">${steps}</div>
-    <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:14px;">Seite offen lassen — das Audit erscheint automatisch (meist 2–5 Min, zu Stoßzeiten länger; die Seite bleibt bis zu 60 Min dran). Auch nach Schließen geht nichts verloren: erneut klicken macht dort weiter.</div></div>`;
+    <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:14px;">Seite offen lassen — das Audit erscheint automatisch (meist 5–10 Min, zu Stoßzeiten länger; die Seite bleibt bis zu 60 Min dran). Auch nach Schließen geht nichts verloren: erneut klicken macht dort weiter.</div></div>`;
 }
 
 async function pollLoop(missing){
