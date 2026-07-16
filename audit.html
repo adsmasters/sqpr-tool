@@ -49,6 +49,7 @@
   .tbl td:first-child{text-align:left;font-weight:600;max-width:340px;width:auto;overflow:hidden;text-overflow:ellipsis;}
   .tbl tr:hover td{background:var(--bg);}
   .btn-sm{border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:999px;cursor:pointer;font-family:inherit;}
+  .dplus td:first-child{max-width:200px;}
   .btn-sm:hover{color:var(--ink);}
   .btn-sm.on{background:var(--accent);color:#fff;border-color:var(--accent);}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;}
@@ -266,8 +267,9 @@ function renderAudit(j){
   // D+: Gebotsanpassungs-Check — mit Direkt-Anpassung (schreibt per API ins Kundenkonto)
   const baRows=(j.bidAdj||[]).map((b,i)=>{
     const suggest=b.verdict==='chance'?Math.min(Math.max(Math.round((b.placRoas/b.campRoas-1)*50/5)*5,10),100):0;
-    const action=b.campaignId?`<span id="baOk-${i}"></span><input type="number" id="baIn-${i}" value="${suggest}" min="0" max="900" step="5" style="width:62px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;font-family:inherit;text-align:right;">% <button class="btn-sm" id="baBtn-${i}" onclick="applyBidAdj(${i})">Setzen</button>`:'<span style="font-size:11px;color:var(--muted);">erst „Audit aktualisieren"</span>';
-    return `<tr><td>${esc(b.campaign)}</td><td style="text-align:left;">${esc(b.placement)}</td><td id="baCur-${i}">${b.adjustment}%</td><td>${fmt2(b.placRoas)}</td><td>${fmt2(b.campRoas)}</td><td>${eur2(b.spend)}</td><td>${b.verdict==='chance'?'<span class="pill chance">Chance: Anpassung erhöhen</span>':'<span class="pill problem">Problem: Anpassung prüfen</span>'}</td><td style="white-space:nowrap;">${action}</td></tr>`;
+    const action=b.campaignId?`<span id="baOk-${i}"></span><input type="number" id="baIn-${i}" value="${suggest}" min="0" max="900" step="5" style="width:58px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;font-family:inherit;text-align:right;">% <button class="btn-sm on" id="baBtn-${i}" onclick="applyBidAdj(${i})" title="Schreibt die Anpassung sofort per API in die Kampagne">Übernehmen →</button>`:'<span style="font-size:11px;color:var(--muted);">erst „Audit aktualisieren"</span>';
+    const why=b.verdict==='chance'?'Platzierung schlägt den Kampagnenschnitt deutlich, hat aber keine/zu niedrige Anpassung — erhöhen.':'Anpassung >0% obwohl die Platzierung unter dem Kampagnenschnitt liegt — prüfen/senken.';
+    return `<tr><td title="${esc(b.campaign)}">${esc(b.campaign)}</td><td style="text-align:left;">${esc(b.placement.replace(' on-Amazon',''))}</td><td id="baCur-${i}">${b.adjustment}%</td><td>${fmt2(b.placRoas)} <span style="color:var(--muted);font-weight:500;">vs ${fmt2(b.campRoas)}</span></td><td>${eur2(b.spend)}</td><td><span class="pill ${b.verdict}" title="${why}">${b.verdict==='chance'?'Chance ↑':'Problem'}</span></td><td style="white-space:nowrap;">${action}</td></tr>`;
   }).join('');
 
   // G: SD Kampagnen
@@ -286,7 +288,7 @@ function renderAudit(j){
     ${plRows?`<div class="panel"><h2><span class="slabel">D</span> Platzierungsanalyse</h2><div class="ph">SP-Performance nach Anzeigenplatzierung.</div>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>Platzierung</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>ACoS</th><th>Ø CPC</th></tr></thead><tbody>${plRows}</tbody></table></div></div>`:''}
     ${baRows?`<div class="panel"><h2><span class="slabel">D+</span> Gebotsanpassungs-Check (Platzierungen)</h2><div class="ph">Bewertet Platzierungs-Anpassungen RELATIV zur Kampagnen-Performance. Chance = Platzierung schlägt den Kampagnenschnitt deutlich, hat aber keine Anpassung. Problem = Anpassung &gt;0% obwohl die Platzierung unter dem Schnitt liegt. (Nur aktive Kampagnen mit genug Daten.)</div>
-      <div class="tblwrap"><table class="tbl"><thead><tr><th>Kampagne</th><th style="text-align:left;">Platzierung</th><th>Anpassung</th><th>Platz.-ROAS</th><th>Kamp.-ROAS</th><th>Spend</th><th style="text-align:right;">Bewertung</th><th style="text-align:right;" title="Schreibt die Platzierungs-Anpassung direkt per API in die Kampagne — wirkt sofort im Kundenkonto.">Neu setzen</th></tr></thead><tbody>${baRows}</tbody></table></div></div>`:''}
+      <div class="tblwrap"><table class="tbl dplus"><thead><tr><th>Kampagne</th><th style="text-align:left;">Platzierung</th><th>Anpassung</th><th title="ROAS der Platzierung vs. Kampagnenschnitt">ROAS Platz. vs Kamp.</th><th>Spend</th><th style="text-align:right;">Bewertung</th><th style="text-align:right;" title="Schreibt die Platzierungs-Anpassung direkt per API in die Kampagne — wirkt sofort im Kundenkonto.">Neu setzen</th></tr></thead><tbody>${baRows}</tbody></table></div></div>`:''}
     <div id="secE"></div>
     <div id="secF"></div>
     ${sdRows?`<div class="panel"><h2><span class="slabel">G</span> Sponsored Display — Kampagnen-Performance</h2><div class="ph">SD-Kampagnen nach Spend (kein Suchbegriff-Bericht verfügbar für SD).</div>
