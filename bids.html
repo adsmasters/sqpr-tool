@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQPR Tool — Gebots-Automatik</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F6F6F7;--card:#FFFFFF;--ink:#17181A;--muted:#6B7177;--faint:#A0A5AB;--line:#ECEDEF;--accent:#0EA5A0;
+    --up:#12A150;--down:#E5484D;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 4px 12px rgba(16,24,40,.05);--shadow-lg:0 2px 6px rgba(16,24,40,.06),0 12px 32px rgba(16,24,40,.09);}
+  [data-theme="dark"]{--bg:#0B0C0E;--card:#161819;--ink:#F2F3F5;--muted:#9AA0A6;--faint:#6B7177;--line:#26292E;--accent:#2DD4BF;
+    --up:#3FB950;--down:#F0616D;--shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.4);--shadow-lg:0 2px 8px rgba(0,0,0,.5),0 14px 36px rgba(0,0,0,.5);}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 40px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.02em;}
+  .brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;}
+  .icon-btn{width:36px;height:36px;border-radius:999px;border:none;background:var(--card);box-shadow:var(--shadow);color:var(--muted);cursor:pointer;font-size:16px;}
+  .wrap{max-width:1240px;margin:0 auto;padding:12px 40px 80px;}
+  .phead{margin:10px 2px 20px;}
+  .phead h1{font-size:28px;font-weight:800;letter-spacing:-.035em;line-height:1.1;}
+  .phead p{color:var(--muted);font-size:14.5px;margin-top:6px;}
+  .pickrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 18px;}
+  .sel{appearance:none;-webkit-appearance:none;background:var(--card);border:none;box-shadow:var(--shadow);color:var(--ink);font-size:15px;font-weight:600;padding:11px 40px 11px 16px;border-radius:14px;cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%239AA0A6' viewBox='0 0 16 16'%3E%3Cpath d='M4.4 7.4l3.4 3.4a.25.25 0 00.35 0l3.4-3.4A.25.25 0 0011.4 7H4.6a.25.25 0 00-.18.43z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;}
+  .btn-go{background:var(--accent);color:#fff;border:none;border-radius:14px;padding:12px 22px;font-size:14.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);font-family:inherit;}
+  .btn-go:hover{filter:brightness(1.05);} .btn-go:disabled{opacity:.55;cursor:default;}
+  .btn-sm{border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:999px;cursor:pointer;font-family:inherit;}
+  .btn-sm:hover{color:var(--ink);}
+  .btn-sm.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .panel{background:var(--card);border-radius:22px;box-shadow:var(--shadow);padding:24px;margin-bottom:22px;}
+  .panel h2{font-size:16.5px;font-weight:750;letter-spacing:-.02em;display:flex;align-items:center;gap:9px;}
+  .panel .ph{color:var(--muted);font-size:12.5px;margin-top:3px;margin-bottom:16px;}
+  .slabel{background:var(--accent);color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;}
+  label{display:block;font-size:12px;color:var(--muted);font-weight:650;margin:12px 0 5px;}
+  input[type=text],input[type=number],textarea,select.inp{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);padding:9px 12px;border-radius:10px;font-size:13.5px;font-family:inherit;}
+  .grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0 18px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;}
+  .cor{display:grid;grid-template-columns:80px 24px 80px 100px 90px 90px 80px 80px 56px 34px;gap:8px;align-items:center;padding:5px 0;}
+  .cor input{padding:6px 8px;font-size:12.5px;text-align:center;}
+  .cor input[type=checkbox]{width:16px;height:16px;accent-color:var(--down);justify-self:center;}
+  .cor .del{border:none;background:transparent;color:var(--faint);cursor:pointer;font-size:15px;}
+  .corhead{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:650;letter-spacing:.02em;text-align:center;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:12px 0;}
+  .kpi{background:var(--bg);border-radius:14px;padding:12px 13px;}
+  .kpi .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;font-weight:650;margin-bottom:4px;}
+  .kpi .v{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .tblwrap{overflow-x:auto;}
+  .tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .tbl th{text-align:right;font-size:10.5px;font-weight:650;color:var(--muted);text-transform:uppercase;padding:0 8px 8px;white-space:nowrap;}
+  .tbl th:first-child,.tbl th.l{text-align:left;}
+  .tbl td{text-align:right;padding:7px 8px;border-top:1px solid var(--line);white-space:nowrap;width:1%;font-variant-numeric:tabular-nums;}
+  .tbl td.term{text-align:left;font-weight:600;width:100%;max-width:0;min-width:180px;overflow:hidden;text-overflow:ellipsis;}
+  .tbl td.l{text-align:left;}
+  .up{color:var(--up);} .down{color:var(--down);}
+  .note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;font-size:12px;color:#1e40af;margin-top:14px;line-height:1.5;}
+  [data-theme="dark"] .note{background:#101b2e;border-color:#1e3a5f;color:#93c5fd;}
+  .loading{text-align:center;padding:50px;color:var(--muted);}
+  .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .8s linear infinite;margin:0 auto 14px;}
+  @keyframes s{to{transform:rotate(360deg);}}
+  .hidden{display:none;}
+  .rule{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;flex-wrap:wrap;}
+  .rule:last-child{border-bottom:none;}
+  .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted);}
+  .badge.on{color:var(--up);border-color:var(--up);}
+  /* Nav */
+  .mainnav{display:flex;align-items:center;gap:2px;font-family:inherit;}
+  .mainnav > a,.navtrigger{color:#6B7177;text-decoration:none;font-size:13px;font-weight:500;padding:7px 12px;border-radius:999px;cursor:pointer;border:none;background:transparent;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:inherit;}
+  .mainnav > a:hover,.navtrigger:hover{color:#17181A;background:#fff;}
+  .mainnav > a.active,.navgroup.active > .navtrigger{color:#17181A;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.05),0 3px 8px rgba(16,24,40,.07);font-weight:600;}
+  .navtrigger .cx{font-size:9px;opacity:.6;}
+  .navgroup{position:relative;}
+  .navmenu{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;box-shadow:0 6px 28px rgba(16,24,40,.14);border-radius:14px;padding:6px;min-width:200px;display:none;z-index:400;}
+  .navgroup:hover .navmenu{display:block;}
+  .navmenu::before{content:"";position:absolute;bottom:100%;left:0;right:0;height:8px;}
+  .navmenu a{display:block;padding:9px 12px;border-radius:9px;color:#3F444A;text-decoration:none;font-size:13.5px;font-weight:500;white-space:nowrap;}
+  .navmenu a:hover{background:#F1F2F4;color:#17181A;}
+  .navmenu a.active{color:#0EA5A0;font-weight:700;}
+  [data-theme="dark"] .mainnav > a,[data-theme="dark"] .navtrigger{color:#9AA0A6;}
+  [data-theme="dark"] .mainnav > a:hover,[data-theme="dark"] .navtrigger:hover,[data-theme="dark"] .mainnav > a.active,[data-theme="dark"] .navgroup.active > .navtrigger{background:#161819;color:#F2F3F5;}
+  [data-theme="dark"] .navmenu{background:#161819;box-shadow:0 6px 28px rgba(0,0,0,.55);}
+  [data-theme="dark"] .navmenu a{color:#C9CED4;}
+  [data-theme="dark"] .navmenu a:hover{background:#21262d;color:#fff;}
+  [data-theme="dark"] .navmenu a.active{color:#2DD4BF;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="logo">◑</span> SQPR <span style="color:var(--muted);font-weight:500;">Gebots-Automatik</span></div>
+    <div class="mainnav"><div class="navgroup active"><button class="navtrigger">API-Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="overview.html">Übersicht</a><a href="analyse.html">Produkt-Detail</a><a href="live.html">Marken-Trend</a><a href="asin-live.html">PPC-Lücken</a><a href="audit.html">PPC-Audit</a><a href="campaign.html">Kampagnen-Erstellung</a><a href="bids.html" class="active">Gebots-Automatik</a></div></div><div class="navgroup"><button class="navtrigger">Manuelle Analyse<span class="cx">▾</span></button><div class="navmenu"><a href="dashboard.html">Marken-Analyse</a><a href="asin.html">ASIN-Analyse</a><a href="upload.html">Upload</a></div></div><div class="navgroup"><button class="navtrigger">Kunden<span class="cx">▾</span></button><div class="navmenu"><a href="clients.html">Kunden</a><a href="connect.html">Kunde verbinden</a></div></div><a href="help.html">Hilfe</a></div>
+    <div style="display:flex;gap:8px;"><button class="icon-btn" onclick="toggleTheme()">◐</button><button class="icon-btn" onclick="logout()">⏻</button></div>
+  </div>
+  <div class="wrap">
+    <div class="phead"><h1>Gebots-Automatik</h1><p>ROAS-Korridore wie im Bulksheet-Bid-Optimizer — direkt per API, mit Vorschau, und auf Wunsch automatisch nach Zeitplan. (Bulksheet-Variante: PPC-Tools → Bid Optimizer)</p></div>
+    <div class="pickrow">
+      <input class="sel" style="cursor:text;min-width:220px;" id="profFilter" placeholder="Konto suchen…" oninput="renderProfileOptions()">
+      <select class="sel" id="profSel" style="max-width:420px;"></select>
+    </div>
+
+    <div class="panel">
+      <h2><span class="slabel">1</span> ROAS-Korridore &amp; Regeln</h2>
+      <div class="ph">Je ROAS-Bereich die Gebots-Aktion — identische Logik wie der Bulksheet-Bid-Optimizer. Basis: Keyword-/Target-Performance der letzten <select id="days" class="inp" style="width:auto;display:inline-block;padding:3px 8px;font-size:12px;"><option value="30">30</option><option value="14">14</option><option value="60">60</option></select> Tage.</div>
+      <div class="cor"><span class="corhead">ROAS von</span><span></span><span class="corhead">bis</span><span class="corhead">Änderung %</span><span class="corhead">Min-Gebot</span><span class="corhead">Max-Gebot</span><span class="corhead">Min-Klicks</span><span class="corhead">Min-Orders</span><span class="corhead">Pause</span><span></span></div>
+      <div id="corList"></div>
+      <button class="btn-sm" onclick="addCorridor()" style="margin-top:8px;color:var(--up);">+ Korridor hinzufügen</button>
+      <div class="grid4">
+        <div><label><input type="checkbox" id="useMinBid" style="width:14px;height:14px;accent-color:var(--accent);vertical-align:middle;margin-right:4px;"> Globales Min. Gebot (€)</label><input type="number" id="minBid" step="0.01" placeholder="z.B. 0,05"></div>
+        <div><label><input type="checkbox" id="useMaxBid" style="width:14px;height:14px;accent-color:var(--accent);vertical-align:middle;margin-right:4px;"> Globales Max. Gebot (€)</label><input type="number" id="maxBid" step="0.1" placeholder="z.B. 5,00"></div>
+        <div><label>Min. Klicks (für Korridor-Regeln)</label><input type="number" id="minClicks" value="10" step="1" min="0"></div>
+        <div><label>Keywords ohne Klicks</label><select class="inp" id="noClicksAction"><option value="keep">Gebot beibehalten</option><option value="reduce20">Gebot um 20% senken</option><option value="reduce30">Gebot um 30% senken</option><option value="reduce50">Gebot um 50% senken</option><option value="min">Auf Min. Gebot setzen</option></select></div>
+      </div>
+      <div class="grid2">
+        <div><label>Keywords ausschließen (kommagetrennt)</label><input type="text" id="excludeKeywords" placeholder="z.B. markenname, redbull"></div>
+        <div><label>Kampagnennamen ausschließen (kommagetrennt)</label><input type="text" id="excludeCampaigns" placeholder="z.B. Brand, Eigenmarken"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="slabel">2</span> Vorschau &amp; Anwenden</h2>
+      <div class="ph">Die Vorschau berechnet alle Änderungen, <b>ohne etwas zu verändern</b>. Amazon generiert dafür den Keyword-Bericht (meist 5–10 Min). Erst „Anwenden" schreibt ins Konto.</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn-go" id="prevBtn" onclick="runPreview()">🔍 Vorschau berechnen (ändert nichts)</button>
+        <button class="btn-go hidden" id="applyBtn" style="background:var(--down);" onclick="applyChanges()"></button>
+        <span id="runStatus" style="font-size:12.5px;color:var(--muted);"></span>
+      </div>
+      <div id="result"></div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="slabel">3</span> Als geplante Regel speichern</h2>
+      <div class="ph">Speichert die Konfiguration aus Schritt 1 für dieses Konto — der Cloud-Worker führt sie automatisch aus (nachts ~04:30). Empfehlung: erst per Vorschau prüfen.</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+        <div style="flex:1;min-width:220px;"><label>Regel-Name</label><input type="text" id="ruleName" placeholder="z.B. Standard-Korridore 30T"></div>
+        <div><label>Zeitplan</label><select class="inp" id="ruleSchedule" style="width:auto;"><option value="weekly">Wöchentlich (montags)</option><option value="daily">Täglich</option><option value="manual">Nur manuell (Vorlage)</option></select></div>
+        <button class="btn-go" onclick="saveRule()">💾 Regel speichern</button>
+      </div>
+      <div id="ruleMsg" style="font-size:12.5px;margin-top:8px;"></div>
+      <div id="ruleList" style="margin-top:14px;"></div>
+    </div>
+  </div>
+<script>
+if(sessionStorage.getItem('sqpr_auth')!=='true')location.replace('index.html');
+function toggleTheme(){var c=document.documentElement.getAttribute('data-theme');var n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('sqpr_theme',n);}
+function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index.html');}
+if(localStorage.getItem('sqpr_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');
+
+const API='https://ppc-callback.vercel.app/api/sqp';
+const API_ADS='https://ppc-callback.vercel.app/api/ads';
+const esc=s=>(s==null?'':String(s)).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const eur2=x=>(+x||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const fmtInt=x=>(+x||0).toLocaleString('de-DE');
+
+let PROFILES=[],CLIENTS=[],RULES=[],RUNS=[],PREVIEW=null,REPORT=null,EDIT_RULE_ID=null;
+let corridors=[
+  {from:0,to:1,pct:-50,minBid:'',maxBid:'',pause:false,minClicks:'',minOrders:''},
+  {from:1,to:2,pct:-20,minBid:'',maxBid:'',pause:false,minClicks:'',minOrders:''},
+  {from:2,to:3,pct:0,minBid:'',maxBid:'',pause:false,minClicks:'',minOrders:''},
+  {from:3,to:'',pct:0,minBid:'',maxBid:'',pause:false,minClicks:'',minOrders:''},
+];
+
+/* ---------- Konto-Auswahl (Muster wie Audit) ---------- */
+async function boot(){
+  const getProfiles=async()=>{
+    for(let a=0;a<3;a++){
+      try{ const j=await (await fetch(`${API_ADS}/profiles`)).json();
+        if(j&&j.profiles&&j.profiles.length){ try{localStorage.setItem('sqpr_profiles_cache',JSON.stringify(j.profiles));}catch(e){} return j; }
+      }catch(e){}
+      await new Promise(r=>setTimeout(r,1500));
+    }
+    try{ const c=JSON.parse(localStorage.getItem('sqpr_profiles_cache')||'null'); if(c&&c.length)return {profiles:c}; }catch(e){}
+    return {profiles:[]};
+  };
+  const [clientsR,profR]=await Promise.all([
+    fetch(`${API}/clients`).then(r=>r.json()).catch(()=>({clients:[]})),
+    getProfiles(),
+  ]);
+  if(!(profR.profiles||[]).length){
+    document.getElementById('profSel').innerHTML='<option>⚠️ Konten-Liste nicht ladbar</option>';
+    document.getElementById('runStatus').innerHTML='⚠️ Konten-Liste nicht ladbar — <button class="btn-sm on" onclick="location.reload()">↻ Neu laden</button>';
+    return;
+  }
+  CLIENTS=(clientsR.clients||[]).filter(c=>c.ads_profile_id);
+  const connectedIds=new Set(CLIENTS.map(c=>String(c.ads_profile_id)));
+  PROFILES=(profR.profiles||[]).map(p=>({id:String(p.profileId),name:p.name||String(p.profileId),cc:p.countryCode||'',type:p.type||'',connected:connectedIds.has(String(p.profileId))}))
+    .sort((a,b)=>(b.connected-a.connected)||a.name.localeCompare(b.name,undefined,{sensitivity:'base'})||a.cc.localeCompare(b.cc));
+  const byId=new Map(CLIENTS.map(c=>[String(c.ads_profile_id),c.name]));
+  PROFILES.forEach(p=>{ if(byId.has(p.id)) p.name=byId.get(p.id); });
+  renderProfileOptions();
+  const _saved=localStorage.getItem('sqpr_audit_profile');
+  if(_saved&&PROFILES.some(p=>p.id===_saved))document.getElementById('profSel').value=_saved;
+  document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} resetRun(); loadRules();};
+  renderCorridors(); loadRules();
+}
+function renderProfileOptions(){
+  const f=(document.getElementById('profFilter').value||'').toLowerCase();
+  const sel=document.getElementById('profSel'); const cur=sel.value;
+  const list=PROFILES.filter(p=>!f||(`${p.name} ${p.cc} ${p.id}`).toLowerCase().includes(f));
+  const conn=list.filter(p=>p.connected), rest=list.filter(p=>!p.connected).slice(0,800);
+  const opt=p=>`<option value="${p.id}">${esc(p.name)} · ${esc(p.cc)}${p.type?' · '+esc(p.type):''}</option>`;
+  sel.innerHTML=(conn.length?`<optgroup label="Verbundene Kunden">${conn.map(opt).join('')}</optgroup>`:'')+
+    (rest.length?`<optgroup label="Alle Ads-Profile">${rest.map(opt).join('')}</optgroup>`:'');
+  if(cur&&list.some(p=>p.id===cur))sel.value=cur; else if(sel.options.length)sel.selectedIndex=0;
+}
+
+/* ---------- Korridor-Editor ---------- */
+function renderCorridors(){
+  document.getElementById('corList').innerHTML=corridors.map((c,i)=>`<div class="cor">
+    <input type="number" value="${c.from}" step="0.1" min="0" onchange="corridors[${i}].from=+this.value||0;syncBounds()">
+    <span style="text-align:center;color:var(--faint);">–</span>
+    <input type="number" value="${c.to}" step="0.1" min="0" placeholder="∞" onchange="corridors[${i}].to=this.value===''?'':+this.value;syncBounds()">
+    <input type="number" value="${c.pct}" step="5" onchange="corridors[${i}].pct=+this.value||0" ${c.pause?'disabled style="opacity:.4;"':''}>
+    <input type="number" value="${c.minBid}" step="0.01" placeholder="—" onchange="corridors[${i}].minBid=this.value===''?'':+this.value" ${c.pause?'disabled style="opacity:.4;"':''}>
+    <input type="number" value="${c.maxBid}" step="0.1" placeholder="—" onchange="corridors[${i}].maxBid=this.value===''?'':+this.value" ${c.pause?'disabled style="opacity:.4;"':''}>
+    <input type="number" value="${c.minClicks}" step="1" placeholder="—" onchange="corridors[${i}].minClicks=this.value===''?'':+this.value">
+    <input type="number" value="${c.minOrders}" step="1" placeholder="—" onchange="corridors[${i}].minOrders=this.value===''?'':+this.value">
+    <input type="checkbox" ${c.pause?'checked':''} title="Keywords in diesem Korridor pausieren" onchange="corridors[${i}].pause=this.checked;renderCorridors()">
+    <button class="del" onclick="corridors.splice(${i},1);renderCorridors()" title="Korridor entfernen">×</button>
+  </div>`).join('');
+}
+function syncBounds(){ corridors.sort((a,b)=>a.from-b.from); renderCorridors(); }
+function addCorridor(){ const last=corridors[corridors.length-1]; corridors.push({from:last&&last.to!==''?last.to:(last?last.from+1:0),to:'',pct:0,minBid:'',maxBid:'',pause:false,minClicks:'',minOrders:''}); renderCorridors(); }
+function gatherConfig(){
+  return { corridors,
+    useMinBid:document.getElementById('useMinBid').checked, minBid:+document.getElementById('minBid').value||0,
+    useMaxBid:document.getElementById('useMaxBid').checked, maxBid:+document.getElementById('maxBid').value||0,
+    minClicks:+document.getElementById('minClicks').value||0,
+    noClicksAction:document.getElementById('noClicksAction').value,
+    excludeKeywords:document.getElementById('excludeKeywords').value,
+    excludeCampaigns:document.getElementById('excludeCampaigns').value,
+    days:+document.getElementById('days').value||30 };
+}
+function applyConfig(c){
+  if(!c)return;
+  if(Array.isArray(c.corridors)&&c.corridors.length)corridors=c.corridors;
+  document.getElementById('useMinBid').checked=!!c.useMinBid; document.getElementById('minBid').value=c.minBid||'';
+  document.getElementById('useMaxBid').checked=!!c.useMaxBid; document.getElementById('maxBid').value=c.maxBid||'';
+  document.getElementById('minClicks').value=c.minClicks??10;
+  document.getElementById('noClicksAction').value=c.noClicksAction||'keep';
+  document.getElementById('excludeKeywords').value=c.excludeKeywords||'';
+  document.getElementById('excludeCampaigns').value=c.excludeCampaigns||'';
+  document.getElementById('days').value=c.days||30;
+  renderCorridors();
+}
+
+/* ---------- Vorschau & Anwenden ---------- */
+function resetRun(){ PREVIEW=null; REPORT=null; document.getElementById('result').innerHTML=''; document.getElementById('applyBtn').classList.add('hidden'); document.getElementById('runStatus').textContent=''; }
+async function runPreview(){
+  const profileId=document.getElementById('profSel').value; if(!profileId)return;
+  const btn=document.getElementById('prevBtn'); btn.disabled=true;
+  const st=document.getElementById('runStatus');
+  document.getElementById('applyBtn').classList.add('hidden');
+  st.textContent='⏳ Bericht bei Amazon angefordert…';
+  let s=null;
+  try{ s=await (await fetch(`${API_ADS}/bid-run`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,action:'start',days:+document.getElementById('days').value||30})})).json(); }catch(e){}
+  if(!s||!s.reportId){ st.textContent='❌ Bericht konnte nicht angefordert werden'+(s&&s.error?': '+s.error:'.'); btn.disabled=false; return; }
+  REPORT=s.reportId;
+  const t0=Date.now();
+  while(Date.now()-t0<60*60000){
+    let j=null;
+    try{ j=await (await fetch(`${API_ADS}/bid-run`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,action:'compute',reportId:REPORT,config:gatherConfig(),mode:'preview'})})).json(); }catch(e){}
+    if(j&&j.ready){ PREVIEW=j; renderPreview(j); btn.disabled=false; st.textContent='Vorschau fertig — nichts verändert.'; return; }
+    if(j&&j.error){ st.textContent='❌ '+j.error; btn.disabled=false; return; }
+    const min=Math.round((Date.now()-t0)/60000);
+    st.textContent=`⏳ Amazon generiert den Bericht… (${min} Min${min>=8?' — Stoßzeit, kommt automatisch':''})`;
+    await new Promise(r=>setTimeout(r,Date.now()-t0<5*60000?15000:30000));
+  }
+  st.textContent='⏱ Timeout — später erneut versuchen (Bericht wird wiederverwendet).'; btn.disabled=false;
+}
+function renderPreview(j){
+  const s=j.summary;
+  const applyBtn=document.getElementById('applyBtn');
+  if(s.changes){ applyBtn.textContent=`✍️ ${s.changes} Änderungen jetzt anwenden`; applyBtn.classList.remove('hidden'); }
+  const rows=(j.changes||[]).map(c=>{
+    const roas=c.spend>0?(c.sales/c.spend):0;
+    return `<tr><td class="term" title="${esc(c.keyword)}">${esc(c.keyword)}</td><td class="l" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);" title="${esc(c.campaign)}">${esc(c.campaign)}</td><td class="l" style="color:var(--muted);">${esc(c.matchType||'')}</td><td>${fmtInt(c.clicks)}</td><td>${eur2(c.spend)}</td><td>${eur2(c.sales)}</td><td>${roas?roas.toFixed(2):'–'}</td><td>${eur2(c.currentBid)}</td><td class="${c.paused?'down':(c.change>0?'up':'down')}" style="font-weight:700;">${c.paused?'⏸ Pause':eur2(c.newBid)}</td><td class="l" style="color:var(--muted);font-size:11.5px;">${esc(c.reason)}</td></tr>`;
+  }).join('');
+  document.getElementById('result').innerHTML=`
+    <div class="kpis">
+      <div class="kpi"><div class="l">Keywords/Targets</div><div class="v">${fmtInt(s.items)}</div></div>
+      <div class="kpi"><div class="l">Änderungen</div><div class="v">${fmtInt(s.changes)}</div></div>
+      <div class="kpi"><div class="l">Erhöhungen</div><div class="v up">${fmtInt(s.up)}</div></div>
+      <div class="kpi"><div class="l">Senkungen</div><div class="v down">${fmtInt(s.down)}</div></div>
+      <div class="kpi"><div class="l">Pausen</div><div class="v down">${fmtInt(s.paused)}</div></div>
+    </div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th class="l">Keyword/Target</th><th class="l">Kampagne</th><th class="l">Match</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>Gebot</th><th>Neu</th><th class="l">Grund</th></tr></thead><tbody>${rows||'<tr><td colspan="10" class="loading" style="padding:26px;">Keine Änderungen — alle Gebote im Zielbereich.</td></tr>'}</tbody></table></div>
+    ${(j.changes||[]).length>=800?'<div class="note">Anzeige auf 800 Zeilen begrenzt — „Anwenden" schreibt ALLE berechneten Änderungen.</div>':''}`;
+}
+async function applyChanges(){
+  const profileId=document.getElementById('profSel').value;
+  if(!PREVIEW||!REPORT)return;
+  const s=PREVIEW.summary;
+  const prof=PROFILES.find(x=>x.id===profileId);
+  if(!confirm(`${s.changes} Gebots-Änderungen im Konto "${prof?prof.name:profileId}" anwenden?\n\n↑ ${s.up} Erhöhungen · ↓ ${s.down} Senkungen · ⏸ ${s.paused} Pausen\n\n⚠️ Wirkt SOFORT — Gebote ändern sich im Kundenkonto.`))return;
+  const btn=document.getElementById('applyBtn'); btn.disabled=true; btn.textContent='⏳ wende an…';
+  let j=null;
+  try{ j=await (await fetch(`${API_ADS}/bid-run`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,action:'compute',reportId:REPORT,config:gatherConfig(),mode:'apply',ruleId:EDIT_RULE_ID||undefined})})).json(); }catch(e){}
+  btn.disabled=false;
+  if(j&&j.ready&&j.summary){
+    btn.classList.add('hidden');
+    document.getElementById('runStatus').innerHTML=`<b style="color:var(--up);">✓ ${j.summary.applied} Änderungen geschrieben</b>${j.summary.failed?` · <b style="color:var(--down);">${j.summary.failed} Fehler</b>`:''}`;
+    loadRules();
+  } else document.getElementById('runStatus').textContent='❌ Anwenden fehlgeschlagen: '+((j&&j.error)||'Netzwerk');
+}
+
+/* ---------- Geplante Regeln ---------- */
+async function loadRules(){
+  const profileId=document.getElementById('profSel').value; if(!profileId)return;
+  let j=null; try{ j=await (await fetch(`${API_ADS}/bid-rules?profileId=${profileId}`)).json(); }catch(e){}
+  RULES=(j&&j.rules)||[]; RUNS=(j&&j.runs)||[];
+  const schedLabel={daily:'täglich',weekly:'wöchentlich (Mo)',manual:'manuell'};
+  document.getElementById('ruleList').innerHTML=RULES.map(r=>{
+    const lastRun=RUNS.find(x=>x.rule_id===r.id);
+    return `<div class="rule">
+      <span class="badge ${r.active?'on':''}">${r.active?'aktiv':'pausiert'}</span>
+      <b>${esc(r.name)}</b>
+      <span class="badge">${schedLabel[r.schedule]||r.schedule}</span>
+      <span style="color:var(--muted);font-size:12px;">${r.last_run?'zuletzt '+new Date(r.last_run).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'noch nie gelaufen'}${lastRun&&lastRun.summary?` · ${lastRun.summary.changes} Änderungen`:''}</span>
+      <span style="margin-left:auto;display:flex;gap:6px;">
+        <button class="btn-sm" onclick="editRule('${r.id}')">In Editor laden</button>
+        <button class="btn-sm" onclick="toggleRule('${r.id}',${!r.active})">${r.active?'Pausieren':'Aktivieren'}</button>
+        <button class="btn-sm" style="color:var(--down);" onclick="deleteRule('${r.id}','${esc(r.name)}')">Löschen</button>
+      </span></div>`;
+  }).join('')||'<div style="font-size:12.5px;color:var(--faint);">Noch keine gespeicherten Regeln für dieses Konto.</div>';
+}
+async function saveRule(){
+  const profileId=document.getElementById('profSel').value;
+  const name=document.getElementById('ruleName').value.trim();
+  const msg=document.getElementById('ruleMsg');
+  if(!profileId||!name){ msg.innerHTML='<span style="color:var(--down);">Bitte Konto wählen und Regel-Namen angeben.</span>'; return; }
+  const rule={id:EDIT_RULE_ID||undefined,profile_id:profileId,name,config:gatherConfig(),schedule:document.getElementById('ruleSchedule').value,active:true};
+  let j=null; try{ j=await (await fetch(`${API_ADS}/bid-rules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',rule})})).json(); }catch(e){}
+  if(j&&j.ok){ EDIT_RULE_ID=j.rule.id; msg.innerHTML=`<span style="color:var(--up);">✓ Regel gespeichert${rule.schedule!=='manual'?' — läuft automatisch '+(rule.schedule==='daily'?'jede Nacht':'jeden Montag')+' (~04:30)':''}</span>`; loadRules(); }
+  else msg.innerHTML='<span style="color:var(--down);">Fehler: '+esc((j&&j.error)||'Netzwerk')+'</span>';
+}
+function editRule(id){
+  const r=RULES.find(x=>x.id===id); if(!r)return;
+  EDIT_RULE_ID=id;
+  applyConfig(r.config);
+  document.getElementById('ruleName').value=r.name;
+  document.getElementById('ruleSchedule').value=r.schedule;
+  document.getElementById('ruleMsg').innerHTML='<span style="color:var(--muted);">Regel im Editor — „Regel speichern" überschreibt sie, Vorschau testet sie.</span>';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+async function toggleRule(id,active){
+  const r=RULES.find(x=>x.id===id); if(!r)return;
+  await fetch(`${API_ADS}/bid-rules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',rule:{id,profile_id:r.profile_id,name:r.name,config:r.config,schedule:r.schedule,active}})});
+  loadRules();
+}
+async function deleteRule(id,name){
+  if(!confirm(`Regel "${name}" löschen?`))return;
+  await fetch(`${API_ADS}/bid-rules`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})});
+  if(EDIT_RULE_ID===id)EDIT_RULE_ID=null;
+  loadRules();
+}
+boot();
+</script>
+<script defer src="https://adsmasters.github.io/hub/backlink.js"></script>
+</body>
+</html>
