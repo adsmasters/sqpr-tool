@@ -129,7 +129,7 @@
 
     <div class="panel">
       <h2><span class="slabel">3</span> Als geplante Regel speichern</h2>
-      <div class="ph">Speichert die Konfiguration aus Schritt 1 für dieses Konto — der Cloud-Worker führt sie automatisch aus (nachts ~04:30). Empfehlung: erst per Vorschau prüfen.</div>
+      <div class="ph">Speichert die Konfiguration aus Schritt 1 für dieses Konto — der Cloud-Worker führt sie automatisch an den gewählten Tagen im gewählten Zeitfenster aus. Empfehlung: erst per Vorschau prüfen.</div>
       <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
         <div style="flex:1;min-width:220px;"><label>Regel-Name</label><input type="text" id="ruleName" placeholder="z.B. Standard-Korridore 30T"></div>
         <div><label>Zeitplan</label><select class="inp" id="ruleSchedule" style="width:auto;" onchange="document.getElementById('schedCfg').style.display=this.value==='auto'?'flex':'none'"><option value="auto">Automatisch (Tage + Zeitfenster)</option><option value="manual">Nur manuell (Vorlage)</option></select></div>
@@ -170,6 +170,9 @@ let corridors=[
 
 /* ---------- Konto-Auswahl (Muster wie Audit) ---------- */
 async function boot(){
+  // Editor SOFORT rendern — nicht auf den (langsamen) Konten-Abruf warten
+  renderCorridors(); renderDayBoxes([1]);
+  document.getElementById('profSel').innerHTML='<option>Lade Konten…</option>';
   const getProfiles=async()=>{
     for(let a=0;a<3;a++){
       try{ const j=await (await fetch(`${API_ADS}/profiles`)).json();
@@ -199,7 +202,7 @@ async function boot(){
   const _saved=localStorage.getItem('sqpr_audit_profile');
   if(_saved&&PROFILES.some(p=>p.id===_saved))document.getElementById('profSel').value=_saved;
   document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} resetRun(); loadRules();};
-  renderCorridors(); renderDayBoxes([1]); loadRules();
+  loadRules();
 }
 function renderProfileOptions(){
   const f=(document.getElementById('profFilter').value||'').toLowerCase();
@@ -282,7 +285,7 @@ function renderPreview(j){
   if(s.changes){ applyBtn.textContent=`✍️ ${s.changes} Änderungen jetzt anwenden`; applyBtn.classList.remove('hidden'); }
   const rows=(j.changes||[]).map(c=>{
     const roas=c.spend>0?(c.sales/c.spend):0;
-    return `<tr><td class="term" title="${esc(c.keyword)}">${esc(c.keyword)}</td><td class="l" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);" title="${esc(c.campaign)}">${esc(c.campaign)}</td><td class="l" style="color:var(--muted);">${esc(c.matchType||'')}</td><td>${fmtInt(c.clicks)}</td><td>${eur2(c.spend)}</td><td>${eur2(c.sales)}</td><td>${roas?roas.toFixed(2):'–'}</td><td>${eur2(c.currentBid)}</td><td class="${c.paused?'down':(c.change>0?'up':'down')}" style="font-weight:700;">${c.paused?'⏸ Pause':eur2(c.newBid)}</td><td class="l" style="color:var(--muted);font-size:11.5px;">${esc(c.reason)}</td></tr>`;
+    return `<tr><td class="term" title="${esc(c.keyword)}">${esc(c.keyword)}</td><td class="l" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);" title="${esc(c.campaign)}">${esc(c.campaign)}</td><td class="l" style="color:var(--muted);">${esc(c.matchType||'')}</td><td>${fmtInt(c.clicks)}</td><td>${eur2(c.spend)}</td><td>${eur2(c.sales)}</td><td>${roas?roas.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}):'–'}</td><td>${eur2(c.currentBid)}</td><td class="${c.paused?'down':(c.change>0?'up':'down')}" style="font-weight:700;">${c.paused?'⏸ Pause':eur2(c.newBid)}</td><td class="l" style="color:var(--muted);font-size:11.5px;">${esc(c.reason)}</td></tr>`;
   }).join('');
   document.getElementById('result').innerHTML=`
     <div class="kpis">
