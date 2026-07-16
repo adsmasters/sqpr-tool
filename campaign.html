@@ -113,7 +113,7 @@
       </div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px;">
         <div id="acctInfo" style="font-size:12.5px;color:var(--muted);"></div>
-        <button class="btn-sm" id="skuChkBtn" onclick="checkSkus()">SKUs prüfen</button>
+        <button class="btn-sm" id="skuChkBtn" onclick="checkSkus()" title="läuft automatisch, sobald ASINs eingetragen sind — hier manuell neu prüfen">↻ SKUs neu prüfen</button>
       </div>
       <div id="skuResolved"></div>
       <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -220,7 +220,8 @@ async function boot(){
   renderProfileOptions();
   const _saved=localStorage.getItem('sqpr_audit_profile');
   if(_saved&&PROFILES.some(p=>p.id===_saved))document.getElementById('profSel').value=_saved;
-  document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} updateAcctInfo();};
+  document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} updateAcctInfo(); autoCheckSkus();};
+  document.getElementById('asins').addEventListener('change',autoCheckSkus);
   updateAcctInfo();
   document.getElementById('startDate').value=new Date().toISOString().slice(0,10);
   renderTemplates(); refreshPresetDropdown(); updateSummary();
@@ -291,7 +292,9 @@ function deletePreset(){
   localStorage.setItem(PRESET_KEY,JSON.stringify(p)); refreshPresetDropdown();
 }
 
-// SKUs vorab aufloesen und SICHTBAR machen (editierbar) — beantwortet "welche SKU wird verwendet?"
+// SKUs sind fuer Seller (70% der Kunden) Kernbestandteil: automatisch pruefen sobald ASINs da sind
+let _skuTimer=null;
+function autoCheckSkus(){ clearTimeout(_skuTimer); _skuTimer=setTimeout(()=>{ if(lines('asins').length)checkSkus(); },600); }
 async function checkSkus(){
   const profileId=document.getElementById('profSel').value, asins=lines('asins');
   const box=document.getElementById('skuResolved');
