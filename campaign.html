@@ -111,13 +111,16 @@
         <div><label>ASIN(s) — eine pro Zeile (max. 10)</label><textarea id="asins" rows="2" placeholder="B0ABCDEFGH"></textarea></div>
         <div><label>Produktname (für Kampagnennamen)</label><input type="text" id="prodName" placeholder="z.B. Immun Tonicum Katze 90ml"></div>
       </div>
-      <div id="acctInfo" style="font-size:12.5px;color:var(--muted);margin-top:8px;"></div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+        <div id="acctInfo" style="font-size:12.5px;color:var(--muted);"></div>
+        <button class="btn-sm" id="skuChkBtn" onclick="checkSkus()">SKUs prüfen</button>
+      </div>
+      <div id="skuResolved"></div>
       <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <button class="btn-sm on" onclick="loadSuggestions()" id="sugBtn">💡 Amazon-Keyword-Vorschläge laden</button>
         <span id="sugStatus" style="font-size:12.5px;color:var(--muted);"></span>
       </div>
       <div id="sugBox" class="kwsug hidden"></div>
-      <div id="skuBox" class="hidden"><label style="color:var(--down);">SKU je ASIN (Seller-Konto — konnte nicht automatisch ermittelt werden)</label><div id="skuFields"></div></div>
     </div>
 
     <div class="panel">
@@ -288,6 +291,24 @@ function deletePreset(){
   localStorage.setItem(PRESET_KEY,JSON.stringify(p)); refreshPresetDropdown();
 }
 
+// SKUs vorab aufloesen und SICHTBAR machen (editierbar) — beantwortet "welche SKU wird verwendet?"
+async function checkSkus(){
+  const profileId=document.getElementById('profSel').value, asins=lines('asins');
+  const box=document.getElementById('skuResolved');
+  if(!profileId||!asins.length){ box.innerHTML='<div style="font-size:12px;color:var(--down);margin-top:6px;">Bitte Konto und ASIN(s) angeben.</div>'; return; }
+  const btn=document.getElementById('skuChkBtn'); btn.disabled=true; btn.textContent='⏳ prüfe…';
+  let j=null;
+  try{ j=await (await fetch(`${API_ADS}/create-structure`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,products:asins.map(a=>({asin:a})),campaigns:[],checkOnly:true})})).json(); }catch(e){}
+  btn.disabled=false; btn.textContent='SKUs prüfen';
+  if(!j||!j.ok){ box.innerHTML='<div style="font-size:12px;color:var(--down);margin-top:6px;">Prüfung fehlgeschlagen: '+esc((j&&j.error)||'Netzwerk')+'</div>'; return; }
+  if(j.isVendor){ box.innerHTML='<div style="font-size:12.5px;color:var(--up);margin-top:6px;">✓ Vendor-Konto — Anzeigen laufen direkt über die ASIN, keine SKU nötig.</div>'; return; }
+  box.innerHTML='<div style="font-size:12px;color:var(--muted);margin:8px 0 2px;font-weight:650;">Verwendete SKU je ASIN (überschreibbar):</div>'+
+    j.products.map(p=>`<div style="display:flex;gap:8px;margin-top:5px;align-items:center;font-size:13px;">
+      <span style="font-weight:600;width:110px;">${esc(p.asin)}</span>
+      <input type="text" id="sku-${esc(p.asin)}" value="${esc(p.sku||'')}" placeholder="SKU eingeben" style="max-width:220px;">
+      <span style="font-size:11.5px;color:${p.sku?'var(--up)':'var(--down)'};">${p.sku?'✓ automatisch ermittelt':'⚠️ nicht findbar — bitte eintragen'}</span></div>`).join('');
+}
+
 /* ---------- Amazons Keyword-Vorschläge ---------- */
 async function loadSuggestions(){
   const profileId=document.getElementById('profSel').value;
@@ -419,16 +440,12 @@ async function createStructure(){
   try{ j=await (await fetch(`${API_ADS}/create-structure`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})).json(); }catch(e){}
   btn.disabled=false; btn.textContent='🚀 Struktur per API anlegen';
   if(!j){ box.innerHTML='<div class="note">❌ Netzwerkfehler — bitte erneut versuchen.</div>'; return; }
-  if(j.needSku){ showSkuFields(j.needSku); box.innerHTML='<div class="note">⚠️ Für dieses Seller-Konto konnte keine SKU ermittelt werden — bitte oben SKU(s) eintragen und erneut anlegen.</div>'; return; }
+  if(j.needSku){ checkSkus(); box.innerHTML='<div class="note">⚠️ Für dieses Seller-Konto konnte keine SKU ermittelt werden — bitte oben in Schritt 1 die SKU(s) eintragen und erneut anlegen.</div>'; return; }
   if(j.error){ box.innerHTML='<div class="note">❌ Fehler: '+esc(String(j.error).slice(0,250))+'</div>'; return; }
   box.innerHTML=`<div style="font-size:14px;font-weight:700;margin-bottom:8px;">${j.created} von ${j.results.length} Kampagnen angelegt ${j.created===j.results.length?'✅':'— Details:'}</div>`+
     j.results.map(r=>`<div class="res"><span class="st ${r.ok?'ok':'err'}">${r.ok?'✓':'✗'}</span><span>${esc(r.name)}</span>
       <span class="det">${r.ok?[`ID ${r.campaignId}`,r.keywords!=null?`${r.keywords} Keywords`:null,r.targets!=null?`${r.targets} Targets`:null,r.negatives!=null?`${r.negatives} Negatives`:null].filter(Boolean).join(' · '):esc((r.errors||[]).join(' | ').slice(0,200))}</span></div>`).join('')+
     `<div class="note" style="margin-top:12px;">${j.state==='PAUSED'?'Alle Kampagnen sind <b>pausiert</b> — in der Ads-Konsole prüfen und aktivieren.':'⚠️ Kampagnen sind AKTIV.'}</div>`;
-}
-function showSkuFields(asins){
-  const box=document.getElementById('skuBox'); box.classList.remove('hidden');
-  document.getElementById('skuFields').innerHTML=asins.map(a=>`<div style="display:flex;gap:8px;margin-top:6px;align-items:center;"><span style="font-size:13px;font-weight:600;width:110px;">${esc(a)}</span><input type="text" id="sku-${esc(a)}" placeholder="SKU"></div>`).join('');
 }
 // SKU-Felder in Payload uebernehmen
 const _origBuild=buildPayload;
