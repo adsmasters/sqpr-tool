@@ -243,9 +243,15 @@ function updateAcctInfo(){
   const p=PROFILES.find(x=>x.id===document.getElementById('profSel').value);
   const el=document.getElementById('acctInfo'); if(!el)return;
   if(!p){ el.textContent=''; return; }
-  el.innerHTML=String(p.type).toLowerCase()==='vendor'
+  const isVendor=String(p.type).toLowerCase()==='vendor';
+  el.innerHTML=isVendor
     ?`🏭 <b>Vendor-Konto</b> (${esc(p.name)}) — Produktanzeigen laufen direkt über die ASIN, <b>keine SKU nötig</b>.`
-    :`🏪 <b>Seller-Konto</b> (${esc(p.name)}) — die SKU je ASIN wird <b>automatisch ermittelt</b> (Produktbericht, sonst bestehende Anzeigen). Nur wenn keine findbar ist, erscheinen hier SKU-Eingabefelder.`;
+    :`🏪 <b>Seller-Konto</b> (${esc(p.name)}) — die SKU je ASIN wird <b>automatisch ermittelt</b>.`;
+  // SKU-Bereich nie leer lassen: sagen, WO die SKUs erscheinen werden
+  const box=document.getElementById('skuResolved');
+  if(box&&!lines('asins').length){
+    box.innerHTML=isVendor?'':'<div style="font-size:12.5px;color:var(--faint);margin-top:8px;border:1px dashed var(--line);border-radius:10px;padding:10px 14px;">↑ Sobald du oben ASIN(s) eingetragen hast, erscheinen <b>hier automatisch die SKU-Felder</b> (vorbefüllt, überschreibbar).</div>';
+  }
 }
 
 /* ---------- Setup-Vorlagen (wie Bulksheet-Tool): komplettes Formular speichern/laden ---------- */
@@ -298,7 +304,7 @@ function autoCheckSkus(){ clearTimeout(_skuTimer); _skuTimer=setTimeout(()=>{ if
 async function checkSkus(){
   const profileId=document.getElementById('profSel').value, asins=lines('asins');
   const box=document.getElementById('skuResolved');
-  if(!profileId||!asins.length){ box.innerHTML='<div style="font-size:12px;color:var(--down);margin-top:6px;">Bitte Konto und ASIN(s) angeben.</div>'; return; }
+  if(!profileId||!asins.length){ box.innerHTML='<div style="font-size:12.5px;color:var(--faint);margin-top:8px;border:1px dashed var(--line);border-radius:10px;padding:10px 14px;">↑ Zuerst oben ASIN(s) eintragen — dann erscheinen <b>hier automatisch die SKU-Felder</b>.</div>'; return; }
   const btn=document.getElementById('skuChkBtn'); btn.disabled=true; btn.textContent='⏳ prüfe…';
   let j=null;
   try{ j=await (await fetch(`${API_ADS}/create-structure`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,products:asins.map(a=>({asin:a})),campaigns:[],checkOnly:true})})).json(); }catch(e){}
