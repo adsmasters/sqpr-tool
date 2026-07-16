@@ -277,9 +277,12 @@ function renderAudit(j){
     return `<tr><td>${esc(p.placement)}</td><td>${fmtInt(p.impressions)}</td><td>${fmtInt(p.clicks)}</td><td>${eur(p.spend)}</td><td>${eur(p.sales)}</td><td>${fmt2(x.roas)}</td><td>${fmt1(x.acos)}%</td><td>${eur2(x.cpc)}</td></tr>`;}).join('');
 
   // D+: Gebotsanpassungs-Check — mit Direkt-Anpassung (schreibt per API ins Kundenkonto)
-  const chances=(j.bidAdj||[]).filter(b=>b.verdict==='chance'&&b.campaignId).length;
-  const problems=(j.bidAdj||[]).filter(b=>b.verdict==='problem'&&b.campaignId).length;
+  // bereits durchgefuehrte Zeilen (applied, vom Write in den Cache zurueckgeschrieben) ausblenden
+  const chances=(j.bidAdj||[]).filter(b=>b.verdict==='chance'&&b.campaignId&&!b.applied).length;
+  const problems=(j.bidAdj||[]).filter(b=>b.verdict==='problem'&&b.campaignId&&!b.applied).length;
+  const appliedN=(j.bidAdj||[]).filter(b=>b.applied).length;
   const baRows=(j.bidAdj||[]).map((b,i)=>{
+    if(b.applied)return '';
     const suggest=b.verdict==='chance'?Math.min(Math.max(Math.round((b.placRoas/b.campRoas-1)*50/5)*5,10),100):0;
     b._suggest=suggest;
     const action=b.campaignId?`<span id="baOk-${i}"></span><input type="number" id="baIn-${i}" value="${suggest}" min="0" max="900" step="5" style="width:58px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;font-family:inherit;text-align:right;">% <button class="btn-sm on" id="baBtn-${i}" onclick="applyBidAdj(${i})" title="Schreibt die Gebotsanpassung sofort per API in die Kampagne (Spend dieser Platzierung: ${eur2(b.spend)})">Durchführen</button>`:'<span style="font-size:11px;color:var(--muted);">erst „Audit aktualisieren"</span>';
@@ -306,7 +309,7 @@ function renderAudit(j){
       ${(chances||problems)?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
         ${chances?`<button class="btn-go" id="baAllBtnChance" style="padding:9px 18px;font-size:13.5px;" onclick="applyAllBidAdj('chance')">⚡ Alle ${chances} Gebotserhöhungen durchführen</button>`:''}
         ${problems?`<button class="btn-go" id="baAllBtnProblem" style="padding:9px 18px;font-size:13.5px;background:var(--down);" onclick="applyAllBidAdj('problem')">▼ Alle ${problems} Gebotssenkungen durchführen</button>`:''}
-        <span id="baAllStatus" style="font-size:12.5px;color:var(--muted);">Erhöhungen = „Chance ↑"-Vorschläge · Senkungen = „Problem"-Zeilen (Vorschlag 0%) — Werte je Zeile anpassbar</span></div>`:''}
+        <span id="baAllStatus" style="font-size:12.5px;color:var(--muted);">Erhöhungen = „Chance ↑"-Vorschläge · Senkungen = „Problem"-Zeilen (Vorschlag 0%) — Werte je Zeile anpassbar${appliedN?` · <b style="color:var(--up);">${appliedN} bereits durchgeführt ✓ (ausgeblendet)</b>`:''}</span></div>`:appliedN?`<div class="note" style="margin-bottom:14px;">✓ Alle ${appliedN} Vorschläge wurden bereits durchgeführt — beim nächsten Audit-Lauf wird neu bewertet.</div>`:''}
       <div class="tblwrap"><table class="tbl dplus"><thead><tr><th>Kampagne</th><th style="text-align:left;">Platzierung</th><th style="text-align:left;">Bewertung</th><th title="ROAS der Platzierung vs. Kampagnenschnitt">ROAS Platz. vs Kamp.</th><th>Aktuell</th><th style="text-align:left;" title="Schreibt die Gebotsanpassung direkt per API in die Kampagne — wirkt sofort im Kundenkonto.">Gebotsanpassung durchführen</th></tr></thead><tbody>${baRows}</tbody></table></div></div>`:''}
     <div id="secE"></div>
     <div id="secF"></div>
@@ -324,7 +327,7 @@ async function writePlacement(i,v){ // ein Befund schreiben + Zeile aktualisiere
   try{ j=await (await fetch(`${API_ADS}/update-placement`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,campaignId:b.campaignId,placement:b.plKey,percentage:v})})).json(); }catch(e){}
   if(btn){btn.textContent='Durchführen';btn.disabled=false;}
   if(j&&j.ok){
-    b.adjustment=v; b._done=true;
+    b.adjustment=v; b._done=true; b.applied=true;
     const cur=document.getElementById('baCur-'+i); if(cur)cur.innerHTML=`${v}% <span style="color:var(--up);font-size:11px;">✓</span>`;
     const ok=document.getElementById('baOk-'+i); if(ok)ok.innerHTML='<span style="color:var(--up);font-size:11px;font-weight:700;margin-right:6px;">✓</span>';
     return true;
@@ -343,7 +346,7 @@ async function applyBidAdj(i){
 async function applyAllBidAdj(kind){
   kind=kind||'chance';
   const label=kind==='chance'?'Gebotserhöhungen':'Gebotssenkungen';
-  const items=(AUD&&AUD.bidAdj||[]).map((b,i)=>({b,i})).filter(x=>x.b.verdict===kind&&x.b.campaignId&&!x.b._done);
+  const items=(AUD&&AUD.bidAdj||[]).map((b,i)=>({b,i})).filter(x=>x.b.verdict===kind&&x.b.campaignId&&!x.b._done&&!x.b.applied);
   if(!items.length){alert(`Keine offenen ${label}.`);return;}
   const val=i=>{const raw=document.getElementById('baIn-'+i)?.value; return Math.min(Math.max(Math.round(raw===''||raw==null?(AUD.bidAdj[i]._suggest||0):+raw),0),900);};
   const preview=items.slice(0,8).map(x=>`· ${x.b.campaign.slice(0,45)} — ${x.b.placement.replace(' on-Amazon','')}: ${x.b.adjustment}% → ${val(x.i)}%`).join('\n');
