@@ -377,8 +377,8 @@ function renderTemplates(){
   document.getElementById('tplList').innerHTML=TEMPLATES.map(t=>`<div class="tpl">
     <input type="checkbox" id="tp-${t.key}" ${t.on?'checked':''} onchange="updateSummary()">
     <span class="nm">${esc(t.label)}<small id="tpn-${t.key}"></small></span>
-    <input type="number" id="tpb-${t.key}" placeholder="Std." step="0.5" min="1">
-    <input type="number" id="tpg-${t.key}" placeholder="Std." step="0.05" min="0.02">
+    <input type="number" id="tpb-${t.key}" placeholder="" step="0.5" min="1" title="leer = Standard-Tagesbudget aus Schritt 3">
+    <input type="number" id="tpg-${t.key}" placeholder="" step="0.05" min="0.02" title="leer = Standardgebot aus Schritt 3">
   </div>`).join('');
 }
 function tplName(t){ return t.pattern(document.getElementById('prodName').value.trim()||'Produkt'); }
@@ -387,10 +387,14 @@ function activeTemplates(){
   return TEMPLATES.filter(t=>document.getElementById('tp-'+t.key)?.checked&&(t.src===null||srcCount(t)>0));
 }
 function updateSummary(){
+  const defB=document.getElementById('budget').value||'10', defG=document.getElementById('bid').value||'0,50';
   for(const t of TEMPLATES){
     const n=document.getElementById('tpn-'+t.key); if(!n)continue;
     const cnt=srcCount(t);
     n.textContent=tplName(t)+(cnt!=null?` · ${cnt} ${t.type==='PRODUCT_TARGETS'?'ASINs':'Keywords'}`:'');
+    // Platzhalter = tatsaechlicher Standardwert aus Schritt 3 (statt kryptischem "Std.")
+    const pb=document.getElementById('tpb-'+t.key), pg=document.getElementById('tpg-'+t.key);
+    if(pb)pb.placeholder=defB; if(pg)pg.placeholder=defG;
   }
   const act=activeTemplates();
   const nCamps=act.reduce((s,t)=>s+(t.type==='SINGLE'?lines(t.src).length:1),0);
