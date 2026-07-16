@@ -107,13 +107,14 @@
     <div class="panel">
       <h2><span class="slabel">1</span> Produkte &amp; Amazon-Keyword-Vorschläge</h2>
       <div class="ph">ASIN(s) der beworbenen Produkte. Die Vorschläge kommen direkt von Amazon (Keyword Recommendations) inkl. Gebotsempfehlung — dann je Keyword der Kategorie zuordnen.</div>
-      <div class="grid2">
-        <div><label>ASIN(s) — eine pro Zeile (max. 10)</label><textarea id="asins" rows="2" placeholder="B0ABCDEFGH"></textarea></div>
+      <div class="grid3">
+        <div><label>ASIN(s) — eine pro Zeile (max. 10)</label><textarea id="asins" rows="4" placeholder="B0ABCDEFGH"></textarea></div>
+        <div id="skuCol"><label>SKU(s) — Zeile passend zur ASIN links <span style="font-weight:500;color:var(--faint);">(leer = automatisch ermitteln)</span></label><textarea id="skus" rows="4" placeholder="wird automatisch befüllt"></textarea></div>
         <div><label>Produktname (für Kampagnennamen)</label><input type="text" id="prodName" placeholder="z.B. Immun Tonicum Katze 90ml"></div>
       </div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px;">
         <div id="acctInfo" style="font-size:12.5px;color:var(--muted);"></div>
-        <button class="btn-sm" id="skuChkBtn" onclick="checkSkus()" title="läuft automatisch, sobald ASINs eingetragen sind — hier manuell neu prüfen">↻ SKUs neu prüfen</button>
+        <button class="btn-sm" id="skuChkBtn" onclick="checkSkus()" title="läuft automatisch, sobald ASINs eingetragen sind — hier manuell neu prüfen">↻ SKUs automatisch ermitteln</button>
       </div>
       <div id="skuResolved"></div>
       <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -246,17 +247,15 @@ function updateAcctInfo(){
   const isVendor=String(p.type).toLowerCase()==='vendor';
   el.innerHTML=isVendor
     ?`🏭 <b>Vendor-Konto</b> (${esc(p.name)}) — Produktanzeigen laufen direkt über die ASIN, <b>keine SKU nötig</b>.`
-    :`🏪 <b>Seller-Konto</b> (${esc(p.name)}) — die SKU je ASIN wird <b>automatisch ermittelt</b>.`;
-  // SKU-Bereich nie leer lassen: sagen, WO die SKUs erscheinen werden
-  const box=document.getElementById('skuResolved');
-  if(box&&!lines('asins').length){
-    box.innerHTML=isVendor?'':'<div style="font-size:12.5px;color:var(--faint);margin-top:8px;border:1px dashed var(--line);border-radius:10px;padding:10px 14px;">↑ Sobald du oben ASIN(s) eingetragen hast, erscheinen <b>hier automatisch die SKU-Felder</b> (vorbefüllt, überschreibbar).</div>';
-  }
+    :`🏪 <b>Seller-Konto</b> (${esc(p.name)}) — SKUs links eintragen oder leer lassen (dann automatisch ermittelt).`;
+  // Vendor: SKU-Spalte komplett ausblenden (gibt es dort nicht)
+  const col=document.getElementById('skuCol'); if(col)col.style.display=isVendor?'none':'';
+  const btn=document.getElementById('skuChkBtn'); if(btn)btn.style.display=isVendor?'none':'';
 }
 
 /* ---------- Setup-Vorlagen (wie Bulksheet-Tool): komplettes Formular speichern/laden ---------- */
 const PRESET_KEY='sqpr_campaign_presets';
-const PRESET_FIELDS=['asins','prodName','kwGeneric','kwBrand','kwComp','kwSingle','ptOwn','ptComp','budget','bid','strategy','state','plTop','plProd','negExact','negPhrase'];
+const PRESET_FIELDS=['asins','skus','prodName','kwGeneric','kwBrand','kwComp','kwSingle','ptOwn','ptComp','budget','bid','strategy','state','plTop','plProd','negExact','negPhrase'];
 function getPresets(){ try{ return JSON.parse(localStorage.getItem(PRESET_KEY))||{}; }catch(e){ return {}; } }
 function gatherSetup(){
   const s={v:1,fields:{},checks:{crossNeg:document.getElementById('crossNeg').checked},tpl:{},kwbids:KWBIDS,profile:document.getElementById('profSel').value};
@@ -304,18 +303,22 @@ function autoCheckSkus(){ clearTimeout(_skuTimer); _skuTimer=setTimeout(()=>{ if
 async function checkSkus(){
   const profileId=document.getElementById('profSel').value, asins=lines('asins');
   const box=document.getElementById('skuResolved');
-  if(!profileId||!asins.length){ box.innerHTML='<div style="font-size:12.5px;color:var(--faint);margin-top:8px;border:1px dashed var(--line);border-radius:10px;padding:10px 14px;">↑ Zuerst oben ASIN(s) eintragen — dann erscheinen <b>hier automatisch die SKU-Felder</b>.</div>'; return; }
-  const btn=document.getElementById('skuChkBtn'); btn.disabled=true; btn.textContent='⏳ prüfe…';
+  if(!profileId||!asins.length){ box.innerHTML=''; return; }
+  // manuell eingetragene SKUs (rohe Zeile N gehoert zu ASIN-Zeile N) haben Vorrang — nur leere ermitteln
+  const skuEl=document.getElementById('skus');
+  const rawA=document.getElementById('asins').value.split('\n').map(s=>s.trim());
+  const manual=skuEl.value.split('\n').map(s=>s.trim());
+  const btn=document.getElementById('skuChkBtn'); btn.disabled=true; btn.textContent='⏳ ermittle…';
   let j=null;
-  try{ j=await (await fetch(`${API_ADS}/create-structure`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,products:asins.map(a=>({asin:a})),campaigns:[],checkOnly:true})})).json(); }catch(e){}
-  btn.disabled=false; btn.textContent='SKUs prüfen';
-  if(!j||!j.ok){ box.innerHTML='<div style="font-size:12px;color:var(--down);margin-top:6px;">Prüfung fehlgeschlagen: '+esc((j&&j.error)||'Netzwerk')+'</div>'; return; }
-  if(j.isVendor){ box.innerHTML='<div style="font-size:12.5px;color:var(--up);margin-top:6px;">✓ Vendor-Konto — Anzeigen laufen direkt über die ASIN, keine SKU nötig.</div>'; return; }
-  box.innerHTML='<div style="font-size:12px;color:var(--muted);margin:8px 0 2px;font-weight:650;">Verwendete SKU je ASIN (überschreibbar):</div>'+
-    j.products.map(p=>`<div style="display:flex;gap:8px;margin-top:5px;align-items:center;font-size:13px;">
-      <span style="font-weight:600;width:110px;">${esc(p.asin)}</span>
-      <input type="text" id="sku-${esc(p.asin)}" value="${esc(p.sku||'')}" placeholder="SKU eingeben" style="max-width:220px;">
-      <span style="font-size:11.5px;color:${p.sku?'var(--up)':'var(--down)'};">${p.sku?'✓ automatisch ermittelt':'⚠️ nicht findbar — bitte eintragen'}</span></div>`).join('');
+  try{ j=await (await fetch(`${API_ADS}/create-structure`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,products:rawA.map((a,i)=>a?{asin:a,sku:manual[i]||undefined}:null).filter(Boolean),campaigns:[],checkOnly:true})})).json(); }catch(e){}
+  btn.disabled=false; btn.textContent='↻ SKUs automatisch ermitteln';
+  if(!j||!j.ok){ box.innerHTML='<div style="font-size:12px;color:var(--down);margin-top:6px;">Ermittlung fehlgeschlagen: '+esc((j&&j.error)||'Netzwerk')+'</div>'; return; }
+  if(j.isVendor){ box.innerHTML=''; updateAcctInfo(); return; }
+  // SKU-Feld zeilengenau befuellen (manuelle Eintraege bleiben unangetastet)
+  skuEl.value=rawA.map((a,i)=>manual[i]||(a?((j.products.find(p=>p.asin===a.toUpperCase())||{}).sku||''):'')).join('\n');
+  const missing=j.products.filter(p=>!p.sku).map(p=>p.asin);
+  const autoN=j.products.filter(p=>p.sku).length-manual.filter(Boolean).length;
+  box.innerHTML=`<div style="font-size:12.5px;margin-top:6px;color:${missing.length?'var(--down)':'var(--up)'};">${missing.length?`⚠️ Keine SKU findbar für ${esc(missing.join(', '))} — bitte im SKU-Feld eintragen.`:`✓ SKUs vollständig${autoN?` (${autoN} automatisch ermittelt)`:''}`}</div>`;
 }
 
 /* ---------- Amazons Keyword-Vorschläge ---------- */
@@ -407,7 +410,11 @@ function updateSummary(){
 function bidFor(kw,match,fallback){ return KWBIDS[`${kw.toLowerCase()}|${match}`]||fallback; }
 function buildPayload(){
   const profileId=document.getElementById('profSel').value;
-  const products=lines('asins').slice(0,10).map(a=>({asin:a.toUpperCase()}));
+  // ASIN-Zeile N gehoert zu SKU-Zeile N (rohe Zeilen — Leerzeilen verschieben die Zuordnung nicht)
+  const rawA=document.getElementById('asins').value.split('\n').map(s=>s.trim());
+  const skuLines=document.getElementById('skus').value.split('\n').map(s=>s.trim());
+  const products=[];
+  rawA.forEach((a,i)=>{ if(a&&products.length<10)products.push({asin:a.toUpperCase(),...(skuLines[i]?{sku:skuLines[i]}:{})}); });
   const defBudget=+document.getElementById('budget').value||10;
   const defBid=+document.getElementById('bid').value||0.5;
   const negE=lines('negExact'), negP=lines('negPhrase');
@@ -460,13 +467,6 @@ async function createStructure(){
       <span class="det">${r.ok?[`ID ${r.campaignId}`,r.keywords!=null?`${r.keywords} Keywords`:null,r.targets!=null?`${r.targets} Targets`:null,r.negatives!=null?`${r.negatives} Negatives`:null].filter(Boolean).join(' · '):esc((r.errors||[]).join(' | ').slice(0,200))}</span></div>`).join('')+
     `<div class="note" style="margin-top:12px;">${j.state==='PAUSED'?'Alle Kampagnen sind <b>pausiert</b> — in der Ads-Konsole prüfen und aktivieren.':'⚠️ Kampagnen sind AKTIV.'}</div>`;
 }
-// SKU-Felder in Payload uebernehmen
-const _origBuild=buildPayload;
-buildPayload=function(){
-  const p=_origBuild();
-  for(const pr of p.products){ const el=document.getElementById('sku-'+pr.asin); if(el&&el.value.trim())pr.sku=el.value.trim(); }
-  return p;
-};
 boot();
 </script>
 <script defer src="https://adsmasters.github.io/hub/backlink.js"></script>
