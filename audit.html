@@ -265,11 +265,13 @@ function renderAudit(j){
     return `<tr><td>${esc(p.placement)}</td><td>${fmtInt(p.impressions)}</td><td>${fmtInt(p.clicks)}</td><td>${eur(p.spend)}</td><td>${eur(p.sales)}</td><td>${fmt2(x.roas)}</td><td>${fmt1(x.acos)}%</td><td>${eur2(x.cpc)}</td></tr>`;}).join('');
 
   // D+: Gebotsanpassungs-Check — mit Direkt-Anpassung (schreibt per API ins Kundenkonto)
+  const chances=(j.bidAdj||[]).filter(b=>b.verdict==='chance'&&b.campaignId).length;
   const baRows=(j.bidAdj||[]).map((b,i)=>{
     const suggest=b.verdict==='chance'?Math.min(Math.max(Math.round((b.placRoas/b.campRoas-1)*50/5)*5,10),100):0;
-    const action=b.campaignId?`<span id="baOk-${i}"></span><input type="number" id="baIn-${i}" value="${suggest}" min="0" max="900" step="5" style="width:58px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;font-family:inherit;text-align:right;">% <button class="btn-sm on" id="baBtn-${i}" onclick="applyBidAdj(${i})" title="Schreibt die Anpassung sofort per API in die Kampagne">Übernehmen →</button>`:'<span style="font-size:11px;color:var(--muted);">erst „Audit aktualisieren"</span>';
+    b._suggest=suggest;
+    const action=b.campaignId?`<span id="baOk-${i}"></span><input type="number" id="baIn-${i}" value="${suggest}" min="0" max="900" step="5" style="width:58px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;font-family:inherit;text-align:right;">% <button class="btn-sm on" id="baBtn-${i}" onclick="applyBidAdj(${i})" title="Schreibt die Gebotsanpassung sofort per API in die Kampagne (Spend dieser Platzierung: ${eur2(b.spend)})">Durchführen</button>`:'<span style="font-size:11px;color:var(--muted);">erst „Audit aktualisieren"</span>';
     const why=b.verdict==='chance'?'Platzierung schlägt den Kampagnenschnitt deutlich, hat aber keine/zu niedrige Anpassung — erhöhen.':'Anpassung >0% obwohl die Platzierung unter dem Kampagnenschnitt liegt — prüfen/senken.';
-    return `<tr><td title="${esc(b.campaign)}">${esc(b.campaign)}</td><td style="text-align:left;">${esc(b.placement.replace(' on-Amazon',''))}</td><td id="baCur-${i}">${b.adjustment}%</td><td>${fmt2(b.placRoas)} <span style="color:var(--muted);font-weight:500;">vs ${fmt2(b.campRoas)}</span></td><td>${eur2(b.spend)}</td><td><span class="pill ${b.verdict}" title="${why}">${b.verdict==='chance'?'Chance ↑':'Problem'}</span></td><td style="white-space:nowrap;">${action}</td></tr>`;
+    return `<tr><td title="${esc(b.campaign)} · Spend ${eur2(b.spend)}">${esc(b.campaign)}</td><td style="text-align:left;">${esc(b.placement.replace(' on-Amazon',''))}</td><td><span class="pill ${b.verdict}" title="${why}">${b.verdict==='chance'?'Chance ↑':'Problem'}</span></td><td>${fmt2(b.placRoas)} <span style="color:var(--muted);font-weight:500;">vs ${fmt2(b.campRoas)}</span></td><td id="baCur-${i}">${b.adjustment}%</td><td style="white-space:nowrap;text-align:left;">${action}</td></tr>`;
   }).join('');
 
   // G: SD Kampagnen
@@ -288,7 +290,8 @@ function renderAudit(j){
     ${plRows?`<div class="panel"><h2><span class="slabel">D</span> Platzierungsanalyse</h2><div class="ph">SP-Performance nach Anzeigenplatzierung.</div>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>Platzierung</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>ACoS</th><th>Ø CPC</th></tr></thead><tbody>${plRows}</tbody></table></div></div>`:''}
     ${baRows?`<div class="panel"><h2><span class="slabel">D+</span> Gebotsanpassungs-Check (Platzierungen)</h2><div class="ph">Bewertet Platzierungs-Anpassungen RELATIV zur Kampagnen-Performance. Chance = Platzierung schlägt den Kampagnenschnitt deutlich, hat aber keine Anpassung. Problem = Anpassung &gt;0% obwohl die Platzierung unter dem Schnitt liegt. (Nur aktive Kampagnen mit genug Daten.)</div>
-      <div class="tblwrap"><table class="tbl dplus"><thead><tr><th>Kampagne</th><th style="text-align:left;">Platzierung</th><th>Anpassung</th><th title="ROAS der Platzierung vs. Kampagnenschnitt">ROAS Platz. vs Kamp.</th><th>Spend</th><th style="text-align:right;">Bewertung</th><th style="text-align:right;" title="Schreibt die Platzierungs-Anpassung direkt per API in die Kampagne — wirkt sofort im Kundenkonto.">Neu setzen</th></tr></thead><tbody>${baRows}</tbody></table></div></div>`:''}
+      ${chances?`<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;"><button class="btn-go" id="baAllBtn" style="padding:9px 18px;font-size:13.5px;" onclick="applyAllBidAdj()">⚡ Alle ${chances} Gebotserhöhungen durchführen</button><span id="baAllStatus" style="font-size:12.5px;color:var(--muted);">übernimmt alle „Chance ↑"-Vorschläge mit den vorgeschlagenen Werten</span></div>`:''}
+      <div class="tblwrap"><table class="tbl dplus"><thead><tr><th>Kampagne</th><th style="text-align:left;">Platzierung</th><th style="text-align:left;">Bewertung</th><th title="ROAS der Platzierung vs. Kampagnenschnitt">ROAS Platz. vs Kamp.</th><th>Aktuell</th><th style="text-align:left;" title="Schreibt die Gebotsanpassung direkt per API in die Kampagne — wirkt sofort im Kundenkonto.">Gebotsanpassung durchführen</th></tr></thead><tbody>${baRows}</tbody></table></div></div>`:''}
     <div id="secE"></div>
     <div id="secF"></div>
     ${sdRows?`<div class="panel"><h2><span class="slabel">G</span> Sponsored Display — Kampagnen-Performance</h2><div class="ph">SD-Kampagnen nach Spend (kein Suchbegriff-Bericht verfügbar für SD).</div>
@@ -296,24 +299,48 @@ function renderAudit(j){
   AUD=j; buildE(); buildF();
 }
 
-/* ===== D+: Platzierungs-Anpassung direkt setzen (API-Write, mit Bestätigung) ===== */
+/* ===== D+: Gebotsanpassung durchführen (API-Write, mit Bestätigung) ===== */
+async function writePlacement(i,v){ // ein Befund schreiben + Zeile aktualisieren; true bei Erfolg
+  const b=AUD.bidAdj[i];
+  const profileId=document.getElementById('profSel').value;
+  const btn=document.getElementById('baBtn-'+i); if(btn){btn.disabled=true;btn.textContent='⏳';}
+  let j=null;
+  try{ j=await (await fetch(`${API_ADS}/update-placement`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,campaignId:b.campaignId,placement:b.plKey,percentage:v})})).json(); }catch(e){}
+  if(btn){btn.textContent='Durchführen';btn.disabled=false;}
+  if(j&&j.ok){
+    b.adjustment=v; b._done=true;
+    const cur=document.getElementById('baCur-'+i); if(cur)cur.innerHTML=`${v}% <span style="color:var(--up);font-size:11px;">✓</span>`;
+    const ok=document.getElementById('baOk-'+i); if(ok)ok.innerHTML='<span style="color:var(--up);font-size:11px;font-weight:700;margin-right:6px;">✓</span>';
+    return true;
+  }
+  b._err=(j&&(j.error||JSON.stringify(j)))||'Netzwerkfehler';
+  return false;
+}
 async function applyBidAdj(i){
   const b=AUD&&AUD.bidAdj&&AUD.bidAdj[i]; if(!b||!b.campaignId)return;
   const v=Math.min(Math.max(Math.round(+document.getElementById('baIn-'+i).value||0),0),900);
-  const profileId=document.getElementById('profSel').value;
-  if(!confirm(`Platzierungs-Anpassung ändern?\n\nKampagne: ${b.campaign}\nPlatzierung: ${b.placement}\nAnpassung: ${b.adjustment}% → ${v}%\n\n⚠️ Wirkt SOFORT im Kundenkonto (Gebote auf dieser Platzierung ändern sich).`))return;
-  const btn=document.getElementById('baBtn-'+i); btn.disabled=true; btn.textContent='⏳';
-  let j=null;
-  try{ j=await (await fetch(`${API_ADS}/update-placement`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,campaignId:b.campaignId,placement:b.plKey,percentage:v})})).json(); }catch(e){}
-  if(j&&j.ok){
-    b.adjustment=v;
-    document.getElementById('baCur-'+i).innerHTML=`${v}% <span style="color:var(--up);font-size:11px;">✓</span>`;
-    document.getElementById('baOk-'+i).innerHTML='<span style="color:var(--up);font-size:11px;font-weight:700;margin-right:6px;">gesetzt ✓</span>';
-    btn.textContent='Setzen'; btn.disabled=false;
-  } else {
-    btn.textContent='Setzen'; btn.disabled=false;
-    alert('❌ Fehler beim Setzen: '+((j&&(j.error||JSON.stringify(j)))||'Netzwerkfehler').slice(0,250));
+  if(!confirm(`Gebotsanpassung durchführen?\n\nKampagne: ${b.campaign}\nPlatzierung: ${b.placement}\nAnpassung: ${b.adjustment}% → ${v}%\n\n⚠️ Wirkt SOFORT im Kundenkonto (Gebote auf dieser Platzierung ändern sich).`))return;
+  const ok=await writePlacement(i,v);
+  if(!ok)alert('❌ Fehler: '+String(b._err).slice(0,250));
+}
+// One-Click: alle "Chance ↑"-Vorschläge mit den (ggf. angepassten) Eingabewerten durchführen
+async function applyAllBidAdj(){
+  const items=(AUD&&AUD.bidAdj||[]).map((b,i)=>({b,i})).filter(x=>x.b.verdict==='chance'&&x.b.campaignId&&!x.b._done);
+  if(!items.length){alert('Keine offenen Erhöhungs-Vorschläge.');return;}
+  const preview=items.slice(0,8).map(x=>{const v=Math.round(+document.getElementById('baIn-'+x.i)?.value||x.b._suggest||0);return `· ${x.b.campaign.slice(0,45)} — ${x.b.placement.replace(' on-Amazon','')}: ${x.b.adjustment}% → ${v}%`;}).join('\n');
+  if(!confirm(`Alle ${items.length} Gebotserhöhungen durchführen?\n\n${preview}${items.length>8?`\n… und ${items.length-8} weitere`:''}\n\n⚠️ Wirkt SOFORT im Kundenkonto.`))return;
+  const allBtn=document.getElementById('baAllBtn'), st=document.getElementById('baAllStatus');
+  allBtn.disabled=true;
+  let ok=0,fail=0;
+  for(let n=0;n<items.length;n++){
+    const {i}=items[n];
+    const v=Math.min(Math.max(Math.round(+document.getElementById('baIn-'+i)?.value||AUD.bidAdj[i]._suggest||0),0),900);
+    st.textContent=`⏳ ${n+1}/${items.length} — ${AUD.bidAdj[i].campaign.slice(0,50)}…`;
+    (await writePlacement(i,v))?ok++:fail++;
+    await new Promise(r=>setTimeout(r,900)); // Ads-API nicht fluten
   }
+  st.innerHTML=`<b style="color:var(--up);">${ok} durchgeführt ✓</b>${fail?` · <b style="color:var(--down);">${fail} fehlgeschlagen</b> (Button an der Zeile erneut versuchen)`:''}`;
+  allBtn.disabled=false; allBtn.textContent='⚡ Alle Gebotserhöhungen durchführen';
 }
 
 /* ===== Sektion E/F — wie das Bulksheet-Audit: Account-/Kampagnenebene, Suchbegriffe, Wasted ===== */
