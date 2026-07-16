@@ -95,7 +95,8 @@
   <div class="wrap">
     <div class="phead"><h1>PPC-Audit</h1><p>Konto-Audit über SP, SB und SD — live aus der Amazon Ads API, ohne Bulk-Sheet-Upload.</p></div>
     <div class="pickrow">
-      <select class="sel" id="clientSel"></select>
+      <input class="sel" style="cursor:text;min-width:220px;" id="profFilter" placeholder="Konto suchen…" oninput="renderProfileOptions()">
+      <select class="sel" id="profSel" style="max-width:420px;"></select>
       <select class="sel" id="daysSel"><option value="30">Letzte 30 Tage</option><option value="60">Letzte 60 Tage</option><option value="90">Letzte 90 Tage</option></select>
       <button class="btn-go" id="goBtn" onclick="startAudit()">🚀 Jetzt PPC-Audit</button>
       <span id="lastNote" style="font-size:12.5px;color:var(--muted);"></span>
@@ -120,22 +121,48 @@ const esc=s=>(s==null?'':String(s)).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;'
 let CLIENTS=[],RUN=null; // RUN = {spid,days,reports,timer}
 const REPORT_LABELS={sp_campaigns:'SP Kampagnen',sp_placements:'SP Platzierungen',sp_targeting:'SP Keywords/Targets',sp_search_terms:'SP Suchbegriffe',sb_campaigns:'SB Kampagnen',sb_search_terms:'SB Suchbegriffe',sd_campaigns:'SD Kampagnen'};
 
+// Profil-Auswahl: verbundene SQPR-Kunden zuerst (nächtlich vorgeladen), darunter ALLE Agentur-Konten
+let PROFILES=[];
 async function boot(){
-  try{ CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[]; }catch(e){ CLIENTS=[]; }
-  CLIENTS=CLIENTS.filter(c=>c.ads_profile_id);
-  CLIENTS.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${esc(c.name)}</option>`).join('');
-  const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid===_saved))document.getElementById('clientSel').value=_saved;
-  // gespeichertes Audit sofort anzeigen (naechtlich vorgeladen bzw. letzter Lauf)
+  const getProfiles=async()=>{ // /profiles kann beim Kaltstart transient fehlschlagen -> Retry
+    for(let a=0;a<3;a++){ try{ const j=await (await fetch(`${API_ADS}/profiles`)).json(); if(j&&j.profiles&&j.profiles.length)return j; }catch(e){} await new Promise(r=>setTimeout(r,1500)); }
+    return {profiles:[]};
+  };
+  const [clientsR,profR]=await Promise.all([
+    fetch(`${API}/clients`).then(r=>r.json()).catch(()=>({clients:[]})),
+    getProfiles(),
+  ]);
+  CLIENTS=(clientsR.clients||[]).filter(c=>c.ads_profile_id);
+  const connectedIds=new Set(CLIENTS.map(c=>String(c.ads_profile_id)));
+  PROFILES=(profR.profiles||[]).map(p=>({id:String(p.profileId),name:p.name||String(p.profileId),cc:p.countryCode||'',type:p.type||'',connected:connectedIds.has(String(p.profileId))}))
+    .sort((a,b)=>(b.connected-a.connected)||a.name.localeCompare(b.name,undefined,{sensitivity:'base'})||a.cc.localeCompare(b.cc));
+  // Namen der verbundenen Kunden bevorzugen (Klarname aus sqp_clients)
+  const byId=new Map(CLIENTS.map(c=>[String(c.ads_profile_id),c.name]));
+  PROFILES.forEach(p=>{ if(byId.has(p.id)) p.name=byId.get(p.id); });
+  renderProfileOptions();
+  const _saved=localStorage.getItem('sqpr_audit_profile');
+  if(_saved&&PROFILES.some(p=>p.id===_saved))document.getElementById('profSel').value=_saved;
   restoreCached();
-  document.getElementById('clientSel').onchange=()=>{try{localStorage.setItem('sqpr_api_spid',document.getElementById('clientSel').value);}catch(e){} restoreCached();};
+  document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} restoreCached();};
   document.getElementById('daysSel').onchange=restoreCached;
 }
+function renderProfileOptions(){
+  const f=(document.getElementById('profFilter').value||'').toLowerCase();
+  const sel=document.getElementById('profSel'); const cur=sel.value;
+  const list=PROFILES.filter(p=>!f||(`${p.name} ${p.cc} ${p.id}`).toLowerCase().includes(f));
+  const conn=list.filter(p=>p.connected), rest=list.filter(p=>!p.connected).slice(0,800);
+  const opt=p=>`<option value="${p.id}">${esc(p.name)} · ${esc(p.cc)}${p.type?' · '+esc(p.type):''}</option>`;
+  sel.innerHTML=(conn.length?`<optgroup label="Verbundene Kunden (vorgeladen)">${conn.map(opt).join('')}</optgroup>`:'')+
+    (rest.length?`<optgroup label="Alle Ads-Profile (${fmtInt(PROFILES.filter(p=>!p.connected).length)})">${rest.map(opt).join('')}</optgroup>`:'');
+  if(cur&&list.some(p=>p.id===cur))sel.value=cur; else if(sel.options.length)sel.selectedIndex=0;
+  if(f)restoreCached();
+}
 async function restoreCached(){
-  const spid=document.getElementById('clientSel').value, days=document.getElementById('daysSel').value;
-  if(!spid)return;
+  const profileId=document.getElementById('profSel').value, days=document.getElementById('daysSel').value;
+  if(!profileId)return;
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade Audit…</div>';
-  let d=null; try{ d=await (await fetch(`${API_ADS}/audit-fetch?spid=${spid}&days=${days}&cached=1`)).json(); }catch(e){}
+  let d=null; try{ d=await (await fetch(`${API_ADS}/audit-fetch?profileId=${profileId}&days=${days}&cached=1`)).json(); }catch(e){}
+  if(document.getElementById('profSel').value!==profileId)return; // Nutzer hat weitergeklickt
   const btn=document.getElementById('goBtn');
   if(d&&d.cached&&d.ready){
     renderAudit(d);
@@ -143,23 +170,23 @@ async function restoreCached(){
     document.getElementById('lastNote').textContent='Stand: '+ts.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' Uhr';
     btn.textContent='🔄 Audit aktualisieren';
   } else {
-    document.getElementById('content').innerHTML='<div class="loading">Für diesen Kunden/Zeitraum liegt noch kein Audit vor.<br><b>Jetzt PPC-Audit</b> klicken — die Amazon-Berichte brauchen beim ersten Mal 2–5 Minuten.<br><span style="font-size:12px;">Danach wird das Audit nächtlich vorgeladen und öffnet sofort.</span></div>';
+    document.getElementById('content').innerHTML='<div class="loading">Für dieses Konto liegt noch kein Audit vor.<br><b>Jetzt PPC-Audit</b> klicken — die Amazon-Berichte brauchen beim ersten Mal 2–5 Minuten.<br><span style="font-size:12px;">Danach ist das Audit gespeichert und öffnet sofort.</span></div>';
     document.getElementById('lastNote').textContent='';
     btn.textContent='🚀 Jetzt PPC-Audit';
   }
 }
 
 async function startAudit(){
-  const spid=document.getElementById('clientSel').value, days=+document.getElementById('daysSel').value;
-  if(!spid)return;
+  const profileId=document.getElementById('profSel').value, days=+document.getElementById('daysSel').value;
+  if(!profileId)return;
   const btn=document.getElementById('goBtn'); btn.disabled=true; btn.textContent='⏳ Berichte angefordert…';
   document.getElementById('lastNote').textContent='';
-  RUN={spid,days,reports:{},tries:0};
+  RUN={profileId,days,reports:{},tries:0};
   renderProgress('Berichte werden bei Amazon angefordert…');
   // Schritt 1: Reports anlegen (ggf. mehrfach — Amazon drosselt Creates)
   for(let a=0;a<4;a++){
     let j=null;
-    try{ j=await (await fetch(`${API_ADS}/audit-start`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,days,existing:RUN.reports})})).json(); }catch(e){}
+    try{ j=await (await fetch(`${API_ADS}/audit-start`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,days,existing:RUN.reports})})).json(); }catch(e){}
     if(j&&j.reports){ for(const[k,v]of Object.entries(j.reports)) if(v)RUN.reports[k]=v; }
     if(j&&j.complete)break;
     renderProgress('Amazon drosselt — fordere restliche Berichte an…');
@@ -189,7 +216,7 @@ async function pollLoop(missing){
   const ids=Object.entries(RUN.reports).map(([k,v])=>k+':'+v).join(',');
   for(let i=0;i<40;i++){
     let j=null;
-    try{ j=await (await fetch(`${API_ADS}/audit-fetch?spid=${RUN.spid}&days=${RUN.days}&ids=${encodeURIComponent(ids)}`)).json(); }catch(e){}
+    try{ j=await (await fetch(`${API_ADS}/audit-fetch?profileId=${RUN.profileId}&days=${RUN.days}&ids=${encodeURIComponent(ids)}`)).json(); }catch(e){}
     if(j&&j.ready){
       renderAudit(j); const btn=document.getElementById('goBtn'); btn.disabled=false; btn.textContent='🔄 Audit aktualisieren';
       document.getElementById('lastNote').textContent='Stand: gerade eben'; return; }
