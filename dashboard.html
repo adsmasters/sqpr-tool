@@ -873,10 +873,11 @@
             const { data: allClientsData } = await sb.from('sqpr_clients').select('id,name,marketplace').order('name', { ascending: true });
             allClients = allClientsData || [];
 
-            // Kein (oder leerer) Kunde gewählt -> auf ersten Kunden MIT Reports defaulten
+            // Nur wenn gar kein (oder ein geloeschter) Kunde gewaehlt ist -> auf ersten Kunden MIT Reports defaulten.
+            // Ein bewusst gewaehlter Kunde ohne Reports bleibt gewaehlt (Empty-State mit Upload-Link weiter unten).
             const { data: repIdx } = await sb.from('sqpr_reports').select('client_id');
             const withReports = new Set((repIdx || []).map(r => r.client_id));
-            if (!clientId || !withReports.has(clientId)) {
+            if (!clientId || !allClients.some(c => c.id === clientId)) {
                 const fallback = allClients.find(c => withReports.has(c.id));
                 if (fallback) { clientId = fallback.id; localStorage.setItem('sqpr_active_client', clientId); }
             }
