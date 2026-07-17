@@ -713,8 +713,8 @@
             <div class="drop-zone" id="dropZone">
                 <div class="drop-zone-icon">&#128196;</div>
                 <div class="drop-zone-text">Datei hierher ziehen oder klicken</div>
-                <div class="drop-zone-hint">Amazon SQPR Export (.csv oder .xlsx) — Deutsche und englische Formate werden unterstützt</div>
-                <input type="file" id="fileInput" accept=".csv,.xlsx">
+                <div class="drop-zone-hint">Amazon SQPR Export (.csv oder .xlsx) — auch mehrere Dateien auf einmal (z.&#8239;B. 12 Monate). Zeitraum wird je Datei automatisch erkannt.</div>
+                <input type="file" id="fileInput" accept=".csv,.xlsx" multiple>
             </div>
             <div class="file-selected" id="fileSelected" style="display:none;">
                 <span class="file-name" id="fileName"></span>
@@ -751,6 +751,23 @@
 
             <div class="success-msg" id="successMsg"></div>
             <div class="error-msg" id="errorMsg"></div>
+        </div>
+
+        <!-- Batch-Upload (mehrere Dateien) -->
+        <div class="card preview-section" id="batchSection" style="display:none;">
+            <div class="card-title">Mehrere Berichte</div>
+            <div id="batchWarn" style="display:none; margin-top:8px; padding:10px 12px; border-radius:8px; background:rgba(210,153,34,.1); border:1px solid rgba(210,153,34,.4); font-size:13px;"></div>
+            <div class="preview-table-wrap">
+                <table>
+                    <thead><tr><th>Datei</th><th>Zeitraum</th><th>Zeilen</th><th>Status</th></tr></thead>
+                    <tbody id="batchBody"></tbody>
+                </table>
+            </div>
+            <div class="upload-actions">
+                <button class="btn-primary" id="batchUploadBtn" disabled>Hochladen</button>
+            </div>
+            <div class="success-msg" id="batchSuccess"></div>
+            <div class="error-msg" id="batchError"></div>
         </div>
 
         <!-- Upload History -->
@@ -1144,21 +1161,25 @@
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length === 0) return;
-            const lower = files[0].name.toLowerCase();
-            if (lower.endsWith('.csv') || lower.endsWith('.xlsx')) {
-                handleFile(files[0]);
-            } else {
-                showError('Dateityp nicht unterstützt: "' + files[0].name + '". Bitte eine .csv- oder .xlsx-Datei hochladen (Amazon SQPR Export).');
-            }
+            handleFiles(e.dataTransfer.files);
         });
 
         fileInput.addEventListener('change', () => {
-            if (fileInput.files.length > 0) {
-                handleFile(fileInput.files[0]);
-            }
+            handleFiles(fileInput.files);
         });
+
+        function handleFiles(fileList) {
+            const files = Array.from(fileList || []);
+            if (files.length === 0) return;
+            const bad = files.find(f => { const l = f.name.toLowerCase(); return !l.endsWith('.csv') && !l.endsWith('.xlsx'); });
+            if (bad) {
+                showError('Dateityp nicht unterstützt: "' + bad.name + '". Bitte nur .csv- oder .xlsx-Dateien hochladen (Amazon SQPR Export).');
+                return;
+            }
+            batchSection.style.display = 'none';
+            if (files.length === 1) { handleFile(files[0]); }
+            else { handleBatch(files); }
+        }
 
         removeFileBtn.addEventListener('click', () => {
             resetFileState();
@@ -1184,30 +1205,127 @@
             errorMsg.style.display = 'none';
             progressWrap.style.display = 'none';
 
-            const reader = new FileReader();
-            if (file.name.toLowerCase().endsWith('.xlsx')) {
-                // Excel-Export von Amazon: erstes Tabellenblatt als CSV lesen
-                reader.onload = (e) => {
-                    try {
-                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                        const sheet = wb.Sheets[wb.SheetNames[0]];
-                        parseCSV(XLSX.utils.sheet_to_csv(sheet, { FS: ',' }));
-                    } catch (err) {
-                        showError('Fehler beim Lesen der Excel-Datei: ' + err.message);
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            } else {
-                reader.onload = (e) => {
-                    try {
-                        parseCSV(e.target.result);
-                    } catch (err) {
-                        showError('Fehler beim Parsen der CSV: ' + err.message);
-                    }
-                };
-                reader.readAsText(file, 'UTF-8');
-            }
+            readReportFile(file)
+                .then(text => { try { parseCSV(text); } catch (err) { showError('Fehler beim Parsen: ' + err.message); } })
+                .catch(err => showError('Fehler beim Lesen der Datei: ' + err.message));
         }
+
+        // Datei als CSV-Text lesen (.xlsx: erstes Tabellenblatt konvertieren)
+        function readReportFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden'));
+                if (file.name.toLowerCase().endsWith('.xlsx')) {
+                    reader.onload = (e) => {
+                        try {
+                            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                            resolve(XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { FS: ',' }));
+                        } catch (err) { reject(err); }
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsText(file, 'UTF-8');
+                }
+            });
+        }
+
+        // --- Batch-Upload: mehrere Berichte auf einmal, Zeitraum je Datei aus der Metazeile ---
+        const batchSection = document.getElementById('batchSection');
+        const batchBody = document.getElementById('batchBody');
+        const batchWarn = document.getElementById('batchWarn');
+        const batchUploadBtn = document.getElementById('batchUploadBtn');
+        const batchSuccess = document.getElementById('batchSuccess');
+        const batchError = document.getElementById('batchError');
+        let batchItems = [];
+
+        async function handleBatch(files) {
+            resetFileState();
+            fileSelected.style.display = 'none';
+            batchSection.style.display = 'block';
+            batchWarn.style.display = 'none';
+            batchSuccess.style.display = 'none';
+            batchError.style.display = 'none';
+            batchBody.innerHTML = '<tr><td colspan="4">Dateien werden gelesen…</td></tr>';
+            batchUploadBtn.disabled = true;
+
+            if (!clientSelect.value) {
+                batchBody.innerHTML = '';
+                batchWarn.textContent = 'Bitte zuerst oben einen Kunden auswählen, dann die Dateien erneut hineinziehen.';
+                batchWarn.style.display = 'block';
+                return;
+            }
+
+            // Bereits hochgeladene Zeitraeume dieses Kunden — Duplikate ueberspringen
+            const { data: existing } = await sb.from('sqpr_reports').select('report_date_start,report_date_end').eq('client_id', clientSelect.value);
+            const existingKeys = new Set((existing || []).map(r => r.report_date_start + '|' + r.report_date_end));
+
+            batchItems = [];
+            for (const file of files) {
+                const item = { file, name: file.name, status: 'bereit', rows: null, headers: null, meta: null };
+                try {
+                    const parsed = parseCSVText(await readReportFile(file));
+                    item.headers = parsed.headers; item.rows = parsed.rows; item.meta = parsed.meta;
+                    if (findColumnIndex(parsed.headers, 'Search Query') < 0) item.status = 'spalten-fehler';
+                    else if (!parsed.meta.start) item.status = 'kein-zeitraum';
+                    else if (existingKeys.has(parsed.meta.start + '|' + parsed.meta.end)) item.status = 'duplikat';
+                } catch (err) { item.status = 'lese-fehler'; item.error = err.message; }
+                batchItems.push(item);
+            }
+            // Doppelte Zeitraeume innerhalb der Auswahl ebenfalls nur einmal
+            const seen = new Set();
+            for (const it of batchItems) {
+                if (it.status !== 'bereit') continue;
+                const key = it.meta.start + '|' + it.meta.end;
+                if (seen.has(key)) it.status = 'duplikat'; else seen.add(key);
+            }
+
+            const mismatches = batchItems.filter(it => it.meta && brandMismatch(it.meta.brand));
+            if (mismatches.length) {
+                batchWarn.innerHTML = '&#9888;&#65039; <strong>Achtung:</strong> Bei ' + mismatches.length + ' Datei(en) passt die Marke (' + escapeHtml(mismatches[0].meta.brand) + ') nicht zum gewählten Kunden „' + escapeHtml(clientSelect.selectedOptions[0].textContent) + '" — bitte vor dem Hochladen prüfen.';
+                batchWarn.style.display = 'block';
+            }
+            renderBatch();
+        }
+
+        const BATCH_STATUS = {
+            'bereit': '&#9989; bereit', 'duplikat': '&#9193; bereits vorhanden — wird übersprungen',
+            'kein-zeitraum': '&#10060; Zeitraum nicht erkannt — bitte einzeln hochladen',
+            'spalten-fehler': '&#10060; Spalten nicht erkannt — falsche Datei?',
+            'lese-fehler': '&#10060; Datei nicht lesbar', 'laeuft': '&#8987; wird hochgeladen…',
+            'fertig': '&#9989; hochgeladen', 'fehler': '&#10060; Fehler'
+        };
+        function renderBatch() {
+            batchBody.innerHTML = '';
+            for (const it of batchItems) {
+                const tr = document.createElement('tr');
+                const zeitraum = it.meta && it.meta.start ? (it.meta.label || (it.meta.start + ' – ' + it.meta.end)) : '–';
+                tr.innerHTML = '<td>' + escapeHtml(it.name) + '</td><td>' + escapeHtml(zeitraum) + '</td><td>' + (it.rows ? it.rows.length : '–') + '</td><td>' + (BATCH_STATUS[it.status] || escapeHtml(it.status)) + (it.error ? ' — ' + escapeHtml(it.error) : '') + '</td>';
+                batchBody.appendChild(tr);
+            }
+            const ready = batchItems.filter(it => it.status === 'bereit').length;
+            batchUploadBtn.textContent = ready > 0 ? ready + ' Bericht(e) hochladen' : 'Nichts hochzuladen';
+            batchUploadBtn.disabled = ready === 0;
+        }
+
+        batchUploadBtn.addEventListener('click', async () => {
+            batchUploadBtn.disabled = true;
+            batchSuccess.style.display = 'none';
+            batchError.style.display = 'none';
+            let ok = 0, fail = 0;
+            for (const it of batchItems) {
+                if (it.status !== 'bereit') continue;
+                it.status = 'laeuft'; renderBatch(); batchUploadBtn.disabled = true;
+                try {
+                    await uploadParsedReport(clientSelect.value, it.headers, it.rows, it.meta.start, it.meta.end, it.meta.period || 'monthly');
+                    it.status = 'fertig'; ok++;
+                } catch (err) { it.status = 'fehler'; it.error = err.message; fail++; }
+            }
+            renderBatch(); batchUploadBtn.disabled = true;
+            if (ok) { batchSuccess.textContent = ok + ' Bericht(e) erfolgreich hochgeladen.'; batchSuccess.style.display = 'block'; }
+            if (fail) { batchError.textContent = fail + ' Bericht(e) fehlgeschlagen — Details in der Status-Spalte.'; batchError.style.display = 'block'; }
+            loadHistory();
+        });
 
         // --- CSV Parsing ---
 
@@ -1325,9 +1443,8 @@
 
         // Metadaten-Zeile des Amazon-Exports auslesen, z.B. Marke=["MoleQlar"] · Berichtszeitraum=["Monatlich"] · Jahr auswählen=["2026"] · Monat auswählen=["Juni"]
         const MONTHS = { januar: 1, january: 1, februar: 2, february: 2, 'märz': 3, maerz: 3, march: 3, april: 4, mai: 5, may: 5, juni: 6, june: 6, juli: 7, july: 7, august: 8, september: 9, oktober: 10, october: 10, november: 11, dezember: 12, december: 12 };
-        function applyFileMeta(preHeaderLines) {
-            const metaInfo = document.getElementById('metaInfo');
-            metaInfo.style.display = 'none';
+        // Pure Extraktion: liefert {brand, period, start, end, label} — ohne UI-Nebenwirkungen (auch fuer Batch)
+        function extractFileMeta(preHeaderLines) {
             const kv = {};
             const re = /([A-Za-zÄÖÜäöüß .\-]+?)\s*=\s*\[?([^\[\],;]+?)\]?\s*(?:[,;]|$)/g;
             for (const raw of preHeaderLines) {
@@ -1341,52 +1458,66 @@
             const monthName = (get('monat') || get('month') || '').toLowerCase().trim();
             const weekVal = get('woche') || get('week');
             const quarterVal = (get('quartal') || get('quarter') || '').toUpperCase();
-            const parts = [];
-            let detected = false;
+            const meta = { brand: brand || null, period: null, start: null, end: null, label: '' };
 
-            if (range.includes('monat') || range.includes('month')) periodType.value = 'monthly';
-            else if (range.includes('woche') || range.includes('week')) periodType.value = 'weekly';
-            else if (range.includes('quartal') || range.includes('quarter')) periodType.value = 'quarterly';
+            if (range.includes('monat') || range.includes('month')) meta.period = 'monthly';
+            else if (range.includes('woche') || range.includes('week')) meta.period = 'weekly';
+            else if (range.includes('quartal') || range.includes('quarter')) meta.period = 'quarterly';
 
+            const pad = n => String(n).padStart(2, '0');
             const mNum = MONTHS[monthName];
             if (mNum && year) {
-                const lastDay = new Date(year, mNum, 0).getDate();
-                startDate.value = year + '-' + String(mNum).padStart(2, '0') + '-01';
-                endDate.value = year + '-' + String(mNum).padStart(2, '0') + '-' + String(lastDay).padStart(2, '0');
-                parts.push(monthName.charAt(0).toUpperCase() + monthName.slice(1) + ' ' + year);
-                detected = true;
+                meta.start = year + '-' + pad(mNum) + '-01';
+                meta.end = year + '-' + pad(mNum) + '-' + pad(new Date(year, mNum, 0).getDate());
+                meta.label = monthName.charAt(0).toUpperCase() + monthName.slice(1) + ' ' + year;
+                if (!meta.period) meta.period = 'monthly';
             } else if (weekVal) {
                 // Formate: "2026-06-07 - 2026-06-13" oder "07.06.2026 - 13.06.2026"
                 const iso = weekVal.match(/(\d{4}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})/);
                 const de = weekVal.match(/(\d{2})\.(\d{2})\.(\d{4}).*?(\d{2})\.(\d{2})\.(\d{4})/);
-                if (iso) { startDate.value = iso[1]; endDate.value = iso[2]; detected = true; parts.push('Woche ' + iso[1] + ' bis ' + iso[2]); }
-                else if (de) { startDate.value = de[3] + '-' + de[2] + '-' + de[1]; endDate.value = de[6] + '-' + de[5] + '-' + de[4]; detected = true; parts.push('Woche ' + startDate.value + ' bis ' + endDate.value); }
+                if (iso) { meta.start = iso[1]; meta.end = iso[2]; }
+                else if (de) { meta.start = de[3] + '-' + de[2] + '-' + de[1]; meta.end = de[6] + '-' + de[5] + '-' + de[4]; }
+                if (meta.start) { meta.label = 'Woche ' + meta.start + ' bis ' + meta.end; if (!meta.period) meta.period = 'weekly'; }
             } else if (/^Q[1-4]$/.test(quarterVal) && year) {
                 const q = +quarterVal[1];
                 const sm = (q - 1) * 3 + 1, em = q * 3;
-                startDate.value = year + '-' + String(sm).padStart(2, '0') + '-01';
-                endDate.value = year + '-' + String(em).padStart(2, '0') + '-' + String(new Date(year, em, 0).getDate()).padStart(2, '0');
-                parts.push(quarterVal + ' ' + year);
-                detected = true;
+                meta.start = year + '-' + pad(sm) + '-01';
+                meta.end = year + '-' + pad(em) + '-' + pad(new Date(year, em, 0).getDate());
+                meta.label = quarterVal + ' ' + year;
+                if (!meta.period) meta.period = 'quarterly';
             }
+            return meta;
+        }
 
-            if (!detected && !brand) return;
-            let html = '&#128197; Automatisch aus der Datei erkannt: <strong>' + escapeHtml([periodType.selectedOptions[0].textContent].concat(parts).join(' · ')) + '</strong>';
-            if (brand) html += ' · Marke: <strong>' + escapeHtml(brand) + '</strong>';
-            const clientName = clientSelect.selectedOptions[0] ? clientSelect.selectedOptions[0].textContent.trim().toLowerCase() : '';
-            if (brand && clientName && clientName !== 'kunde wählen...' && !clientName.includes(brand.toLowerCase()) && !brand.toLowerCase().includes(clientName)) {
+        function brandMismatch(brand) {
+            const opt = clientSelect.selectedOptions[0];
+            const clientName = opt ? opt.textContent.trim().toLowerCase() : '';
+            if (!brand || !clientName || clientName === 'kunde wählen...') return false;
+            return !clientName.includes(brand.toLowerCase()) && !brand.toLowerCase().includes(clientName);
+        }
+
+        function applyFileMeta(preHeaderLines) {
+            const metaInfo = document.getElementById('metaInfo');
+            metaInfo.style.display = 'none';
+            const meta = extractFileMeta(preHeaderLines);
+            if (meta.period) periodType.value = meta.period;
+            if (meta.start) { startDate.value = meta.start; endDate.value = meta.end; }
+            if (!meta.start && !meta.brand) return;
+            let html = '&#128197; Automatisch aus der Datei erkannt: <strong>' + escapeHtml([periodType.selectedOptions[0].textContent, meta.label].filter(Boolean).join(' · ')) + '</strong>';
+            if (meta.brand) html += ' · Marke: <strong>' + escapeHtml(meta.brand) + '</strong>';
+            if (brandMismatch(meta.brand)) {
                 html += '<br>&#9888;&#65039; <strong>Achtung:</strong> Die Marke in der Datei passt nicht zum gewählten Kunden „' + escapeHtml(clientSelect.selectedOptions[0].textContent) + '" — bitte prüfen.';
             }
-            if (!detected) html += '<br>Zeitraum konnte nicht erkannt werden — bitte Start-/Enddatum oben prüfen.';
+            if (!meta.start) html += '<br>Zeitraum konnte nicht erkannt werden — bitte Start-/Enddatum oben prüfen.';
             metaInfo.innerHTML = html;
             metaInfo.style.display = 'block';
         }
 
-        function parseCSV(text) {
+        // Pure CSV-Zerlegung (auch fuer Batch): {headers, rows, meta}
+        function parseCSVText(text) {
             const delimiter = detectDelimiter(text);
             const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
             const headerIdx = findHeaderRow(lines, delimiter);
-            applyFileMeta(lines.slice(0, headerIdx));
 
             const headers = splitCSVLine(lines[headerIdx], delimiter);
             const dataLines = lines.slice(headerIdx + 1);
@@ -1399,11 +1530,20 @@
                 if (cells[0].toLowerCase().startsWith('total') || cells[0].trim() === '') continue;
                 rows.push(cells);
             }
+            return { headers, rows, meta: extractFileMeta(lines.slice(0, headerIdx)) };
+        }
 
-            parsedHeaders = headers;
-            parsedData = rows;
+        function parseCSV(text) {
+            const delimiter = detectDelimiter(text);
+            const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+            const headerIdx = findHeaderRow(lines, delimiter);
+            applyFileMeta(lines.slice(0, headerIdx));
 
-            showPreview(headers, rows);
+            const parsed = parseCSVText(text);
+            parsedHeaders = parsed.headers;
+            parsedData = parsed.rows;
+
+            showPreview(parsed.headers, parsed.rows);
         }
 
         function showPreview(headers, rows) {
@@ -1470,72 +1610,14 @@
             progressText.textContent = 'Report wird erstellt...';
 
             try {
-                const { data: report, error: reportError } = await sb
-                    .from('sqpr_reports')
-                    .insert({
-                        client_id: clientId,
-                        report_date_start: startDate.value,
-                        report_date_end: endDate.value,
-                        reporting_range: periodType.value,
-                        row_count: parsedData.length
-                    })
-                    .select('id')
-                    .single();
-
-                if (reportError) throw new Error('Report konnte nicht erstellt werden: ' + reportError.message);
-
-                const reportId = report.id;
-
-                const colIdx = {};
-                EXPECTED_COLUMNS.forEach(expected => {
-                    const idx = findColumnIndex(parsedHeaders, expected);
-                    if (idx >= 0) colIdx[expected] = idx;
-                });
-
-                const dbRows = parsedData.map(row => {
-                    const obj = { report_id: reportId, client_id: clientId };
-
-                    EXPECTED_COLUMNS.forEach(expected => {
-                        const dbCol = COLUMN_DB_MAP[expected];
-                        const idx = colIdx[expected];
-                        if (idx === undefined || idx < 0 || !dbCol) return;
-
-                        const rawVal = row[idx];
-                        if (expected === 'Search Query') {
-                            obj[dbCol] = rawVal ? rawVal.trim() : null;
-                        } else if (expected.includes('%') || expected.includes('Share')) {
-                            obj[dbCol] = parseGermanNumber(rawVal);
-                        } else {
-                            const parsed = parseGermanNumber(rawVal);
-                            obj[dbCol] = parsed !== null ? Math.round(parsed) : null;
-                        }
-                    });
-
-                    return obj;
-                });
-
-                const chunkSize = 500;
-                const totalChunks = Math.ceil(dbRows.length / chunkSize);
-
-                for (let i = 0; i < totalChunks; i++) {
-                    const chunk = dbRows.slice(i * chunkSize, (i + 1) * chunkSize);
-                    const { error: insertError } = await sb
-                        .from('sqpr_rows')
-                        .insert(chunk);
-
-                    if (insertError) {
-                        await sb.from('sqpr_reports').delete().eq('id', reportId);
-                        throw new Error('Fehler beim Einfügen der Zeilen (Chunk ' + (i + 1) + '): ' + insertError.message);
-                    }
-
-                    const pct = Math.round(((i + 1) / totalChunks) * 100);
+                await uploadParsedReport(clientId, parsedHeaders, parsedData, startDate.value, endDate.value, periodType.value, (pct, done, total) => {
                     progressBar.style.width = pct + '%';
-                    progressText.textContent = pct + '% — ' + Math.min((i + 1) * chunkSize, dbRows.length) + ' / ' + dbRows.length + ' Zeilen';
-                }
+                    progressText.textContent = pct + '% — ' + done + ' / ' + total + ' Zeilen';
+                });
 
                 progressBar.style.width = '100%';
                 progressText.textContent = '100%';
-                successMsg.textContent = 'Erfolgreich hochgeladen: ' + dbRows.length + ' Zeilen eingefügt.';
+                successMsg.textContent = 'Erfolgreich hochgeladen: ' + parsedData.length + ' Zeilen eingefügt.';
                 successMsg.style.display = 'block';
 
                 setTimeout(() => {
@@ -1548,6 +1630,56 @@
                 uploadBtn.disabled = false;
             }
         });
+
+        // Kern-Insert (auch fuer Batch): legt Report an, mappt Zeilen, chunked Insert mit Rollback
+        async function uploadParsedReport(clientId, headers, rows, start, end, range, onProgress) {
+            const { data: report, error: reportError } = await sb
+                .from('sqpr_reports')
+                .insert({ client_id: clientId, report_date_start: start, report_date_end: end, reporting_range: range, row_count: rows.length })
+                .select('id')
+                .single();
+            if (reportError) throw new Error('Report konnte nicht erstellt werden: ' + reportError.message);
+            const reportId = report.id;
+
+            const colIdx = {};
+            EXPECTED_COLUMNS.forEach(expected => {
+                const idx = findColumnIndex(headers, expected);
+                if (idx >= 0) colIdx[expected] = idx;
+            });
+
+            const dbRows = rows.map(row => {
+                const obj = { report_id: reportId, client_id: clientId };
+                EXPECTED_COLUMNS.forEach(expected => {
+                    const dbCol = COLUMN_DB_MAP[expected];
+                    const idx = colIdx[expected];
+                    if (idx === undefined || idx < 0 || !dbCol) return;
+                    const rawVal = row[idx];
+                    if (expected === 'Search Query') {
+                        obj[dbCol] = rawVal ? rawVal.trim() : null;
+                    } else if (expected.includes('%') || expected.includes('Share')) {
+                        obj[dbCol] = parseGermanNumber(rawVal);
+                    } else {
+                        const parsed = parseGermanNumber(rawVal);
+                        obj[dbCol] = parsed !== null ? Math.round(parsed) : null;
+                    }
+                });
+                return obj;
+            });
+
+            const chunkSize = 500;
+            const totalChunks = Math.ceil(dbRows.length / chunkSize);
+            for (let i = 0; i < totalChunks; i++) {
+                const chunk = dbRows.slice(i * chunkSize, (i + 1) * chunkSize);
+                const { error: insertError } = await sb.from('sqpr_rows').insert(chunk);
+                if (insertError) {
+                    await sb.from('sqpr_rows').delete().eq('report_id', reportId);
+                    await sb.from('sqpr_reports').delete().eq('id', reportId);
+                    throw new Error('Fehler beim Einfügen der Zeilen (Chunk ' + (i + 1) + '): ' + insertError.message);
+                }
+                if (onProgress) onProgress(Math.round(((i + 1) / totalChunks) * 100), Math.min((i + 1) * chunkSize, dbRows.length), dbRows.length);
+            }
+            return { reportId, rowCount: dbRows.length };
+        }
 
         function showError(msg) {
             errorMsg.textContent = msg;
