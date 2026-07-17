@@ -87,6 +87,26 @@
   [data-theme="dark"] .navmenu a{color:#C9CED4;}
   [data-theme="dark"] .navmenu a:hover{background:#21262d;color:#fff;}
   [data-theme="dark"] .navmenu a.active{color:#2DD4BF;}
+  /* --- PDF-Export (Druck-Layout) --- */
+  .print-header{display:none;}
+  .print-note-row{display:none;}
+  @media print{
+    @page{size:A4;margin:11mm;}
+    :root,[data-theme="dark"]{--bg:#fff;--card:#fff;--ink:#111;--muted:#555;--faint:#888;--line:#ddd;--accent:#0EA5A0;}
+    body{background:#fff!important;}
+    .topbar,.pickrow,.phead p,button,select.sel,#_hubBack{display:none!important;}
+    .print-header{display:block;}
+    .phead h1{display:none;}
+    .card,.wrap>div{box-shadow:none!important;}
+    table{font-size:9.5px;}
+    thead{display:table-header-group;}
+    tr{break-inside:avoid;}
+    div{max-height:none!important;overflow:visible!important;}
+    input{border:none!important;background:none!important;padding:0!important;font-size:9.5px;}
+    tbody tr:nth-of-type(n+41){display:none!important;}
+    tbody tr.print-note-row{display:table-row!important;font-size:10px;color:#777;}
+    a{color:inherit;text-decoration:none;}
+  }
 </style>
 </head>
 <body>
@@ -102,13 +122,47 @@
       <select class="sel" id="profSel" style="max-width:420px;"></select>
       <select class="sel" id="daysSel"><option value="30">Letzte 30 Tage</option><option value="60">Letzte 60 Tage</option><option value="90">Letzte 90 Tage</option></select>
       <button class="btn-go" id="goBtn" onclick="startAudit()">🚀 Jetzt PPC-Audit</button>
+      <button class="sel" id="pdfBtn" onclick="exportPdf()" title="Druck-Dialog öffnet sich — dort „Als PDF sichern" wählen" style="cursor:pointer;">📄 Als PDF exportieren</button>
       <span id="lastNote" style="font-size:12.5px;color:var(--muted);"></span>
+    </div>
+    <div id="printHeader" class="print-header">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #0EA5A0;padding-bottom:10px;margin-bottom:6px;">
+        <div style="font-size:22px;font-weight:800;">AdsMasters <span style="color:#0EA5A0;">PPC-Audit</span></div>
+        <div style="font-size:12px;color:#666;">AdsMasters GmbH</div>
+      </div>
+      <div id="printHeaderMeta" style="font-size:13px;color:#333;margin-bottom:14px;"></div>
     </div>
     <div id="content"><div class="loading">Kunde und Zeitraum wählen, dann <b>Jetzt PPC-Audit</b> klicken.<br><span style="font-size:12px;">Amazon generiert die Berichte on-demand — meist 5–10 Minuten, zu Stoßzeiten auch länger.</span></div></div>
   </div>
 <script>
 if(sessionStorage.getItem('sqpr_auth')!=='true')location.replace('index.html');
 function toggleTheme(){var c=document.documentElement.getAttribute('data-theme');var n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('sqpr_theme',n);}
+
+// PDF-Export: Report-Kopf befuellen, grosse Tabellen mit Kuerzungs-Hinweis versehen, Druck-Dialog oeffnen (dort "Als PDF sichern")
+function exportPdf(){
+  var content=document.getElementById('content');
+  if(!content||!content.querySelector('table')){alert('Bitte zuerst ein Audit laden — dann kann es als PDF exportiert werden.');return;}
+  var profSel=document.getElementById('profSel');
+  var kunde=profSel&&profSel.selectedOptions[0]?profSel.selectedOptions[0].textContent:'';
+  var daysSel=document.getElementById('daysSel');
+  var zeitraum=daysSel&&daysSel.selectedOptions[0]?daysSel.selectedOptions[0].textContent:'';
+  var stand=(document.getElementById('lastNote').textContent||'').trim();
+  document.getElementById('printHeaderMeta').innerHTML=
+    '<b>'+kunde.replace(/</g,'&lt;')+'</b> · '+zeitraum+(stand?' · '+stand:'')+
+    ' · Erstellt am '+new Date().toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+  // Kuerzungs-Hinweis unter Tabellen mit mehr als 40 Zeilen (Druck zeigt nur Top 40)
+  document.querySelectorAll('.print-note-row').forEach(function(r){r.remove();});
+  content.querySelectorAll('tbody').forEach(function(tb){
+    if(tb.rows.length>40){
+      var tr=document.createElement('tr');tr.className='print-note-row';
+      var td=document.createElement('td');td.colSpan=99;
+      td.textContent='… für den PDF-Export auf die Top 40 gekürzt ('+tb.rows.length+' Zeilen gesamt — vollständig im Tool).';
+      tr.appendChild(td);
+      tb.rows[39].after(tr);
+    }
+  });
+  window.print();
+}
 function logout(){sessionStorage.removeItem('sqpr_auth');location.replace('index.html');}
 if(localStorage.getItem('sqpr_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');
 
