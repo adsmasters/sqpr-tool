@@ -709,12 +709,12 @@
 
         <!-- Drop Zone Card -->
         <div class="card">
-            <div class="card-title">CSV-Datei</div>
+            <div class="card-title">Report-Datei</div>
             <div class="drop-zone" id="dropZone">
                 <div class="drop-zone-icon">&#128196;</div>
-                <div class="drop-zone-text">CSV-Datei hierher ziehen oder klicken</div>
-                <div class="drop-zone-hint">Amazon SQPR CSV (.csv) — Deutsche und englische Formate werden unterstützt</div>
-                <input type="file" id="fileInput" accept=".csv">
+                <div class="drop-zone-text">Datei hierher ziehen oder klicken</div>
+                <div class="drop-zone-hint">Amazon SQPR Export (.csv oder .xlsx) — Deutsche und englische Formate werden unterstützt</div>
+                <input type="file" id="fileInput" accept=".csv,.xlsx">
             </div>
             <div class="file-selected" id="fileSelected" style="display:none;">
                 <span class="file-name" id="fileName"></span>
@@ -1144,8 +1144,12 @@
             e.preventDefault();
             dropZone.classList.remove('dragover');
             const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.csv')) {
+            if (files.length === 0) return;
+            const lower = files[0].name.toLowerCase();
+            if (lower.endsWith('.csv') || lower.endsWith('.xlsx')) {
                 handleFile(files[0]);
+            } else {
+                showError('Dateityp nicht unterstützt: "' + files[0].name + '". Bitte eine .csv- oder .xlsx-Datei hochladen (Amazon SQPR Export).');
             }
         });
 
@@ -1179,14 +1183,28 @@
             progressWrap.style.display = 'none';
 
             const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    parseCSV(e.target.result);
-                } catch (err) {
-                    showError('Fehler beim Parsen der CSV: ' + err.message);
-                }
-            };
-            reader.readAsText(file, 'UTF-8');
+            if (file.name.toLowerCase().endsWith('.xlsx')) {
+                // Excel-Export von Amazon: erstes Tabellenblatt als CSV lesen
+                reader.onload = (e) => {
+                    try {
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        const sheet = wb.Sheets[wb.SheetNames[0]];
+                        parseCSV(XLSX.utils.sheet_to_csv(sheet, { FS: ',' }));
+                    } catch (err) {
+                        showError('Fehler beim Lesen der Excel-Datei: ' + err.message);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.onload = (e) => {
+                    try {
+                        parseCSV(e.target.result);
+                    } catch (err) {
+                        showError('Fehler beim Parsen der CSV: ' + err.message);
+                    }
+                };
+                reader.readAsText(file, 'UTF-8');
+            }
         }
 
         // --- CSV Parsing ---
@@ -1359,6 +1377,10 @@
 
             const hasSearchQuery = findColumnIndex(headers, 'Search Query') >= 0;
             uploadBtn.disabled = !hasSearchQuery;
+            if (!hasSearchQuery) {
+                // Klar sagen, woran es liegt — inkl. der Spalten, die die Datei tatsaechlich hat
+                showError('Die Suchbegriff-Spalte wurde nicht erkannt — vermutlich hat Amazon die Spaltennamen geändert oder es ist nicht der SQPR-Export. Spalten in deiner Datei: ' + headers.slice(0, 12).join(' · '));
+            }
         }
 
         // --- Upload ---
