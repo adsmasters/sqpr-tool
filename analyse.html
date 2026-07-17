@@ -179,7 +179,7 @@ const mLabel=m=>{const d=new Date(m+'T00:00:00Z');return d.toLocaleDateString('d
 const MON=['Jan.','Feb.','März','Apr.','Mai','Juni','Juli','Aug.','Sep.','Okt.','Nov.','Dez.'];
 function pLabel(d){ if(!d)return '–'; if(GRAN==='WEEK'){const s=new Date(d+'T00:00:00Z'),e=new Date(s);e.setUTCDate(s.getUTCDate()+6);const f=x=>x.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});return `Woche ${f(s)}–${f(e)}`;} const[y,mo]=d.split('-');return `${MON[+mo-1]} ${y}`;}
 
-let CLIENTS=[],SQP=[],PPC=new Map(),MONTHS=[],WEEKS=[],ASINS=[],GRAN='MONTH',chart=null,SELPERIOD=null;
+let CLIENTS=[],SQP=[],PPC=new Map(),MONTHS=[],WEEKS=[],ASINS=[],GRAN='MONTH',chart=null,SELPERIOD=null,ST=new Map();
 let ADHIST={MONTH:new Map(),WEEK:new Map()}; // asin -> {period_start -> {spend,sales}}
 let ADHIST_TERM={MONTH:new Map(),WEEK:new Map()}; // asin -> {period_start -> {normTerm -> {spend,sales}}}
 let metrics={click:true,purch:true,spend:true,sales:false,vol:false};
@@ -229,15 +229,17 @@ async function ndStart(spid){
 async function onClient(){
   const spid=document.getElementById('clientSel').value; try{localStorage.setItem('sqpr_api_spid',spid);}catch(e){}
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade SQP + Ads…</div>';
-  const [m,w,p,ahM,ahW,meta]=await Promise.all([
+  const [m,w,p,ahM,ahW,meta,st]=await Promise.all([
     jget(`${API}/data?spid=${spid}&compact=1`,`data3_${spid}`),
     jget(`${API}/data?spid=${spid}&period=WEEK&compact=1`,`dataW3_${spid}`),
     jget(`${API}/asin-ppc?spid=${spid}&compact=1`,`ppc3_${spid}`),
     jget(`${API}/ads-history?spid=${spid}&period=MONTH&compact=1`,`ahM3_${spid}`),
     jget(`${API}/ads-history?spid=${spid}&period=WEEK&compact=1`,`ahW3_${spid}`),
     jget(`${API}/asin-meta?spid=${spid}`,`meta_${spid}`),
+    jget(`${API}/sales-traffic?spid=${spid}`,`st_${spid}`),
   ]);
   META={}; for(const x of (meta.rows||[])) if(x.title) META[x.asin]=x.title;
+  ST=new Map(); for(const x of ((st&&st.rows)||[])) ST.set(x.asin,{sales:+x.sales||0,units:+x.units||0,sessions:+x.sessions||0});
   SQP={MONTH:m.rows||[],WEEK:w.rows||[]};
   PPC=new Map(); for(const r of (p.rows||[])){ if(!PPC.has(r.asin))PPC.set(r.asin,new Map()); PPC.get(r.asin).set(norm(r.search_term),{spend:+r.cost||0,sales:+r.sales7d||0,clicks:+r.clicks||0}); }
   const buildHist=rows=>{const map=new Map();for(const r of (rows||[])){if(!map.has(r.asin))map.set(r.asin,{});const b=map.get(r.asin);const k=r.period_start;if(!b[k])b[k]={spend:0,sales:0};b[k].spend+=+r.cost||0;b[k].sales+=+r.sales7d||0;}return map;};
@@ -298,6 +300,15 @@ function render(){
     kpi('Purchase-Share',fmtPct(curS.purch),dPct(curS.purch,prevS&&prevS.purch),'pp'),
     kpi(adReal?'Ad-Spend':'Ad-Spend (30T)',eur(adSpend),histPrev?adSpend-histPrev.spend:null,''),
     kpi(adReal?'Ad-Sales':'Ad-Sales (30T)',eur(adSales),histPrev?adSales-histPrev.sales:null,''),
+    // ECHTER Gesamtumsatz + TACoS aus Seller-Central-Zahlen (Sales&Traffic), falls geladen
+    ...(function(){
+      const stx=ST.get(asin); if(!stx||!stx.sales)return [];
+      let snap30=0; for(const v of cov.values()) snap30+=v.spend; // 30T-Ad-Spend (gleiches Fenster wie S&T)
+      return [
+        kpi('Gesamtumsatz (30T) ✓',eur(stx.sales),null,''),
+        kpi('TACoS (30T) ✓',stx.sales>0?(100*snap30/stx.sales).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'–',null,''),
+      ];
+    })(),
   ].join('');
 
   // Metric-Chips
