@@ -726,6 +726,7 @@
         <div class="card preview-section" id="previewSection">
             <div class="card-title">Vorschau</div>
             <span class="badge success" id="rowBadge"></span>
+            <div id="metaInfo" style="display:none; margin-top:10px; padding:10px 12px; border-radius:8px; background:rgba(46,164,79,.08); border:1px solid rgba(46,164,79,.3); font-size:13px;"></div>
 
             <div class="card-title" style="font-size:13px; margin-top:12px;">Spalten-Erkennung</div>
             <div class="columns-validation" id="columnsValidation"></div>
@@ -1167,6 +1168,7 @@
             fileInput.value = '';
             fileSelected.style.display = 'none';
             previewSection.style.display = 'none';
+            document.getElementById('metaInfo').style.display = 'none';
             parsedData = null;
             parsedHeaders = null;
             uploadBtn.disabled = true;
@@ -1321,10 +1323,70 @@
             return num;
         }
 
+        // Metadaten-Zeile des Amazon-Exports auslesen, z.B. Marke=["MoleQlar"] · Berichtszeitraum=["Monatlich"] · Jahr auswählen=["2026"] · Monat auswählen=["Juni"]
+        const MONTHS = { januar: 1, january: 1, februar: 2, february: 2, 'märz': 3, maerz: 3, march: 3, april: 4, mai: 5, may: 5, juni: 6, june: 6, juli: 7, july: 7, august: 8, september: 9, oktober: 10, october: 10, november: 11, dezember: 12, december: 12 };
+        function applyFileMeta(preHeaderLines) {
+            const metaInfo = document.getElementById('metaInfo');
+            metaInfo.style.display = 'none';
+            const kv = {};
+            const re = /([A-Za-zÄÖÜäöüß .\-]+?)\s*=\s*\[?([^\[\],;]+?)\]?\s*(?:[,;]|$)/g;
+            for (const raw of preHeaderLines) {
+                const line = raw.replace(/"/g, ''); // CSV-Quotes stoeren nur, z.B. "Marke=[""MoleQlar""]"
+                let m; while ((m = re.exec(line)) !== null) kv[m[1].trim().toLowerCase()] = m[2].trim();
+            }
+            const get = (frag) => { for (const k in kv) { if (k.includes(frag)) return kv[k]; } return null; };
+            const brand = get('marke') || get('brand');
+            const range = (get('berichtszeitraum') || get('reporting range') || '').toLowerCase();
+            const year = parseInt(get('jahr') || get('year') || '', 10);
+            const monthName = (get('monat') || get('month') || '').toLowerCase().trim();
+            const weekVal = get('woche') || get('week');
+            const quarterVal = (get('quartal') || get('quarter') || '').toUpperCase();
+            const parts = [];
+            let detected = false;
+
+            if (range.includes('monat') || range.includes('month')) periodType.value = 'monthly';
+            else if (range.includes('woche') || range.includes('week')) periodType.value = 'weekly';
+            else if (range.includes('quartal') || range.includes('quarter')) periodType.value = 'quarterly';
+
+            const mNum = MONTHS[monthName];
+            if (mNum && year) {
+                const lastDay = new Date(year, mNum, 0).getDate();
+                startDate.value = year + '-' + String(mNum).padStart(2, '0') + '-01';
+                endDate.value = year + '-' + String(mNum).padStart(2, '0') + '-' + String(lastDay).padStart(2, '0');
+                parts.push(monthName.charAt(0).toUpperCase() + monthName.slice(1) + ' ' + year);
+                detected = true;
+            } else if (weekVal) {
+                // Formate: "2026-06-07 - 2026-06-13" oder "07.06.2026 - 13.06.2026"
+                const iso = weekVal.match(/(\d{4}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})/);
+                const de = weekVal.match(/(\d{2})\.(\d{2})\.(\d{4}).*?(\d{2})\.(\d{2})\.(\d{4})/);
+                if (iso) { startDate.value = iso[1]; endDate.value = iso[2]; detected = true; parts.push('Woche ' + iso[1] + ' bis ' + iso[2]); }
+                else if (de) { startDate.value = de[3] + '-' + de[2] + '-' + de[1]; endDate.value = de[6] + '-' + de[5] + '-' + de[4]; detected = true; parts.push('Woche ' + startDate.value + ' bis ' + endDate.value); }
+            } else if (/^Q[1-4]$/.test(quarterVal) && year) {
+                const q = +quarterVal[1];
+                const sm = (q - 1) * 3 + 1, em = q * 3;
+                startDate.value = year + '-' + String(sm).padStart(2, '0') + '-01';
+                endDate.value = year + '-' + String(em).padStart(2, '0') + '-' + String(new Date(year, em, 0).getDate()).padStart(2, '0');
+                parts.push(quarterVal + ' ' + year);
+                detected = true;
+            }
+
+            if (!detected && !brand) return;
+            let html = '&#128197; Automatisch aus der Datei erkannt: <strong>' + escapeHtml([periodType.selectedOptions[0].textContent].concat(parts).join(' · ')) + '</strong>';
+            if (brand) html += ' · Marke: <strong>' + escapeHtml(brand) + '</strong>';
+            const clientName = clientSelect.selectedOptions[0] ? clientSelect.selectedOptions[0].textContent.trim().toLowerCase() : '';
+            if (brand && clientName && clientName !== 'kunde wählen...' && !clientName.includes(brand.toLowerCase()) && !brand.toLowerCase().includes(clientName)) {
+                html += '<br>&#9888;&#65039; <strong>Achtung:</strong> Die Marke in der Datei passt nicht zum gewählten Kunden „' + escapeHtml(clientSelect.selectedOptions[0].textContent) + '" — bitte prüfen.';
+            }
+            if (!detected) html += '<br>Zeitraum konnte nicht erkannt werden — bitte Start-/Enddatum oben prüfen.';
+            metaInfo.innerHTML = html;
+            metaInfo.style.display = 'block';
+        }
+
         function parseCSV(text) {
             const delimiter = detectDelimiter(text);
             const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
             const headerIdx = findHeaderRow(lines, delimiter);
+            applyFileMeta(lines.slice(0, headerIdx));
 
             const headers = splitCSVLine(lines[headerIdx], delimiter);
             const dataLines = lines.slice(headerIdx + 1);
