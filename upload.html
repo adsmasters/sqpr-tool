@@ -896,9 +896,9 @@
             <div class="card-title">SQPR CSV (ASIN-Ebene)</div>
             <div class="drop-zone" id="asinSqprDropZone">
                 <div class="drop-zone-icon">📄</div>
-                <div class="drop-zone-text">ASIN-SQPR CSV hierher ziehen oder klicken</div>
-                <div class="drop-zone-hint">Gleiches Format wie der Brand-SQPR — aber gefiltert auf eine ASIN</div>
-                <input type="file" id="asinSqprFileInput" accept=".csv,.xlsx">
+                <div class="drop-zone-text">ASIN-SQPR Dateien hierher ziehen oder klicken</div>
+                <div class="drop-zone-hint">Gleiches Format wie der Brand-SQPR, gefiltert auf eine ASIN — auch mehrere Dateien auf einmal (ASIN + Zeitraum werden je Datei erkannt)</div>
+                <input type="file" id="asinSqprFileInput" accept=".csv,.xlsx" multiple>
             </div>
             <div class="file-selected" id="asinSqprFileSelected" style="display:none;">
                 <span class="file-name" id="asinSqprFileName"></span>
@@ -919,6 +919,23 @@
             </div>
             <div class="success-msg" id="asinSqprSuccessMsg" style="display:none;"></div>
             <div class="error-msg" id="asinSqprErrorMsg" style="display:none;"></div>
+        </div>
+
+        <!-- ASIN-Batch (mehrere Dateien) -->
+        <div class="card preview-section" id="asinBatchSection" style="display:none;">
+            <div class="card-title">Mehrere ASIN-Berichte</div>
+            <div id="asinBatchWarn" style="display:none; margin-top:8px; padding:10px 12px; border-radius:8px; background:rgba(210,153,34,.1); border:1px solid rgba(210,153,34,.4); font-size:13px;"></div>
+            <div class="preview-table-wrap">
+                <table>
+                    <thead><tr><th>Datei</th><th>ASIN</th><th>Zeitraum</th><th>Zeilen</th><th>Status</th></tr></thead>
+                    <tbody id="asinBatchBody"></tbody>
+                </table>
+            </div>
+            <div class="upload-actions">
+                <button class="btn-primary" id="asinBatchUploadBtn" disabled>Hochladen</button>
+            </div>
+            <div class="success-msg" id="asinBatchSuccess"></div>
+            <div class="error-msg" id="asinBatchError"></div>
         </div>
 
         <div style="margin-top:12px;">
@@ -2171,12 +2188,21 @@
         asinSqprDropZone.addEventListener('dragleave', () => asinSqprDropZone.classList.remove('dragover'));
         asinSqprDropZone.addEventListener('drop', e => {
             e.preventDefault(); asinSqprDropZone.classList.remove('dragover');
-            const f = e.dataTransfer.files[0];
-            if (f) asinSqprHandleFile(f);
+            asinHandleFiles(e.dataTransfer.files);
         });
         asinSqprFileInput.addEventListener('change', () => {
-            if (asinSqprFileInput.files.length > 0) asinSqprHandleFile(asinSqprFileInput.files[0]);
+            asinHandleFiles(asinSqprFileInput.files);
         });
+
+        function asinHandleFiles(fileList) {
+            const files = Array.from(fileList || []);
+            if (files.length === 0) return;
+            const bad = files.find(f => { const l = f.name.toLowerCase(); return !l.endsWith('.csv') && !l.endsWith('.xlsx'); });
+            if (bad) { asinSqprShowError('Dateityp nicht unterstützt: "' + bad.name + '". Bitte nur .csv- oder .xlsx-Dateien.'); asinSqprPreviewSection.style.display = 'block'; return; }
+            asinBatchSection.style.display = 'none';
+            if (files.length === 1) { asinSqprHandleFile(files[0]); }
+            else { asinHandleBatch(files); }
+        }
         asinSqprRemoveFile.addEventListener('click', asinSqprReset);
 
         function asinSqprReset() {
@@ -2319,68 +2345,179 @@
             asinSqprProgressText.textContent = 'Report wird erstellt...';
 
             try {
-                // Delete existing for same client + asin + period
-                const { data: existing } = await sb.from('sqpr_asin_reports')
-                    .select('id').eq('client_id', clientId).eq('asin', asin)
-                    .eq('report_date_start', asinSqprStartDate.value).eq('report_date_end', asinSqprEndDate.value);
-                if (existing && existing.length > 0) {
-                    for (const r of existing) {
-                        await sb.from('sqpr_asin_rows').delete().eq('asin_report_id', r.id);
-                        await sb.from('sqpr_asin_reports').delete().eq('id', r.id);
-                    }
-                }
-
-                const { data: report, error: repErr } = await sb.from('sqpr_asin_reports')
-                    .insert({ client_id: clientId, asin, report_date_start: asinSqprStartDate.value, report_date_end: asinSqprEndDate.value, row_count: asinSqprParsedData.length })
-                    .select('id').single();
-                if (repErr) throw new Error('Report konnte nicht erstellt werden: ' + repErr.message);
-
-                const reportId = report.id;
-                const colIdx = {};
-                EXPECTED_COLUMNS.forEach(exp => {
-                    const idx = findColumnIndex(asinSqprParsedHeaders, exp);
-                    if (idx >= 0) colIdx[exp] = idx;
-                });
-
-                const dbRows = asinSqprParsedData.map(row => {
-                    const obj = { asin_report_id: reportId, client_id: clientId, asin };
-                    EXPECTED_COLUMNS.forEach(exp => {
-                        const dbCol = COLUMN_DB_MAP[exp];
-                        const idx = colIdx[exp];
-                        if (idx === undefined || idx < 0 || !dbCol) return;
-                        const rawVal = Array.isArray(row) ? row[idx] : row[idx];
-                        if (exp === 'Search Query') {
-                            obj[dbCol] = rawVal ? String(rawVal).trim() : null;
-                        } else if (exp.includes('%') || exp.includes('Share')) {
-                            obj[dbCol] = parseGermanNumber(String(rawVal));
-                        } else {
-                            const p = parseGermanNumber(String(rawVal));
-                            obj[dbCol] = p !== null ? Math.round(p) : null;
-                        }
-                    });
-                    return obj;
-                }).filter(r => r.search_query);
-
-                const chunkSize = 500;
-                const totalChunks = Math.ceil(dbRows.length / chunkSize);
-                for (let i = 0; i < totalChunks; i++) {
-                    const chunk = dbRows.slice(i * chunkSize, (i + 1) * chunkSize);
-                    const { error } = await sb.from('sqpr_asin_rows').insert(chunk);
-                    if (error) {
-                        await sb.from('sqpr_asin_reports').delete().eq('id', reportId);
-                        throw new Error('Fehler (Chunk ' + (i+1) + '): ' + error.message);
-                    }
-                    const pct = Math.round(((i+1) / totalChunks) * 100);
+                const res = await uploadAsinReport(clientId, asin, asinSqprParsedHeaders, asinSqprParsedData, asinSqprStartDate.value, asinSqprEndDate.value, (pct) => {
                     asinSqprProgressBar.style.width = pct + '%';
                     asinSqprProgressText.textContent = pct + '%';
-                }
+                });
 
                 asinSqprProgressBar.style.width = '100%';
-                asinSqprSuccessMsg.textContent = 'Erfolgreich: ' + dbRows.length + ' Suchbegriffe für ASIN ' + asin + ' hochgeladen.';
+                asinSqprSuccessMsg.textContent = 'Erfolgreich: ' + res.rowCount + ' Suchbegriffe für ASIN ' + asin + ' hochgeladen.';
                 asinSqprSuccessMsg.style.display = 'block';
                 setTimeout(() => { asinSqprReset(); loadAsinSqprHistory(); }, 1500);
 
             } catch(err) { asinSqprShowError(err.message); asinSqprUploadBtn.disabled = false; }
+        });
+
+        // Kern-Insert je ASIN-Report (auch fuer Batch): gleicher Zeitraum wird ersetzt
+        async function uploadAsinReport(clientId, asin, headers, rows, start, end, onProgress) {
+            const { data: existing } = await sb.from('sqpr_asin_reports')
+                .select('id').eq('client_id', clientId).eq('asin', asin)
+                .eq('report_date_start', start).eq('report_date_end', end);
+            if (existing && existing.length > 0) {
+                for (const r of existing) {
+                    await sb.from('sqpr_asin_rows').delete().eq('asin_report_id', r.id);
+                    await sb.from('sqpr_asin_reports').delete().eq('id', r.id);
+                }
+            }
+
+            const { data: report, error: repErr } = await sb.from('sqpr_asin_reports')
+                .insert({ client_id: clientId, asin, report_date_start: start, report_date_end: end, row_count: rows.length })
+                .select('id').single();
+            if (repErr) throw new Error('Report konnte nicht erstellt werden: ' + repErr.message);
+
+            const reportId = report.id;
+            const colIdx = {};
+            EXPECTED_COLUMNS.forEach(exp => {
+                const idx = findColumnIndex(headers, exp);
+                if (idx >= 0) colIdx[exp] = idx;
+            });
+
+            const dbRows = rows.map(row => {
+                const obj = { asin_report_id: reportId, client_id: clientId, asin };
+                EXPECTED_COLUMNS.forEach(exp => {
+                    const dbCol = COLUMN_DB_MAP[exp];
+                    const idx = colIdx[exp];
+                    if (idx === undefined || idx < 0 || !dbCol) return;
+                    const rawVal = row[idx];
+                    if (exp === 'Search Query') {
+                        obj[dbCol] = rawVal ? String(rawVal).trim() : null;
+                    } else if (exp.includes('%') || exp.includes('Share')) {
+                        obj[dbCol] = parseGermanNumber(String(rawVal));
+                    } else {
+                        const p = parseGermanNumber(String(rawVal));
+                        obj[dbCol] = p !== null ? Math.round(p) : null;
+                    }
+                });
+                return obj;
+            }).filter(r => r.search_query);
+
+            const chunkSize = 500;
+            const totalChunks = Math.ceil(dbRows.length / chunkSize);
+            for (let i = 0; i < totalChunks; i++) {
+                const chunk = dbRows.slice(i * chunkSize, (i + 1) * chunkSize);
+                const { error } = await sb.from('sqpr_asin_rows').insert(chunk);
+                if (error) {
+                    await sb.from('sqpr_asin_rows').delete().eq('asin_report_id', reportId);
+                    await sb.from('sqpr_asin_reports').delete().eq('id', reportId);
+                    throw new Error('Fehler (Chunk ' + (i+1) + '): ' + error.message);
+                }
+                if (onProgress) onProgress(Math.round(((i+1) / totalChunks) * 100));
+            }
+            return { reportId, rowCount: dbRows.length };
+        }
+
+        // --- ASIN-Batch: mehrere ASIN-Berichte auf einmal (ASIN + Zeitraum je Datei aus der Metazeile) ---
+        const asinBatchSection = document.getElementById('asinBatchSection');
+        const asinBatchBody = document.getElementById('asinBatchBody');
+        const asinBatchWarn = document.getElementById('asinBatchWarn');
+        const asinBatchUploadBtn = document.getElementById('asinBatchUploadBtn');
+        const asinBatchSuccess = document.getElementById('asinBatchSuccess');
+        const asinBatchError = document.getElementById('asinBatchError');
+        let asinBatchItems = [];
+
+        async function asinHandleBatch(files) {
+            asinSqprReset();
+            asinBatchSection.style.display = 'block';
+            asinBatchWarn.style.display = 'none';
+            asinBatchSuccess.style.display = 'none';
+            asinBatchError.style.display = 'none';
+            asinBatchBody.innerHTML = '<tr><td colspan="5">Dateien werden gelesen…</td></tr>';
+            asinBatchUploadBtn.disabled = true;
+
+            if (!clientSelect.value) {
+                asinBatchBody.innerHTML = '';
+                asinBatchWarn.textContent = 'Bitte zuerst oben einen Kunden auswählen, dann die Dateien erneut hineinziehen.';
+                asinBatchWarn.style.display = 'block';
+                return;
+            }
+
+            const { data: existing } = await sb.from('sqpr_asin_reports').select('asin,report_date_start,report_date_end').eq('client_id', clientSelect.value);
+            const existingKeys = new Set((existing || []).map(r => r.asin + '|' + r.report_date_start + '|' + r.report_date_end));
+
+            asinBatchItems = [];
+            for (const file of files) {
+                const item = { file, name: file.name, status: 'bereit', asin: null, start: null, end: null, label: '', rows: null, headers: null };
+                try {
+                    const text = await readReportFile(file);
+                    const firstLines = text.split(/\r?\n/).slice(0, 2).join(' ');
+                    const meta = asinParseMetadata(firstLines);
+                    const parsed = parseCSVText(text);
+                    item.headers = parsed.headers; item.rows = parsed.rows;
+                    if (meta && meta.asin) item.asin = meta.asin;
+                    if (meta && meta.year && meta.month) {
+                        const mm = String(meta.month).padStart(2, '0');
+                        item.start = meta.year + '-' + mm + '-01';
+                        item.end = meta.year + '-' + mm + '-' + String(new Date(meta.year, meta.month, 0).getDate()).padStart(2, '0');
+                        item.label = ASIN_MONTH_NAMES[meta.month - 1] + ' ' + meta.year;
+                    } else if (parsed.meta && parsed.meta.start) {
+                        // Wochen-/Quartals-Exporte: Zeitraum aus der Brand-Metazeile
+                        item.start = parsed.meta.start; item.end = parsed.meta.end; item.label = parsed.meta.label;
+                    }
+                    if (findColumnIndex(parsed.headers, 'Search Query') < 0) item.status = 'spalten-fehler';
+                    else if (!item.asin) item.status = 'keine-asin';
+                    else if (!item.start) item.status = 'kein-zeitraum';
+                    else if (existingKeys.has(item.asin + '|' + item.start + '|' + item.end)) item.status = 'ersetzen';
+                } catch (err) { item.status = 'lese-fehler'; item.error = err.message; }
+                asinBatchItems.push(item);
+            }
+            // Innerhalb der Auswahl: gleiche ASIN+Zeitraum nur einmal (letzte gewinnt nicht — erste zaehlt)
+            const seen = new Set();
+            for (const it of asinBatchItems) {
+                if (it.status !== 'bereit' && it.status !== 'ersetzen') continue;
+                const key = it.asin + '|' + it.start + '|' + it.end;
+                if (seen.has(key)) it.status = 'duplikat'; else seen.add(key);
+            }
+            renderAsinBatch();
+        }
+
+        const ASIN_BATCH_STATUS = {
+            'bereit': '&#9989; bereit', 'ersetzen': '&#128260; vorhanden — wird ersetzt',
+            'duplikat': '&#9193; doppelt in der Auswahl — wird übersprungen',
+            'keine-asin': '&#10060; ASIN nicht erkannt — bitte einzeln hochladen',
+            'kein-zeitraum': '&#10060; Zeitraum nicht erkannt — bitte einzeln hochladen',
+            'spalten-fehler': '&#10060; Spalten nicht erkannt — falsche Datei?',
+            'lese-fehler': '&#10060; Datei nicht lesbar', 'laeuft': '&#8987; wird hochgeladen…',
+            'fertig': '&#9989; hochgeladen', 'fehler': '&#10060; Fehler'
+        };
+        function renderAsinBatch() {
+            asinBatchBody.innerHTML = '';
+            for (const it of asinBatchItems) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + escapeHtml(it.name) + '</td><td style="font-family:monospace;">' + escapeHtml(it.asin || '–') + '</td><td>' + escapeHtml(it.label || (it.start ? it.start + ' – ' + it.end : '–')) + '</td><td>' + (it.rows ? it.rows.length : '–') + '</td><td>' + (ASIN_BATCH_STATUS[it.status] || escapeHtml(it.status)) + (it.error ? ' — ' + escapeHtml(it.error) : '') + '</td>';
+                asinBatchBody.appendChild(tr);
+            }
+            const ready = asinBatchItems.filter(it => it.status === 'bereit' || it.status === 'ersetzen').length;
+            asinBatchUploadBtn.textContent = ready > 0 ? ready + ' ASIN-Bericht(e) hochladen' : 'Nichts hochzuladen';
+            asinBatchUploadBtn.disabled = ready === 0;
+        }
+
+        asinBatchUploadBtn.addEventListener('click', async () => {
+            asinBatchUploadBtn.disabled = true;
+            asinBatchSuccess.style.display = 'none';
+            asinBatchError.style.display = 'none';
+            let ok = 0, fail = 0;
+            for (const it of asinBatchItems) {
+                if (it.status !== 'bereit' && it.status !== 'ersetzen') continue;
+                it.status = 'laeuft'; renderAsinBatch(); asinBatchUploadBtn.disabled = true;
+                try {
+                    await uploadAsinReport(clientSelect.value, it.asin, it.headers, it.rows, it.start, it.end);
+                    it.status = 'fertig'; ok++;
+                } catch (err) { it.status = 'fehler'; it.error = err.message; fail++; }
+            }
+            renderAsinBatch(); asinBatchUploadBtn.disabled = true;
+            if (ok) { asinBatchSuccess.textContent = ok + ' ASIN-Bericht(e) erfolgreich hochgeladen.'; asinBatchSuccess.style.display = 'block'; }
+            if (fail) { asinBatchError.textContent = fail + ' Bericht(e) fehlgeschlagen — Details in der Status-Spalte.'; asinBatchError.style.display = 'block'; }
+            loadAsinSqprHistory();
         });
 
         function asinSqprShowError(msg) {
