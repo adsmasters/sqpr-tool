@@ -312,11 +312,48 @@ function renderAudit(j){
         ${problems?`<button class="btn-go" id="baAllBtnProblem" style="padding:9px 18px;font-size:13.5px;background:var(--down);" onclick="applyAllBidAdj('problem')">▼ Alle ${problems} Gebotssenkungen durchführen</button>`:''}
         <span id="baAllStatus" style="font-size:12.5px;color:var(--muted);">Erhöhungen = „Chance ↑"-Vorschläge · Senkungen = „Problem"-Zeilen (Vorschlag 0%) — Werte je Zeile anpassbar${appliedN?` · <b style="color:var(--up);">${appliedN} bereits durchgeführt ✓ (ausgeblendet)</b>`:''}</span></div>`:appliedN?`<div class="note" style="margin-bottom:14px;">✓ Alle ${appliedN} Vorschläge wurden bereits durchgeführt — beim nächsten Audit-Lauf wird neu bewertet.</div>`:''}
       <div class="tblwrap"><table class="tbl dplus"><thead><tr><th>Kampagne</th><th style="text-align:left;">Platzierung</th><th style="text-align:left;">Bewertung</th><th title="ROAS der Platzierung vs. Kampagnenschnitt">ROAS Platz. vs Kamp.</th><th>Aktuell</th><th style="text-align:left;" title="Schreibt die Gebotsanpassung direkt per API in die Kampagne — wirkt sofort im Kundenkonto.">Gebotsanpassung durchführen</th></tr></thead><tbody>${baRows}</tbody></table></div></div>`:''}
+    <div id="secH"></div>
     <div id="secE"></div>
     <div id="secF"></div>
     ${sdRows?`<div class="panel"><h2><span class="slabel">G</span> Sponsored Display — Kampagnen-Performance</h2><div class="ph">SD-Kampagnen nach Spend (kein Suchbegriff-Bericht verfügbar für SD).</div>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>Kampagne</th><th>Impressionen</th><th>Klicks</th><th>Spend</th><th>Sales</th><th>Orders</th><th>ROAS</th></tr></thead><tbody>${sdRows}</tbody></table></div></div>`:''}`;
-  AUD=j; buildE(); buildF();
+  AUD=j; buildH(); buildE(); buildF();
+}
+
+/* ===== Sektion H — Impression Share (Top of Search) je SP-Kampagne: Wachstum & Verbrenner ===== */
+let isChanceRoas=3, isChanceMax=25, isBurnMin=50, isBurnRoas=2;
+function buildH(){
+  const el=document.getElementById('secH'); if(!el||!AUD)return;
+  const rows=AUD.tosIs||[];
+  if(!rows.length){ el.innerHTML=''; return; }
+  isChanceRoas=+(document.getElementById('isChanceRoas')?.value??isChanceRoas)||isChanceRoas;
+  isChanceMax=+(document.getElementById('isChanceMax')?.value??isChanceMax);
+  isBurnMin=+(document.getElementById('isBurnMin')?.value??isBurnMin);
+  isBurnRoas=+(document.getElementById('isBurnRoas')?.value??isBurnRoas);
+  const judged=rows.map(r=>{
+    const roas=r.spend>0?r.sales/r.spend:0;
+    let v=null;
+    if(roas>=isChanceRoas&&r.is<isChanceMax)v='chance';
+    else if(r.is>=isBurnMin&&roas<isBurnRoas)v='burn';
+    return {...r,roas,v};
+  });
+  const chances=judged.filter(r=>r.v==='chance'), burns=judged.filter(r=>r.v==='burn');
+  const inp=(id,val,step)=>`<input type="number" id="${id}" value="${val}" step="${step}" min="0" style="width:58px;padding:4px 7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12px;font-family:inherit;text-align:right;" oninput="buildH()">`;
+  const list=[...chances,...burns,...judged.filter(r=>!r.v)];
+  const body=list.map(r=>`<tr><td title="${esc(r.campaign)}">${esc(r.campaign)}</td>
+    <td><b>${fmt1(r.is)}%</b></td>
+    <td>${eur(r.spend)}</td><td>${eur(r.sales)}</td><td>${fmt2(r.roas)}</td><td>${fmtInt(r.clicks)}</td>
+    <td style="text-align:left;">${r.v==='chance'?'<span class="pill chance" title="Guter ROAS, aber kleiner Anteil an Top-of-Search — hier ist Luft: Budget/Top-of-Search-Anpassung/Gebote erhöhen (D+ nutzen).">🚀 Wachstums-Chance</span>':r.v==='burn'?'<span class="pill problem" title="Hoher Impression Share bei schwachem ROAS — dominiert die Platzierung, verbrennt aber Geld: Gebote/Anpassung senken.">🔥 Verbrenner</span>':''}</td></tr>`).join('');
+  el.innerHTML=`<div class="panel"><h2><span class="slabel">H</span> Impression Share — Top of Search <span style="font-size:12px;color:var(--muted);font-weight:500;">je SP-Kampagne</span></h2>
+    <div class="ph">Wie viel der Top-of-Search-Impressionen deine Kampagne bekommt. <b>Chance</b> = ROAS ≥ ${inp('isChanceRoas',isChanceRoas,'0.5')} und IS &lt; ${inp('isChanceMax',isChanceMax,'5')}% → skalieren. <b>Verbrenner</b> = IS ≥ ${inp('isBurnMin',isBurnMin,'5')}% und ROAS &lt; ${inp('isBurnRoas',isBurnRoas,'0.5')} → drosseln. <span style="color:var(--faint);">(Suchbegriff-genauen IS liefert Amazon nur im Konsole-Report-Center — dafür PPC-Tools → Impression Share.)</span></div>
+    <div class="kpis" style="margin-bottom:14px;">
+      <div class="kpi"><div class="l">Kampagnen mit IS-Daten</div><div class="v">${fmtInt(rows.length)}</div></div>
+      <div class="kpi"><div class="l">🚀 Wachstums-Chancen</div><div class="v" style="color:var(--up);">${fmtInt(chances.length)}</div></div>
+      <div class="kpi"><div class="l">🔥 Verbrenner</div><div class="v" style="color:var(--down);">${fmtInt(burns.length)}</div></div>
+      <div class="kpi"><div class="l">Chancen-Spend</div><div class="v">${eur(chances.reduce((s,r)=>s+r.spend,0))}</div></div>
+      <div class="kpi"><div class="l">Verbrenner-Spend</div><div class="v" style="color:var(--down);">${eur(burns.reduce((s,r)=>s+r.spend,0))}</div></div>
+    </div>
+    <div class="tblwrap"><table class="tbl dplus"><thead><tr><th>Kampagne</th><th title="Anteil an allen Top-of-Search-Impressionen für relevante Suchanfragen">ToS-IS</th><th>Spend</th><th>Sales</th><th>ROAS</th><th>Klicks</th><th style="text-align:left;">Bewertung</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 /* ===== D+: Abgleich mit echten Kampagnenwerten (heilt Drift, blendet Erledigtes aus) ===== */
