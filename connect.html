@@ -210,14 +210,15 @@ function datenCell(c){
       : `🕓 <b>Eingereiht${queuePos(c)}</b> — startet automatisch`;
     return `<div class="prog" data-spid="${esc(c.spid)}" data-mkt="${esc(c.marketplace||'DE')}">
       <div class="prog-head">${head}
-        <span class="prog-sub">Läuft nachts in der Cloud — du kannst die Seite jederzeit verlassen. Amazon erlaubt nur wenige Berichte pro Minute und Konto (1 Bericht je ASIN und Monat/Woche): kleine Kataloge sind in Stunden durch, große mit tausenden ASINs brauchen mehrere Nächte. Tipp: Beim Onboarding nur die relevanten Marken auswählen — das verkürzt den Import erheblich.</span></div>
+        <span class="prog-sub">Läuft in der Cloud — du kannst die Seite jederzeit verlassen. Zuerst kommt der <b>Schnell-Import (letzte 3 Monate + 6 Wochen)</b>, danach hält die nächtliche Aktualisierung alles frisch. Die volle 12-Monats-Historie kannst du anschließend hier per Klick nachladen — oder du lädst ältere Zeiträume als SQPR-Datei im Upload hoch. Tipp: Beim Onboarding nur relevante Marken wählen, das verkürzt den Import erheblich.</span></div>
       <div class="pbar"><div class="pbar-fill" style="width:0%"></div><div class="pbar-label" data-k="m">Monate: lade Status…</div></div>
       <div class="pbar"><div class="pbar-fill" style="width:0%"></div><div class="pbar-label" data-k="w">Wochen: lade Status…</div></div>
       <div class="prog-rows" data-k="rows"></div>
     </div>`;
   }
   if(c.has_data===false) return `<button class="btn" id="bf-${esc(c.spid)}-${esc(c.marketplace||'DE')}" onclick="startBackfill('${esc(c.spid)}','${esc(c.marketplace||'DE')}')">Daten laden (SQP+PPC)</button>`;
-  return '<span class="badge ok">Daten ✓</span>';
+  return `<span class="badge ok">Daten ✓</span>
+    <button class="btn" style="margin-left:8px;font-size:12px;" id="bf-${esc(c.spid)}-${esc(c.marketplace||'DE')}" title="Lädt die vollen 12 Monate + 13 Wochen nach — bereits vorhandene Zeiträume werden übersprungen" onclick="startBackfill('${esc(c.spid)}','${esc(c.marketplace||'DE')}',true)">12-Monats-Historie nachladen</button>`;
 }
 // Wartelisten-Position (nach Einreih-Zeit) — "Platz 2 von 4"
 function queuePos(c){
@@ -336,9 +337,9 @@ async function saveClient(){
   } catch(e){ msg.className='msg err'; msg.textContent='Fehler: '+e.message; }
   btn.disabled=false; btn.textContent='Verbindung speichern';
 }
-async function startBackfill(spid,mkt){
+async function startBackfill(spid,mkt,full){
   const btn=document.getElementById('bf-'+spid+'-'+(mkt||'DE')); if(btn){btn.disabled=true;btn.textContent='reihe ein…';}
-  let j=null; try{ j=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,mkt})})).json(); }catch(e){}
+  let j=null; try{ j=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,mkt,full:!!full})})).json(); }catch(e){}
   if(j&&j.ok){ CONNECTED.forEach(c=>{ if(c.spid===spid&&(c.marketplace||'DE')===(mkt||'DE')) c.job={status:'queued',requested_at:new Date().toISOString()}; }); renderConnected(); refreshProgress(); }
   else if(btn){ btn.disabled=false; btn.textContent='Fehler — nochmal versuchen'; }
 }

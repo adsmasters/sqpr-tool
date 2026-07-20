@@ -31,6 +31,35 @@
 
   const cache = {};
   const getPeriod = () => (window.SQP_PERIOD === 'WEEK' ? 'WEEK' : 'MONTH');
+  let _realRead = null;
+  const realRead = () => (_realRead || (_realRead = window.supabase.createClient(REAL_URL, REAL_KEY)));
+
+  // Manuell hochgeladene SQPR-Dateien (sqpr_*) fuer Zeitraeume nachladen, die die API noch nicht abdeckt.
+  // Abgleich ueber den Kundennamen (z.B. "Recoactiv_DE" existiert in beiden Welten).
+  async function loadManualExtra(client, period, coveredStarts, clientId) {
+    try {
+      const name = (client.name || '').replace(' · noch keine Daten', '').trim();
+      if (!name) return { reports: [], rows: [] };
+      const sb = realRead();
+      const { data: mc } = await sb.from('sqpr_clients').select('id,name').ilike('name', name).limit(1);
+      if (!mc || !mc.length) return { reports: [], rows: [] };
+      const range = period === 'WEEK' ? 'weekly' : 'monthly';
+      const { data: reps } = await sb.from('sqpr_reports').select('id,report_date_start,report_date_end,reporting_range').eq('client_id', mc[0].id).eq('reporting_range', range);
+      const missing = (reps || []).filter(r => !coveredStarts.has(r.report_date_start));
+      if (!missing.length) return { reports: [], rows: [] };
+      const rows = [];
+      for (const rep of missing) {
+        for (let from = 0; ; from += 1000) {
+          const { data: rr } = await sb.from('sqpr_rows').select('search_query,search_query_score,search_query_volume,impressions_total,impressions_brand,impressions_brand_share,clicks_total,clicks_brand,clicks_brand_share,cart_adds_total,cart_adds_brand,cart_adds_brand_share,purchases_total,purchases_brand,purchases_brand_share').eq('report_id', rep.id).range(from, from + 999);
+          if (!rr || !rr.length) break;
+          for (const r of rr) rows.push({ ...r, client_id: clientId, report_id: rep.report_date_start });
+          if (rr.length < 1000) break;
+        }
+      }
+      const reports = missing.map(r => ({ id: r.report_date_start, client_id: clientId, report_date_start: r.report_date_start, report_date_end: r.report_date_end, reporting_range: period === 'WEEK' ? 'Wöchentlich' : 'Monatlich', source: 'upload' }));
+      return { reports, rows };
+    } catch (e) { return { reports: [], rows: [] }; }
+  }
   async function loadClient(client) {
     await clientsReady;
     const period = getPeriod();
@@ -70,7 +99,11 @@
     const reports = periods.map(m => ({ id: m, client_id: clientId, report_date_start: m, report_date_end: endBy[m] || monthEnd(m), reporting_range: label }));
     let strterms = [];
     try { const p = await (await fetch(`${PPC}?spid=${encodeURIComponent(spid)}&mkt=${mkt}`)).json(); strterms = p.rows || []; } catch (e) {}
-    cache[ck] = { reports, rows, strterms };
+    // Aeltere Zeitraeume aus manuellen SQPR-Uploads ergaenzen (die API liefert per Schnell-Import nur die juengsten)
+    const covered = new Set(reports.map(r => r.report_date_start));
+    const extra = await loadManualExtra(client, period, covered, clientId);
+    const allReports = [...reports, ...extra.reports].sort((a, b) => a.report_date_start < b.report_date_start ? -1 : 1);
+    cache[ck] = { reports: allReports, rows: rows.concat(extra.rows), strterms };
     return cache[ck];
   }
 
