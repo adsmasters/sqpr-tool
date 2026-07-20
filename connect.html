@@ -210,7 +210,7 @@ function datenCell(c){
       : `🕓 <b>Eingereiht${queuePos(c)}</b> — startet automatisch`;
     return `<div class="prog" data-spid="${esc(c.spid)}">
       <div class="prog-head">${head}
-        <span class="prog-sub">Läuft in der Cloud — du kannst die Seite jederzeit verlassen. Amazon drosselt die Berichte, rechne mit ~1–2 Std pro Kunde.</span></div>
+        <span class="prog-sub">Läuft nachts in der Cloud — du kannst die Seite jederzeit verlassen. Amazon erlaubt nur wenige Berichte pro Minute und Konto (1 Bericht je ASIN und Monat/Woche): kleine Kataloge sind in Stunden durch, große mit tausenden ASINs brauchen mehrere Nächte. Tipp: Beim Onboarding nur die relevanten Marken auswählen — das verkürzt den Import erheblich.</span></div>
       <div class="pbar"><div class="pbar-fill" style="width:0%"></div><div class="pbar-label" data-k="m">Monate: lade Status…</div></div>
       <div class="pbar"><div class="pbar-fill" style="width:0%"></div><div class="pbar-label" data-k="w">Wochen: lade Status…</div></div>
       <div class="prog-rows" data-k="rows"></div>
