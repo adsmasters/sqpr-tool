@@ -113,13 +113,24 @@
 
         <div class="card">
             <h2>Neuen Kunden verbinden</h2>
+            <div style="margin:0 0 16px; padding:12px 14px; border-radius:8px; background:rgba(14,165,160,.08); border:1px solid rgba(14,165,160,.35); font-size:13px; line-height:1.5;">
+                <b>Wann brauchst du diese Verbindung überhaupt?</b><br>
+                • <b>Nur Werbung (PPC)?</b> Dann brauchst du hier <b>nichts</b> zu verbinden — <a href="audit.html">PPC-Audit</a>, <a href="campaign.html">Kampagnen-Erstellung</a> und <a href="bids.html">Gebots-Automatik</a> listen automatisch <b>alle Werbekonten der Agentur</b> (auch Vendoren wie Clementoni).<br>
+                • <b>SQP-Daten</b> (Übersicht, Produkt-Detail, Marken-Trend, PPC-Lücken) gibt es nur für <b>Seller</b> mit Seller-Central-Zugang — dafür ist dieses Formular da. <b>Vendoren haben kein SQP</b> und können hier nicht angebunden werden.
+            </div>
 
             <div class="step">
                 <div class="step-num">1</div>
                 <div class="step-body">
                     <div class="step-title">Kunde auswählen</div>
-                    <div class="step-hint">Wähle den Kunden aus der bestehenden SQPR-Kundenliste.</div>
-                    <select id="clientSelect"><option value="">Lade Kunden…</option></select>
+                    <div class="step-hint">Aus der bestehenden SQPR-Kundenliste — oder einen neuen Kunden direkt anlegen (braucht keine SQPR-Historie).</div>
+                    <select id="clientSelect" onchange="toggleNewClient()"><option value="">Lade Kunden…</option></select>
+                    <div id="newClientBox" style="display:none; margin-top:8px;">
+                        <label for="newClientName">Name des neuen Kunden</label>
+                        <input type="text" id="newClientName" placeholder="z.B. Musterfirma GmbH">
+                        <label for="newClientMkt">Marktplatz</label>
+                        <select id="newClientMkt" style="max-width:200px;"><option value="DE" selected>DE</option><option value="FR">FR</option><option value="IT">IT</option><option value="ES">ES</option><option value="UK">UK</option><option value="NL">NL</option><option value="US">US</option></select>
+                    </div>
                 </div>
             </div>
 
@@ -254,8 +265,15 @@ async function loadSqprClients(){
   SQPR_CLIENTS=data||[];
   const connectedIds=new Set(CONNECTED.map(c=>c.id));
   const sel=document.getElementById('clientSelect');
-  sel.innerHTML='<option value="">— Kunde wählen —</option>'+SQPR_CLIENTS.map(c=>
+  sel.innerHTML='<option value="">— Kunde wählen —</option>'
+    +'<option value="__new__">➕ Neuer Kunde (Name eintippen)…</option>'
+    +SQPR_CLIENTS.map(c=>
     `<option value="${c.id}" data-name="${esc(c.name)}" data-mkt="${esc(c.marketplace||'')}">${esc(c.name)}${connectedIds.has(c.id)?' ✓ (bereits verbunden)':''}</option>`).join('');
+}
+function toggleNewClient(){
+  const isNew=document.getElementById('clientSelect').value==='__new__';
+  document.getElementById('newClientBox').style.display=isNew?'block':'none';
+  if(isNew)document.getElementById('newClientName').focus();
 }
 
 async function loadAccounts(){
@@ -315,7 +333,13 @@ function selectedBrandFilter(){
 async function saveClient(){
   const msg=document.getElementById('saveMsg'); msg.className='msg'; msg.textContent='';
   const opt=document.getElementById('clientSelect').selectedOptions[0];
-  const id=opt?opt.value:''; const name=opt?opt.dataset.name:''; const marketplace=opt?opt.dataset.mkt:'';
+  let id=opt?opt.value:''; let name=opt?opt.dataset.name:''; let marketplace=opt?opt.dataset.mkt:'';
+  if(id==='__new__'){
+    name=document.getElementById('newClientName').value.trim();
+    marketplace=document.getElementById('newClientMkt').value||'DE';
+    if(!name){ msg.className='msg err'; msg.textContent='Bitte den Namen des neuen Kunden eintragen.'; return; }
+    id=crypto.randomUUID(); // neuer Kunde ohne SQPR-Historie — bekommt eine frische ID
+  }
   const spid=document.getElementById('sellerSelect').value;
   const ads=document.getElementById('adsSelect').value;
   if(!id){ msg.className='msg err'; msg.textContent='Bitte einen Kunden wählen.'; return; }
