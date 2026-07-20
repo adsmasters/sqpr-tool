@@ -140,7 +140,7 @@ async function loadBooked(asin){
   if(!asin||!spid||BOOKED.has(asin)||BOOKED_LOADING.has(asin))return;
   BOOKED_LOADING.add(asin);
   try{
-    const j=await (await fetch(`${API_ADS}/asin-keywords?spid=${encodeURIComponent(spid)}&asin=${encodeURIComponent(asin)}`)).json();
+    const j=await (await fetch(`${API_ADS}/asin-keywords?spid=${encodeURIComponent(String(spid).split('|')[0])}&mkt=${encodeURIComponent((String(spid).split('|')[1])||window.CUR_MKT||'DE')}&asin=${encodeURIComponent(asin)}`)).json();
     const s=BOOKED.get(asin)||new Set();
     for(const k of (j.keywords||[])) s.add(norm(k.text));
     BOOKED.set(asin,s);
@@ -159,7 +159,7 @@ async function loadBench(){
   if(!terms.length)return;
   const btn=document.getElementById('benchBtn'); if(btn){btn.disabled=true;btn.textContent='⏳ hole Benchmarks…';}
   try{
-    const j=await (await fetch(`${API_ADS}/bid-recommendations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid:document.getElementById('clientSel').value,asin,keywords:terms,matchTypes:['EXACT']})})).json();
+    const j=await (await fetch(`${API_ADS}/bid-recommendations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid:selKey('clientSel')[0],mkt:selKey('clientSel')[1],asin,keywords:terms,matchTypes:['EXACT']})})).json();
     BENCH={}; BENCH_ASIN=asin;
     for(const [k,v] of Object.entries(j.bids||{})){ const term=k.split('|')[0]; BENCH[norm(term)]=v; }
   }catch(e){}
@@ -194,49 +194,54 @@ async function boot(){
   try{CLIENTS=(await jget(`${API}/clients`,'clients_v2')).clients||[];}catch(e){}
   if(!CLIENTS.length){document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>';return;}
   CLIENTS.sort((a,b)=>(b.has_data!==false)-(a.has_data!==false)||a.name.localeCompare(b.name));
-  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
-  const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid===_saved))document.getElementById('clientSel').value=_saved;
+  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}|${c.marketplace||'DE'}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
+  const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid+'|'+(c.marketplace||'DE')===_saved))document.getElementById('clientSel').value=_saved;
   onClient();
 }
-function noDataInfo(spid){
-  const c=CLIENTS.find(x=>x.spid===spid);
+function selKey(id){const v=document.getElementById(id)?.value||'';const i=v.indexOf('|');return i<0?[v,'DE']:[v.slice(0,i),v.slice(i+1)||'DE'];}
+function noDataInfo(key){
+  const [spid,mkt]=String(key).split('|');
+  const c=CLIENTS.find(x=>x.spid===spid&&(x.marketplace||'DE')===(mkt||'DE'));
   if(!(c&&c.has_data===false))return null;
-  setTimeout(()=>ndLoad(spid),50);
+  setTimeout(()=>ndLoad(key),50);
   return `<div class="loading"><b style="color:var(--ink);font-size:16px;">${c.name} ist verbunden — die Daten wurden noch nicht geladen.</b><div id="ndstatus" style="margin-top:16px;">Prüfe Status…</div></div>`;
 }
-async function ndLoad(spid){
+async function ndLoad(key){
+  const [spid,mkt]=String(key).split('|');
   const el=document.getElementById('ndstatus'); if(!el)return;
-  let s=null; try{s=await (await fetch(`${API}/status?spid=${spid}`)).json();}catch(e){}
+  let s=null; try{s=await (await fetch(`${API}/status?spid=${spid}&mkt=${mkt||'DE'}`)).json();}catch(e){}
   if(!s||s.error){el.textContent='Status derzeit nicht abrufbar.';return;}
   if(s.rows>0){refreshAll();return;} // erste Daten da -> Ansicht neu laden
   const bar=(d,t,l)=>`<div style="margin:8px auto;max-width:340px;text-align:left;font-size:13px;">${l}: <b>${d}/${t}</b><div style="height:8px;border-radius:99px;background:var(--line);margin-top:4px;"><div style="height:8px;border-radius:99px;background:var(--accent);width:${t?Math.round(100*d/t):0}%"></div></div></div>`;
   const hhmm=x=>new Date(x).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
   let jobHtml=''; const j=s.job;
   if(!j||j.status==='done'||j.status==='error'){
-    jobHtml=`<button style="border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:999px;margin-top:16px;box-shadow:var(--shadow);" onclick="ndStart('${spid}')">Alle Daten jetzt laden (SQP + PPC)</button>`;
+    jobHtml=`<button style="border:none;cursor:pointer;background:var(--accent);color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:999px;margin-top:16px;box-shadow:var(--shadow);" onclick="ndStart('${key}')">Alle Daten jetzt laden (SQP + PPC)</button>`;
   }else if(j.status==='queued'){
     jobHtml=`<div style="margin-top:14px;">⏳ <b style="color:var(--ink)">In der Warteschlange</b> (seit ${hhmm(j.requested_at)} Uhr) — startet automatisch, sobald der Lade-Dienst frei ist.</div>`;
   }else if(j.status==='running'){
     jobHtml=`<div style="margin-top:14px;">🔄 <b style="color:var(--ink)">Lädt gerade…</b> (seit ${hhmm(j.started_at)} Uhr). Amazon begrenzt das Tempo — die volle Historie dauert ca. 2–4 Std. Die Balken füllen sich laufend, erste Zahlen erscheinen automatisch.</div>`;
   }
   el.innerHTML=bar(s.months_done,s.months_total,'Monate')+bar(s.weeks_done,s.weeks_total,'Wochen')+jobHtml;
-  clearTimeout(window._ndT); window._ndT=setTimeout(()=>ndLoad(spid),60000);
+  clearTimeout(window._ndT); window._ndT=setTimeout(()=>ndLoad(key),60000);
 }
-async function ndStart(spid){
-  try{await fetch(`${API}/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid})});}catch(e){}
-  ndLoad(spid);
+async function ndStart(key){
+  const [spid,mkt]=String(key).split('|');
+  try{await fetch(`${API}/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,mkt:mkt||'DE'})});}catch(e){}
+  ndLoad(key);
 }
 async function onClient(){
-  const spid=document.getElementById('clientSel').value; try{localStorage.setItem('sqpr_api_spid',spid);}catch(e){}
+  const _selv=document.getElementById('clientSel').value; try{localStorage.setItem('sqpr_api_spid',_selv);}catch(e){}
+  const [spid,MKT]=selKey('clientSel'); window.CUR_MKT=MKT;
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div>Lade SQP + Ads…</div>';
   const [m,w,p,ahM,ahW,meta,st]=await Promise.all([
-    jget(`${API}/data?spid=${spid}&compact=1`,`data3_${spid}`),
-    jget(`${API}/data?spid=${spid}&period=WEEK&compact=1`,`dataW3_${spid}`),
-    jget(`${API}/asin-ppc?spid=${spid}&compact=1`,`ppc3_${spid}`),
-    jget(`${API}/ads-history?spid=${spid}&period=MONTH&compact=1`,`ahM3_${spid}`),
-    jget(`${API}/ads-history?spid=${spid}&period=WEEK&compact=1`,`ahW3_${spid}`),
+    jget(`${API}/data?spid=${spid}&mkt=${MKT}&compact=1`,`data3_${spid}_${MKT}`),
+    jget(`${API}/data?spid=${spid}&mkt=${MKT}&period=WEEK&compact=1`,`dataW3_${spid}_${MKT}`),
+    jget(`${API}/asin-ppc?spid=${spid}&mkt=${MKT}&compact=1`,`ppc3_${spid}_${MKT}`),
+    jget(`${API}/ads-history?spid=${spid}&mkt=${MKT}&period=MONTH&compact=1`,`ahM3_${spid}_${MKT}`),
+    jget(`${API}/ads-history?spid=${spid}&mkt=${MKT}&period=WEEK&compact=1`,`ahW3_${spid}_${MKT}`),
     jget(`${API}/asin-meta?spid=${spid}`,`meta_${spid}`),
-    jget(`${API}/sales-traffic?spid=${spid}`,`st_${spid}`),
+    (MKT==='DE'?jget(`${API}/sales-traffic?spid=${spid}`,`st_${spid}`):Promise.resolve({rows:[]})),
   ]);
   META={}; for(const x of (meta.rows||[])) if(x.title) META[x.asin]=x.title;
   ST=new Map(); for(const x of ((st&&st.rows)||[])) ST.set(x.asin,{sales:+x.sales||0,units:+x.units||0,sessions:+x.sessions||0});

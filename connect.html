@@ -208,7 +208,7 @@ function datenCell(c){
     const head = js==='running'
       ? '⏳ <b>Import läuft gerade</b>'
       : `🕓 <b>Eingereiht${queuePos(c)}</b> — startet automatisch`;
-    return `<div class="prog" data-spid="${esc(c.spid)}">
+    return `<div class="prog" data-spid="${esc(c.spid)}" data-mkt="${esc(c.marketplace||'DE')}">
       <div class="prog-head">${head}
         <span class="prog-sub">Läuft nachts in der Cloud — du kannst die Seite jederzeit verlassen. Amazon erlaubt nur wenige Berichte pro Minute und Konto (1 Bericht je ASIN und Monat/Woche): kleine Kataloge sind in Stunden durch, große mit tausenden ASINs brauchen mehrere Nächte. Tipp: Beim Onboarding nur die relevanten Marken auswählen — das verkürzt den Import erheblich.</span></div>
       <div class="pbar"><div class="pbar-fill" style="width:0%"></div><div class="pbar-label" data-k="m">Monate: lade Status…</div></div>
@@ -216,7 +216,7 @@ function datenCell(c){
       <div class="prog-rows" data-k="rows"></div>
     </div>`;
   }
-  if(c.has_data===false) return `<button class="btn" id="bf-${esc(c.spid)}" onclick="startBackfill('${esc(c.spid)}')">Daten laden (SQP+PPC)</button>`;
+  if(c.has_data===false) return `<button class="btn" id="bf-${esc(c.spid)}-${esc(c.marketplace||'DE')}" onclick="startBackfill('${esc(c.spid)}','${esc(c.marketplace||'DE')}')">Daten laden (SQP+PPC)</button>`;
   return '<span class="badge ok">Daten ✓</span>';
 }
 // Wartelisten-Position (nach Einreih-Zeit) — "Platz 2 von 4"
@@ -229,11 +229,12 @@ function queuePos(c){
 // Fortschritt (Monate/Wochen/Zeilen) fuer alle aktiven Jobs nachladen
 async function refreshProgress(){
   const boxes=[...document.querySelectorAll('.prog[data-spid]')];
-  const spids=[...new Set(boxes.map(b=>b.dataset.spid))];
-  await Promise.all(spids.map(async spid=>{
-    let s=null; try{ s=await (await fetch(`${API}/api/sqp/status?spid=${spid}`)).json(); }catch(e){ return; }
+  const keys=[...new Set(boxes.map(b=>b.dataset.spid+'|'+(b.dataset.mkt||'DE')))];
+  await Promise.all(keys.map(async key=>{
+    const [spid,mkt]=key.split('|');
+    let s=null; try{ s=await (await fetch(`${API}/api/sqp/status?spid=${spid}&mkt=${mkt}`)).json(); }catch(e){ return; }
     if(!s||s.error) return;
-    boxes.filter(b=>b.dataset.spid===spid).forEach(b=>{
+    boxes.filter(b=>b.dataset.spid===spid&&(b.dataset.mkt||'DE')===mkt).forEach(b=>{
       const set=(k,done,total,label)=>{
         const bar=b.querySelector(`[data-k="${k}"]`); if(!bar) return;
         bar.textContent=`${label}: ${done} von ${total} geladen`;
@@ -326,7 +327,7 @@ async function saveClient(){
     const j=await r.json();
     if(j.ok){
       // Datenimport (SQP + PPC) automatisch einreihen — kein Extra-Schritt nötig
-      let bf=null; try{ bf=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid})})).json(); }catch(e){}
+      let bf=null; try{ bf=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,mkt:marketplace})})).json(); }catch(e){}
       const when=bf&&bf.triggered?'Der Import läuft bereits':'Der Import startet automatisch (spätestens heute Nacht)';
       msg.className='msg ok'; msg.innerHTML=`✅ <b>${esc(name)}</b> verbunden. ${when} — SQP (12 Monate + Wochen) und PPC werden geladen. Fortschritt: Übersicht → Kunde wählen.`;
       loadConnected();
@@ -335,10 +336,10 @@ async function saveClient(){
   } catch(e){ msg.className='msg err'; msg.textContent='Fehler: '+e.message; }
   btn.disabled=false; btn.textContent='Verbindung speichern';
 }
-async function startBackfill(spid){
-  const btn=document.getElementById('bf-'+spid); if(btn){btn.disabled=true;btn.textContent='reihe ein…';}
-  let j=null; try{ j=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid})})).json(); }catch(e){}
-  if(j&&j.ok){ CONNECTED.forEach(c=>{ if(c.spid===spid) c.job={status:'queued',requested_at:new Date().toISOString()}; }); renderConnected(); refreshProgress(); }
+async function startBackfill(spid,mkt){
+  const btn=document.getElementById('bf-'+spid+'-'+(mkt||'DE')); if(btn){btn.disabled=true;btn.textContent='reihe ein…';}
+  let j=null; try{ j=await (await fetch(`${API}/api/sqp/backfill`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,mkt})})).json(); }catch(e){}
+  if(j&&j.ok){ CONNECTED.forEach(c=>{ if(c.spid===spid&&(c.marketplace||'DE')===(mkt||'DE')) c.job={status:'queued',requested_at:new Date().toISOString()}; }); renderConnected(); refreshProgress(); }
   else if(btn){ btn.disabled=false; btn.textContent='Fehler — nochmal versuchen'; }
 }
 // Status-Auffrischung, solange Jobs offen sind (eingereiht/laeuft -> fertig)

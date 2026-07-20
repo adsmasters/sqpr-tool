@@ -159,7 +159,7 @@ let META={}; // asin -> Titel (aus sqp_asin_meta, alle Kunden)
 let SKUMAP={}; // asin -> SKU (fuer Bulk-Sheet & API-Kampagnen)
 let ASTAT={};  // asin -> Listing-Status ('active'/'inactive', aus dem Produktbericht)
 const AMZ_DOMAIN={DE:'amazon.de',FR:'amazon.fr',IT:'amazon.it',ES:'amazon.es',UK:'amazon.co.uk',US:'amazon.com',NL:'amazon.nl'};
-function pdpUrl(asin){const c=CLIENTS.find(x=>x.spid===document.getElementById('clientSelect').value)||{};return `https://www.${AMZ_DOMAIN[(c.marketplace||'DE').toUpperCase()]||'amazon.de'}/dp/${asin}`;}
+function pdpUrl(asin){const [_s,_m]=selKey('clientSelect');const c=CLIENTS.find(x=>x.spid===_s&&(x.marketplace||'DE')===_m)||{};return `https://www.${AMZ_DOMAIN[(c.marketplace||'DE').toUpperCase()]||'amazon.de'}/dp/${asin}`;}
 const pname=a=>{const t=META[a]||ASIN_NAMES[a];return t?(t.length>52?t.slice(0,50)+'…':t):a;};
 const asinLabel=a=>((META[a]||ASIN_NAMES[a])?`${pname(a)} · ${a}`:a)+(ASTAT[a]==='inactive'?' · ⛔ INAKTIV':'');
 let GRAN='MONTH';
@@ -192,11 +192,11 @@ function markBooked(asin,kws){
 }
 // Eingebuchte Keywords der ASIN nachladen -> Status "eingebucht" statt "Lücke"
 async function loadBooked(asin){
-  const spid=document.getElementById('clientSelect').value;
+  const [spid,mkt]=selKey('clientSelect');
   if(!asin||!spid||BOOKED.has(asin)||BOOKED_LOADING.has(asin))return;
   BOOKED_LOADING.add(asin);
   try{
-    const j=await (await fetch(`${API_ADS}/asin-keywords?spid=${encodeURIComponent(spid)}&asin=${encodeURIComponent(asin)}`)).json();
+    const j=await (await fetch(`${API_ADS}/asin-keywords?spid=${encodeURIComponent(spid)}&mkt=${encodeURIComponent(mkt)}&asin=${encodeURIComponent(asin)}`)).json();
     const s=BOOKED.get(asin)||new Set(); // mergen — frisch eingebuchte nicht ueberschreiben (API-Cache)
     for(const k of (j.keywords||[])) s.add(norm(k.text));
     BOOKED.set(asin,s);
@@ -209,19 +209,21 @@ async function boot(){
   try{ CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[]; }catch(e){ CLIENTS=[]; }
   if(!CLIENTS.length){ document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>'; return; }
   CLIENTS.sort((a,b)=>(b.has_data!==false)-(a.has_data!==false)||(a.name||'').localeCompare(b.name||''));
-  document.getElementById('clientSelect').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
-  const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid===_saved))document.getElementById('clientSelect').value=_saved;
+  function selKey(id){const v=document.getElementById(id)?.value||'';const i=v.indexOf('|');return i<0?[v,'DE']:[v.slice(0,i),v.slice(i+1)||'DE'];}
+document.getElementById('clientSelect').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}|${c.marketplace||'DE'}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
+  const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid+'|'+(c.marketplace||'DE')===_saved))document.getElementById('clientSelect').value=_saved;
   onClient();
 }
 async function onClient(){
-  const spid=document.getElementById('clientSelect').value; try{localStorage.setItem('sqpr_api_spid',spid);}catch(e){}
-  const c=CLIENTS.find(c=>c.spid===spid)||CLIENTS[0];
+  const _selv=document.getElementById('clientSelect').value; try{localStorage.setItem('sqpr_api_spid',_selv);}catch(e){}
+  const [spid,MKT]=selKey('clientSelect'); window.CUR_MKT=MKT;
+  const c=CLIENTS.find(c=>c.spid===spid&&(c.marketplace||'DE')===MKT)||CLIENTS[0];
   document.getElementById('mkt').textContent=c.marketplace||'DE';
   document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div>Lade SQP + PPC…</div>';
   const expand=r=>{if(r&&r.compact&&r.data){return {...r,rows:r.data.map(a=>{const o={};r.cols.forEach((c,i)=>o[c]=a[i]);return o;})};}return r;};
   const [sqp,ppc,meta]=await Promise.all([
-    fetch(`${API}/data?spid=${encodeURIComponent(spid)}&period=${GRAN}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
-    fetch(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
+    fetch(`${API}/data?spid=${encodeURIComponent(spid)}&mkt=${MKT}&period=${GRAN}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
+    fetch(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}&mkt=${MKT}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
     fetch(`${API}/asin-meta?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
   ]);
   sqpRows=sqp.rows||[]; ppcRows=ppc.rows||[];
@@ -321,7 +323,7 @@ async function loadTargets(asin){
   const sel=document.getElementById('existSel');
   sel.innerHTML='<option value="">⏳ lade Kampagnen…</option>';
   try{
-    const j=await (await fetch(`${API_ADS}/asin-campaigns?spid=${encodeURIComponent(document.getElementById('clientSelect').value)}&asin=${asin}`)).json();
+    const j=await (await fetch(`${API_ADS}/asin-campaigns?spid=${encodeURIComponent(selKey('clientSelect')[0])}&mkt=${encodeURIComponent(selKey('clientSelect')[1])}&asin=${asin}`)).json();
     TARGETS=(j.targets||[]).sort((a,b)=>((a.channel==='SB')-(b.channel==='SB'))||(b.keywordCapable-a.keywordCapable)||((b.campaignState==='ENABLED')-(a.campaignState==='ENABLED'))||a.campaignName.localeCompare(b.campaignName));
     if(!TARGETS.length){sel.innerHTML='<option value="">Keine bestehenden Kampagnen für diese ASIN</option>';return;}
     sel.innerHTML='<option value="">— Kampagne › Anzeigengruppe wählen —</option>'+TARGETS.map(t=>
@@ -335,7 +337,7 @@ async function loadBids(asin){
   if(!matchTypes.length){info.textContent='Erst Match Type wählen.';return;}
   info.textContent='⏳ Hole Vorschläge von Amazon…';
   try{
-    const r=await fetch(`${API_ADS}/bid-recommendations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid:document.getElementById('clientSelect').value,asin,keywords:kws,matchTypes})});
+    const r=await fetch(`${API_ADS}/bid-recommendations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid:selKey('clientSelect')[0],mkt:selKey('clientSelect')[1],asin,keywords:kws,matchTypes})});
     const j=await r.json();
     if(!j.ok||!j.count){info.textContent='Keine Vorschläge erhalten'+(j.errors&&j.errors.length?' ('+(j.errors[0].detail||j.errors[0].status)+')':'')+'.';return;}
     KWBIDS={}; const vals=[];
@@ -351,7 +353,7 @@ async function apiCreate(asin){
   const kws=[...checked]; if(!kws.length){show(false,'Keine Keywords ausgewählt.');return;}
   const matchTypes=[['mE','EXACT'],['mP','PHRASE'],['mB','BROAD']].filter(([id])=>document.getElementById(id).checked).map(([,m])=>m);
   if(!matchTypes.length){show(false,'Mindestens einen Match Type wählen.');return;}
-  const spid=document.getElementById('clientSelect').value;
+  const [spid,mkt]=selKey('clientSelect');
   const name=(document.getElementById('bCamp').value.trim())||`SP_Gap_${asin}`;
   const bid=+document.getElementById('bBid').value||0.5;
   const budget=+document.getElementById('bBudget').value||10;
@@ -376,7 +378,7 @@ async function apiCreate(asin){
     if(!confirm(`${total} Keywords in die BESTEHENDE ${isSB?'Sponsored-Brands':'Sponsored-Products'}-Kampagne einbuchen?\n\n${t.campaignName||campaignId} › ${t.adGroupName||adGroupId}\n${kws.length} Begriffe × ${matchTypes.join('/')} · Bid ${bid.toFixed(2)} € (bzw. je Keyword-Vorschlag${isSB?', SB-Minimum 0,10 €':''})\nStatus: ${statusZeile}`))return;
     show(true,'⏳ Buche Keywords ein…');
     try{
-      const r=await fetch(`${API_ADS}/add-keywords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,channel,campaignId,adGroupId,keywords:kws,matchTypes,bid,keywordBids:KWBIDS,state:active?'ENABLED':'PAUSED'})});
+      const r=await fetch(`${API_ADS}/add-keywords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,mkt,channel,campaignId,adGroupId,keywords:kws,matchTypes,bid,keywordBids:KWBIDS,state:active?'ENABLED':'PAUSED'})});
       const j=await r.json();
       if(j.ok){ show(true,`✅ ${j.keywordsCreated} Keywords eingebucht in <b>[${channel}] ${t.campaignName||campaignId}</b> › ${t.adGroupName||adGroupId} (${isSB?'Status folgt der Kampagne':(active?'AKTIV':'pausiert')})${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen (z.B. Duplikate)`:''}.`); markBooked(asin,kws); }
       else { show(false,'❌ Fehler: '+(j.sampleErrors&&j.sampleErrors[0]?j.sampleErrors[0]:JSON.stringify(j).slice(0,250))); }

@@ -31,13 +31,15 @@
 
   const cache = {};
   const getPeriod = () => (window.SQP_PERIOD === 'WEEK' ? 'WEEK' : 'MONTH');
-  async function loadSpid(spid) {
+  async function loadClient(client) {
     await clientsReady;
     const period = getPeriod();
-    const ck = spid + '|' + period;
+    const mkt = (client.marketplace || 'DE').toUpperCase();
+    const ck = client.id + '|' + period;
     if (cache[ck]) return cache[ck];
-    const clientId = (CLIENTS.find(c => c.spid === spid) || {}).id;
-    const j = await (await fetch(`${API}?spid=${encodeURIComponent(spid)}&period=${period}`)).json();
+    const clientId = client.id;
+    const spid = client.spid;
+    const j = await (await fetch(`${API}?spid=${encodeURIComponent(spid)}&mkt=${mkt}&period=${period}`)).json();
     const endBy = {}; // start_date -> end_date (aus den Daten, funktioniert für Monat & Woche)
     const byKey = new Map();
     for (const r of (j.rows || [])) {
@@ -67,7 +69,7 @@
     const label = period === 'WEEK' ? 'Wöchentlich' : 'Monatlich';
     const reports = periods.map(m => ({ id: m, client_id: clientId, report_date_start: m, report_date_end: endBy[m] || monthEnd(m), reporting_range: label }));
     let strterms = [];
-    try { const p = await (await fetch(`${PPC}?spid=${encodeURIComponent(spid)}`)).json(); strterms = p.rows || []; } catch (e) {}
+    try { const p = await (await fetch(`${PPC}?spid=${encodeURIComponent(spid)}&mkt=${mkt}`)).json(); strterms = p.rows || []; } catch (e) {}
     cache[ck] = { reports, rows, strterms };
     return cache[ck];
   }
@@ -87,7 +89,7 @@
     return { data: rows, error: null };
   };
 
-  function Adapter() { this._real = window.supabase.createClient(REAL_URL, REAL_KEY); this.auth = this._real.auth; this._activeSpid = null; }
+  function Adapter() { this._real = window.supabase.createClient(REAL_URL, REAL_KEY); this.auth = this._real.auth; this._activeClient = null; }
   Adapter.prototype.from = function (table) { return VIRTUAL.has(table) ? new VQuery(this, table) : this._real.from(table); };
   Adapter.prototype._data = async function (table, filters) {
     await clientsReady;
@@ -96,10 +98,12 @@
       if (filters.id) list = list.filter(c => c.id === filters.id);
       return list;
     }
-    let spid = (filters.client_id && spidForClient(filters.client_id)) || this._activeSpid || (CLIENTS[0] || {}).spid;
-    if (filters.client_id && spidForClient(filters.client_id)) this._activeSpid = spid;
-    if (!spid) return [];
-    const d = await loadSpid(spid);
+    // Kunde ueber die eindeutige Zeilen-ID aufloesen (Recoactiv DE+IT teilen sich die Seller-ID)
+    const byId = filters.client_id && CLIENTS.find(c => c.id === filters.client_id);
+    const client = byId || this._activeClient || CLIENTS[0];
+    if (byId) this._activeClient = client;
+    if (!client || !client.spid) return [];
+    const d = await loadClient(client);
     if (table === 'sqpr_reports') return d.reports.filter(r => !filters.client_id || r.client_id === filters.client_id);
     if (table === 'sqpr_rows') return d.rows.filter(r => !filters.client_id || r.client_id === filters.client_id);
     if (table === 'sqpr_str_terms') return d.strterms;
