@@ -195,6 +195,7 @@ const API='https://ppc-callback.vercel.app';
 const SB_URL='https://lgrnmiszhhahfcmctmwo.supabase.co';
 const SB_KEY='sb_publishable_E5tO2TvBrU8f1s5djnVOOQ_vk1djyAI';
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
+async function apiAuthHeaders(){ try{ const s=await sb.auth.getSession(); const t=s.data&&s.data.session&&s.data.session.access_token; return t?{Authorization:'Bearer '+t}:{}; }catch(e){ return {}; } }
 let ADS_PROFILES=[], SQPR_CLIENTS=[], CONNECTED=[];
 
 const esc=s=>(s==null?'':String(s)).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
@@ -279,7 +280,7 @@ function toggleNewClient(){
 async function loadAccounts(){
   const sel=document.getElementById('sellerSelect');
   sel.innerHTML='<option value="">Lade…</option>';
-  try { const r=await fetch(`${API}/api/spapi/accounts`); const j=await r.json(); CONNECTED_SELLERS=j.accounts||[]; }
+  try { const r=await fetch(`${API}/api/spapi/accounts`,{headers:await apiAuthHeaders()}); const j=await r.json(); CONNECTED_SELLERS=j.accounts||[]; }
   catch(e){ CONNECTED_SELLERS=[]; }
   sel.innerHTML='<option value="">— Seller wählen —</option>'+CONNECTED_SELLERS.map(a=>
     `<option value="${esc(a.selling_partner_id)}">${a.account_name?esc(a.account_name)+' · ':''}${esc(a.selling_partner_id)} · verbunden ${esc((a.created_at||'').slice(0,10))}</option>`).join('');
