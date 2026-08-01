@@ -224,7 +224,7 @@ async function onClient(){
   const [sqp,ppc,meta]=await Promise.all([
     fetch(`${API}/data?spid=${encodeURIComponent(spid)}&mkt=${MKT}&period=${GRAN}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
     fetch(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}&mkt=${MKT}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
-    fetch(`${API}/asin-meta?spid=${encodeURIComponent(spid)}`).then(r=>r.json()).catch(()=>({rows:[]})),
+    fetch(`${API}/asin-meta?spid=${encodeURIComponent(spid)}&mkt=${MKT}`).then(r=>r.json()).catch(()=>({rows:[]})),
   ]);
   sqpRows=sqp.rows||[]; ppcRows=ppc.rows||[];
   META={}; SKUMAP={}; ASTAT={}; for(const m of (meta.rows||[])){ if(m.title) META[m.asin]=m.title; if(m.sku) SKUMAP[m.asin]=m.sku; if(m.status) ASTAT[m.asin]=m.status; }
@@ -390,7 +390,7 @@ async function apiCreate(asin){
   if(!confirm(`Kampagne "${name}" jetzt PAUSIERT im Kunden-Konto anlegen?\n\n${kws.length} Begriffe × ${matchTypes.join('/')} = ${total} Keywords · Bid ${bid.toFixed(2)} € · Budget ${budget} €/Tag\n\nAktivierung danach manuell in der Ads-Konsole.`))return;
   show(true,'⏳ Lege Kampagne an…');
   try{
-    const r=await fetch(`${API_ADS}/create-campaign`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,asin,keywords:kws,matchTypes,name,bid,budget,keywordBids:KWBIDS})});
+    const r=await fetch(`${API_ADS}/create-campaign`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spid,mkt,asin,keywords:kws,matchTypes,name,bid,budget,keywordBids:KWBIDS})});
     const j=await r.json();
     if(j.ok){ show(true,`✅ Kampagne <b>${name}</b> pausiert angelegt (ID ${j.campaignId}) · ${j.keywordsCreated} Keywords${j.keywordsFailed?` · ${j.keywordsFailed} fehlgeschlagen`:''} · SKU ${j.sku}.<br>Zum Aktivieren: Ads-Konsole → Kampagne prüfen → Status auf Aktiv.`); markBooked(asin,kws); }
     else { show(false,'❌ Fehler'+(j.step?` (Schritt ${j.step})`:'')+': '+(typeof j.error==='string'?j.error:JSON.stringify(j.error||{}).slice(0,250))); }

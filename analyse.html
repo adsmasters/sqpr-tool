@@ -240,7 +240,7 @@ async function onClient(){
     jget(`${API}/asin-ppc?spid=${spid}&mkt=${MKT}&compact=1`,`ppc3_${spid}_${MKT}`),
     jget(`${API}/ads-history?spid=${spid}&mkt=${MKT}&period=MONTH&compact=1`,`ahM3_${spid}_${MKT}`),
     jget(`${API}/ads-history?spid=${spid}&mkt=${MKT}&period=WEEK&compact=1`,`ahW3_${spid}_${MKT}`),
-    jget(`${API}/asin-meta?spid=${spid}`,`meta_${spid}`),
+    jget(`${API}/asin-meta?spid=${spid}&mkt=${MKT}`,`meta_${spid}_${MKT}`),
     (MKT==='DE'?jget(`${API}/sales-traffic?spid=${spid}`,`st_${spid}`):Promise.resolve({rows:[]})),
   ]);
   META={}; for(const x of (meta.rows||[])) if(x.title) META[x.asin]=x.title;
