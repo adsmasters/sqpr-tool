@@ -888,8 +888,13 @@
             // Live-Analyse nutzt eigenen Kunden-Key (isoliert von der CSV-Marken-Analyse)
             // und defaultet auf den ersten API-Kunden.
             // Seitenübergreifende Kundenwahl: spid von den anderen API-Seiten hat Vorrang
-            const _savedSpid = localStorage.getItem('sqpr_api_spid');
-            const _bySpid = _savedSpid && (window.SQP_CLIENTS_FULL || []).find(c => c.spid === _savedSpid);
+            // Format ist "spid" (alt) oder "spid|MKT" (Übersicht/Produkt-Detail/PPC-Lücken)
+            const _savedKey = localStorage.getItem('sqpr_api_spid') || '';
+            const _pi = _savedKey.indexOf('|');
+            const _savedSpid = _pi < 0 ? _savedKey : _savedKey.slice(0, _pi);
+            const _savedMkt = _pi < 0 ? null : (_savedKey.slice(_pi + 1) || 'DE').toUpperCase();
+            const _full = window.SQP_CLIENTS_FULL || [];
+            const _bySpid = _savedSpid && (_full.find(c => c.spid === _savedSpid && (!_savedMkt || (c.marketplace || 'DE').toUpperCase() === _savedMkt)) || _full.find(c => c.spid === _savedSpid));
             const clientId = (_bySpid && _bySpid.id) || localStorage.getItem('sqpr_live_client') || (window.SQP_API_CLIENTS || [])[0];
 
             if (!clientId) {
@@ -1999,7 +2004,7 @@
                     if (!newId || newId === (client && client.id)) return;
                     localStorage.setItem('sqpr_live_client', newId);
                     // Kundenwahl seitenübergreifend merken (spid für Übersicht/Produkt-Detail/PPC-Lücken)
-                    try { const _c = (window.SQP_CLIENTS_FULL || []).find(c => c.id === newId); if (_c && _c.spid) localStorage.setItem('sqpr_api_spid', _c.spid); } catch (e) {}
+                    try { const _c = (window.SQP_CLIENTS_FULL || []).find(c => c.id === newId); if (_c && _c.spid) localStorage.setItem('sqpr_api_spid', _c.spid + '|' + ((_c.marketplace || 'DE').toUpperCase())); } catch (e) {}
                     // Reset per-client view state, then reload everything for the new client
                     selectedReportId = 'all';
                     compareReportId = 'auto';
