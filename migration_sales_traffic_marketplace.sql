@@ -1,0 +1,21 @@
+-- VORBEREITET für morgen (noch NICHT ausgeführt):
+-- asin_sales_traffic hat dieselbe Krankheit wie sqp_asin_meta — Key ohne Marketplace.
+-- Recoactiv DE+IT teilen die Seller-ID; der Worker nimmt derzeit als Übergangslösung
+-- immer den DE-Kunden (sales-traffic.mjs, Sortierung). Für echte IT-Umsätze braucht
+-- die Tabelle eine Marketplace-Dimension.
+--
+-- SCHRITT 1: Erst prüfen, wie der bestehende Key aussieht (PK vs. Unique — Lehre
+-- aus der sqp_asin_meta-Migration, wo der PK übersehen wurde):
+--
+--   SELECT conname, contype, pg_get_constraintdef(oid)
+--   FROM pg_constraint WHERE conrelid='public.asin_sales_traffic'::regclass;
+--
+-- SCHRITT 2 (anpassen je nach Ergebnis aus Schritt 1):
+--
+--   ALTER TABLE asin_sales_traffic ADD COLUMN IF NOT EXISTS marketplace text NOT NULL DEFAULT 'DE';
+--   ALTER TABLE asin_sales_traffic DROP CONSTRAINT <name_des_alten_keys>;
+--   ALTER TABLE asin_sales_traffic ADD PRIMARY KEY (spid, asin, days, marketplace);
+--   -- (bzw. UNIQUE statt PRIMARY KEY, falls es einen separaten id-PK gibt)
+--
+-- SCHRITT 3 (macht Claude danach): sales-traffic.mjs schreibt marketplace + Upsert
+-- auf den neuen Key, sqp/sales-traffic.js bekommt mkt-Parameter, Frontend übergibt mkt.
