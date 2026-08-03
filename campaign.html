@@ -152,6 +152,21 @@
         <div><label>Status nach Anlage</label><select class="inp" id="state"><option value="PAUSED">Pausiert (empfohlen)</option><option value="ENABLED">⚠️ Sofort aktiv</option></select></div>
       </div>
       <div class="grid2">
+        <div><label>Portfolio (optional) — Kampagnen direkt zuordnen</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select class="inp" id="pfSel" style="flex:1;"><option value="">— kein Portfolio —</option></select>
+            <button type="button" class="btn-sm" id="pfReload" title="Portfolios neu laden" onclick="loadPortfolios()">↻</button>
+          </div>
+        </div>
+        <div><label>Neues Portfolio anlegen</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input class="inp" id="pfNew" placeholder="Name des neuen Portfolios" style="flex:1;">
+            <button type="button" class="btn-sm on" id="pfCreate" onclick="createPortfolio()">+ anlegen</button>
+          </div>
+        </div>
+      </div>
+      <div id="pfInfo" style="font-size:12px;color:var(--muted);margin:-4px 0 4px;"></div>
+      <div class="grid2">
         <div><label>Top of Search Anpassung (%)</label><input type="number" id="plTop" min="0" max="900" placeholder="z.B. 50"></div>
         <div><label>Produktseiten Anpassung (%)</label><input type="number" id="plProd" min="0" max="900" placeholder="z.B. 25"></div>
       </div>
@@ -189,7 +204,7 @@ const esc=s=>(s==null?'':String(s)).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;'
 const eur2=x=>(+x||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 const lines=id=>document.getElementById(id).value.split('\n').map(s=>s.trim()).filter(Boolean);
 
-let PROFILES=[],CLIENTS=[],SUG=[],KWBIDS={}; // KWBIDS: "kw|MATCH" -> Gebot (aus Amazon-Vorschlägen)
+let PROFILES=[],CLIENTS=[],SUG=[],KWBIDS={},PORTF=[]; // KWBIDS: "kw|MATCH" -> Gebot (aus Amazon-Vorschlägen); PORTF: Portfolios des gewählten Kontos
 
 /* ---------- Konto-Auswahl (wie PPC-Audit) ---------- */
 async function boot(){
@@ -228,11 +243,11 @@ async function boot(){
   PROFILES=mapP(profR.profiles||[],connectedIds,byId);
   renderProfileOptions(); // erhaelt eine bereits getroffene Auswahl
   if(!hadCache)applySaved();
-  document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} updateAcctInfo(); autoCheckSkus();};
+  document.getElementById('profSel').onchange=()=>{try{localStorage.setItem('sqpr_audit_profile',document.getElementById('profSel').value);}catch(e){} updateAcctInfo(); autoCheckSkus(); loadPortfolios();};
   document.getElementById('asins').addEventListener('change',autoCheckSkus);
   updateAcctInfo();
   document.getElementById('startDate').value=new Date().toISOString().slice(0,10);
-  renderTemplates(); refreshPresetDropdown(); updateSummary();
+  renderTemplates(); refreshPresetDropdown(); updateSummary(); loadPortfolios();
   document.querySelectorAll('textarea,input').forEach(el=>el.addEventListener('input',updateSummary));
 }
 function renderProfileOptions(){
@@ -413,6 +428,44 @@ function updateSummary(){
     :'Keine Vorlage aktiv bzw. keine Keywords/ASINs eingetragen.';
 }
 
+/* ---------- Portfolios ---------- */
+function renderPortfolioOptions(keepId){
+  const sel=document.getElementById('pfSel'); if(!sel)return;
+  const cur=keepId!=null?keepId:sel.value;
+  sel.innerHTML='<option value="">— kein Portfolio —</option>'+PORTF.map(p=>`<option value="${p.portfolioId}">${esc(p.name)}</option>`).join('');
+  if(cur&&PORTF.some(p=>String(p.portfolioId)===String(cur)))sel.value=cur;
+}
+async function loadPortfolios(){
+  const profileId=document.getElementById('profSel').value;
+  const info=document.getElementById('pfInfo');
+  PORTF=[]; renderPortfolioOptions('');
+  if(!profileId){ if(info)info.textContent=''; return; }
+  if(info)info.textContent='⏳ Portfolios werden geladen…';
+  try{
+    const j=await (await fetch(`${API_ADS}/portfolios?profileId=${encodeURIComponent(profileId)}`,{signal:AbortSignal.timeout(12000)})).json();
+    PORTF=Array.isArray(j.portfolios)?j.portfolios:[];
+    renderPortfolioOptions('');
+    if(info)info.textContent=j.error?('⚠️ '+String(j.error).slice(0,120)):(PORTF.length?`${PORTF.length} Portfolio(s) im Konto`:'Keine Portfolios im Konto — unten eins anlegen.');
+  }catch(e){ if(info)info.textContent='⚠️ Portfolios nicht ladbar.'; }
+}
+async function createPortfolio(){
+  const profileId=document.getElementById('profSel').value;
+  const name=(document.getElementById('pfNew').value||'').trim();
+  const info=document.getElementById('pfInfo');
+  if(!profileId){ if(info)info.textContent='⚠️ Bitte zuerst ein Konto wählen.'; return; }
+  if(!name){ if(info)info.textContent='⚠️ Bitte einen Portfolio-Namen eingeben.'; return; }
+  const btn=document.getElementById('pfCreate'); btn.disabled=true;
+  if(info)info.textContent='⏳ Portfolio wird angelegt…';
+  let j=null;
+  try{ j=await (await fetch(`${API_ADS}/portfolios`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,name})})).json(); }catch(e){}
+  btn.disabled=false;
+  if(!j||j.error){ if(info)info.textContent='❌ '+esc(j&&j.error?String(j.error).slice(0,160):'Netzwerkfehler'); return; }
+  document.getElementById('pfNew').value='';
+  await loadPortfolios();
+  if(j.portfolio&&j.portfolio.portfolioId){ document.getElementById('pfSel').value=String(j.portfolio.portfolioId); }
+  if(info)info.textContent='✅ Portfolio „'+esc(name)+'" angelegt und ausgewählt.';
+}
+
 /* ---------- Anlegen ---------- */
 function bidFor(kw,match,fallback){ return KWBIDS[`${kw.toLowerCase()}|${match}`]||fallback; }
 function buildPayload(){
@@ -448,6 +501,7 @@ function buildPayload(){
     }
   }
   return {profileId,products,campaigns:camps,
+    portfolioId:document.getElementById('pfSel').value||undefined,
     state:document.getElementById('state').value,
     strategy:document.getElementById('strategy').value,
     placementTop:+document.getElementById('plTop').value||0,
@@ -460,7 +514,8 @@ async function createStructure(){
   if(!p.profileId||!p.products.length){ box.innerHTML='<div class="note">Bitte Konto und ASIN(s) angeben.</div>'; return; }
   if(!p.campaigns.length){ box.innerHTML='<div class="note">Keine Kampagne zu erstellen — Vorlagen prüfen (Keywords eingetragen?).</div>'; return; }
   const prof=PROFILES.find(x=>x.id===p.profileId);
-  if(!confirm(`${p.campaigns.length} Kampagne(n) im Konto "${prof?prof.name:p.profileId}" anlegen?\n\n${p.campaigns.slice(0,8).map(c=>'· '+c.name).join('\n')}${p.campaigns.length>8?'\n… und '+(p.campaigns.length-8)+' weitere':''}\n\nStatus: ${p.state==='ENABLED'?'⚠️ SOFORT AKTIV (gibt sofort Geld aus!)':'pausiert (in der Konsole aktivieren)'}`))return;
+  const pf=p.portfolioId?PORTF.find(x=>String(x.portfolioId)===String(p.portfolioId)):null;
+  if(!confirm(`${p.campaigns.length} Kampagne(n) im Konto "${prof?prof.name:p.profileId}" anlegen?\n\n${p.campaigns.slice(0,8).map(c=>'· '+c.name).join('\n')}${p.campaigns.length>8?'\n… und '+(p.campaigns.length-8)+' weitere':''}\n\nPortfolio: ${pf?pf.name:'— keins —'}\nStatus: ${p.state==='ENABLED'?'⚠️ SOFORT AKTIV (gibt sofort Geld aus!)':'pausiert (in der Konsole aktivieren)'}`))return;
   const btn=document.getElementById('createBtn'); btn.disabled=true; btn.textContent='⏳ lege Struktur an…';
   box.innerHTML='<div class="loading"><div class="spin"></div>Kampagnen werden angelegt…</div>';
   let j=null;
