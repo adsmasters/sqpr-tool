@@ -112,6 +112,16 @@
         </div>
 
         <div class="card">
+            <h2>Konten aus der Auswahl ausblenden</h2>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
+                Konten, mit denen du nichts mehr zu tun hast, hier ausblenden — sie verschwinden aus der Konto-Auswahl <b>aller Tools</b> (PPC-Audit, Kampagnen-Erstellung, Gebots-Automatik). Die <b>API-Anbindung bleibt bestehen</b> — kein Rausfliegen, kein Kunden-Kontakt nötig, jederzeit wieder einblendbar. In den Tools greift die Änderung nach kurzer Zeit (Cache bis ~5 Min).
+            </div>
+            <input id="hideFilter" placeholder="Konto suchen…" oninput="renderHideList()" style="width:100%;max-width:360px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;">
+            <div id="hideMsg" style="font-size:12px;color:var(--text-secondary);margin:8px 0;">Lade Konten…</div>
+            <div id="hideList" style="max-height:440px;overflow:auto;border:1px solid var(--border);border-radius:8px;"></div>
+        </div>
+
+        <div class="card">
             <h2>Neuen Kunden verbinden</h2>
             <div style="margin:0 0 16px; padding:12px 14px; border-radius:8px; background:rgba(14,165,160,.08); border:1px solid rgba(14,165,160,.35); font-size:13px; line-height:1.5;">
                 <b>Wann brauchst du diese Verbindung überhaupt?</b><br>
@@ -374,12 +384,48 @@ setInterval(async ()=>{
   await loadConnected(); refreshProgress();
 }, 45000);
 
+/* ---------- Konten ausblenden ---------- */
+let HIDE_PROFILES=[];
+function hideStats(){ return `${HIDE_PROFILES.length} Konten · ${HIDE_PROFILES.filter(p=>p.hidden).length} ausgeblendet`; }
+async function loadHideList(){
+  const msg=document.getElementById('hideMsg'); if(msg)msg.textContent='Lade Konten…';
+  try{
+    const j=await (await fetch(`${API}/api/ads/profiles?all=1&_=${Date.now()}`)).json();
+    HIDE_PROFILES=(j.profiles||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{sensitivity:'base'}));
+    renderHideList();
+    if(msg)msg.textContent=hideStats();
+  }catch(e){ if(msg)msg.textContent='⚠️ Konten konnten nicht geladen werden.'; }
+}
+function renderHideList(){
+  const f=(document.getElementById('hideFilter').value||'').toLowerCase();
+  const list=HIDE_PROFILES.filter(p=>!f||(`${p.name} ${p.countryCode||''} ${p.profileId}`).toLowerCase().includes(f));
+  const box=document.getElementById('hideList');
+  if(!list.length){ box.innerHTML='<div style="padding:14px;color:var(--text-secondary);font-size:13px;">Keine Treffer.</div>'; return; }
+  box.innerHTML=list.map(p=>`<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;${p.hidden?'opacity:.55;':''}">
+    <input type="checkbox" ${p.hidden?'checked':''} onchange="toggleHide('${p.profileId}',this.checked,this)" style="width:16px;height:16px;flex:none;">
+    <span style="flex:1;font-size:13px;">${esc(p.name)} <span style="color:var(--text-secondary);">· ${esc(p.countryCode||'')}${p.type?' · '+esc(p.type):''}</span></span>
+    ${p.hidden?'<span style="font-size:11px;color:var(--text-secondary);">ausgeblendet</span>':''}
+  </label>`).join('');
+}
+async function toggleHide(profileId,hidden,el){
+  el.disabled=true;
+  try{
+    const j=await (await fetch(`${API}/api/ads/hidden`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profileId,hidden})})).json();
+    if(j&&j.error) throw new Error(j.error);
+    const p=HIDE_PROFILES.find(x=>String(x.profileId)===String(profileId)); if(p)p.hidden=hidden;
+    const msg=document.getElementById('hideMsg'); if(msg)msg.textContent=hideStats();
+    renderHideList();
+  }catch(e){ el.checked=!hidden; const msg=document.getElementById('hideMsg'); if(msg)msg.textContent='⚠️ Konnte nicht speichern.'; }
+  el.disabled=false;
+}
+
 (async function init(){
   await loadConnected();
   refreshProgress();
   await loadSqprClients();
   loadAccounts();
   loadAdsProfiles();
+  loadHideList();
 })();
 </script>
 <script defer src="https://adsmasters.github.io/hub/backlink.js"></script>
