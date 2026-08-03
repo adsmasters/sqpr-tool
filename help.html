@@ -253,6 +253,7 @@
         <div class="toc-card">
             <div class="toc-title">Inhaltsverzeichnis</div>
             <div class="toc-grid">
+                <a href="#section-0" class="toc-link"><span class="toc-num">&#9654;</span> Vorgehen: API-Analyse Schritt f&uuml;r Schritt</a>
                 <a href="#section-1" class="toc-link"><span class="toc-num">1</span> Was ist das SQPR Tool?</a>
                 <a href="#section-7" class="toc-link"><span class="toc-num">7</span> Trend Analyse</a>
                 <a href="#section-2" class="toc-link"><span class="toc-num">2</span> Daten hochladen</a>
@@ -266,6 +267,28 @@
                 <a href="#section-6" class="toc-link"><span class="toc-num">6</span> Brand Trend Chart</a>
                 <a href="#section-12" class="toc-link"><span class="toc-num">12</span> Zugang</a>
             </div>
+        </div>
+
+        <!-- Section 0: Vorgehen API-Analyse -->
+        <div class="section-card" id="section-0">
+            <div class="section-header">
+                <div class="section-badge">&#9654;</div>
+                <div class="section-title">Vorgehen: API-Analyse Schritt f&uuml;r Schritt</div>
+            </div>
+            <p>So l&auml;uft eine SQPR-Analyse mit Keyword-Nachbuchung &uuml;ber die API-Seiten ab:</p>
+            <ol>
+                <li><strong>Kunde verbinden</strong> (einmalig, unter Kunden &rarr; Kunde verbinden): Die Seller-Central-Freigabe braucht es <strong>nur einmal pro Verk&auml;uferkonto</strong>. Weitere Marktpl&auml;tze desselben Kontos (z.B. Recoactiv IT/FR) brauchen KEINE neue Freigabe &mdash; nur einen weiteren Kunden-Eintrag mit dem jeweiligen Marktplatz. Danach &bdquo;Daten laden&ldquo; klicken; der Erstimport dauert wegen Amazons Report-Limits einige Stunden.</li>
+                <li><strong>&Uuml;bersicht</strong>: Einstieg pro Kunde &mdash; welche Produkte verlieren Marktanteil (Problem), wo w&auml;chst Nachfrage (Chance). Klick auf eine Zeile &ouml;ffnet das Produkt-Detail.</li>
+                <li><strong>Produkt-Detail</strong>: ein Produkt im Zeitverlauf inkl. aller Suchbegriffe mit Shares, Ad-Spend und ROAS.</li>
+                <li><strong>PPC-L&uuml;cken</strong>: zeigt Suchbegriffe mit Nachfrage, die noch nicht (oder schlecht) beworben werden. Von hier aus Keywords in bestehende Kampagnen einbuchen oder eine neue Kampagne anlegen &mdash; neue Kampagnen werden immer <strong>pausiert</strong> angelegt und erst in der Ads-Konsole aktiviert.</li>
+                <li><strong>Marken-Trend</strong>: aggregiert auf Markenebene statt pro ASIN und erg&auml;nzt fehlende Zeitr&auml;ume aus manuellen SQPR-Uploads &mdash; deshalb kann er Daten zeigen, wo die &Uuml;bersicht (rein API-Daten) noch leer ist.</li>
+            </ol>
+            <p><strong>&bdquo;Keine Daten&ldquo;? Erst diese drei Dinge pr&uuml;fen:</strong></p>
+            <ul>
+                <li><strong>Monatlich vs. W&ouml;chentlich umschalten</strong>: Amazon ver&ouml;ffentlicht Monatsdaten erst ~Mitte des Folgemonats; Wochendaten kommen deutlich fr&uuml;her. Frisch verbundene Kunden haben oft zuerst nur Wochen.</li>
+                <li><strong>&#8635;-Button</strong> neben der Zeitraum-Auswahl klicken &mdash; l&auml;dt die Daten neu.</li>
+                <li>Steht der Kunde auf &bdquo;noch keine Daten&ldquo;, l&auml;uft der Erstimport noch &mdash; der Fortschrittsbalken in der &Uuml;bersicht zeigt den Stand.</li>
+            </ul>
         </div>
 
         <!-- Section 1 -->
