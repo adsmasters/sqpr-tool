@@ -149,7 +149,7 @@
       <div class="grid3">
         <div><label>Startdatum</label><input type="date" id="startDate"></div>
         <div><label>Enddatum (optional)</label><input type="date" id="endDate"></div>
-        <div><label>Status nach Anlage</label><select class="inp" id="state"><option value="PAUSED">Pausiert (empfohlen)</option><option value="ENABLED">⚠️ Sofort aktiv</option></select></div>
+        <div><label>Status nach Anlage</label><select class="inp" id="state"><option value="ENABLED" selected>Sofort aktiv (live)</option><option value="PAUSED">Pausiert (erst prüfen)</option></select></div>
       </div>
       <div class="grid2">
         <div><label>Portfolio (optional) — Kampagnen direkt zuordnen</label>
@@ -182,7 +182,7 @@
       <div class="ph">Welche Kampagnen angelegt werden — Budget/Gebot je Vorlage überschreibbar (leer = Standard aus Schritt 3). Namen folgen der internen Konvention.</div>
       <div class="tpl" style="border-bottom:2px solid var(--line);padding-bottom:6px;"><span></span><span style="font-size:10.5px;color:var(--muted);text-transform:uppercase;font-weight:650;">Kampagne</span><span style="font-size:10.5px;color:var(--muted);text-transform:uppercase;font-weight:650;">Budget €</span><span style="font-size:10.5px;color:var(--muted);text-transform:uppercase;font-weight:650;">Gebot €</span></div>
       <div id="tplList"></div>
-      <div class="note">ℹ️ Kampagnen werden <b>pausiert</b> angelegt (sofern oben nicht anders gewählt) — prüfen und aktivieren im Anschluss. Seller-SKUs werden automatisch aus bestehenden Anzeigen des Kontos ermittelt.</div>
+      <div class="note">ℹ️ Kampagnen gehen standardmäßig <b>sofort live</b> (Status in Schritt 3 änderbar — z.&nbsp;B. „Pausiert (erst prüfen)"). Seller-SKUs werden automatisch aus bestehenden Anzeigen des Kontos ermittelt.</div>
     </div>
 
     <div class="panel">
