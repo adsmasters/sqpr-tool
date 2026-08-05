@@ -133,7 +133,11 @@ function onSort(){SORTKEY=document.getElementById('sortSel').value;try{localStor
 function cGet(k){try{const v=sessionStorage.getItem('sqpc_'+k);return v?JSON.parse(v):null;}catch(e){return null;}}
 function cSet(k,v){try{sessionStorage.setItem('sqpc_'+k,JSON.stringify(v));}catch(e){}}
 function expand(r){if(r&&r.compact&&r.data){const o2={...r,rows:r.data.map(a=>{const o={};r.cols.forEach((c,i)=>o[c]=a[i]);return o;})};return o2;}return r;}
-async function jget(url,ck){let raw=cGet(ck);if(!raw){raw=await fetch(url).then(r=>r.json()).catch(()=>({rows:[]}));cSet(ck,raw);}return expand(raw);}
+// Timeout + 1 Retry; Fehlschlaege NICHT cachen (sonst zeigt die Seite bis zum ↻ "keine Daten")
+async function jget(url,ck){let raw=cGet(ck);
+  if(!raw){for(let a=0;a<2&&!raw;a++){try{raw=await (await fetch(url,{signal:AbortSignal.timeout(20000)})).json();}catch(e){}}
+    if(raw)cSet(ck,raw);else raw={rows:[]};}
+  return expand(raw);}
 function refreshAll(){try{Object.keys(sessionStorage).filter(k=>k.startsWith('sqpc_')).forEach(k=>sessionStorage.removeItem(k));}catch(e){}onClient();}
 
 async function boot(){

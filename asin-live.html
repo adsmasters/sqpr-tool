@@ -221,10 +221,12 @@ async function onClient(){
   document.getElementById('mkt').textContent=c.marketplace||'DE';
   document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div>Lade SQP + PPC…</div>';
   const expand=r=>{if(r&&r.compact&&r.data){return {...r,rows:r.data.map(a=>{const o={};r.cols.forEach((c,i)=>o[c]=a[i]);return o;})};}return r;};
+  // Timeout + 1 Retry je Request — ein haengender Request liess die Seite sonst minutenlang am Spinner
+  const jf=async u=>{for(let a=0;a<2;a++){try{return await (await fetch(u,{signal:AbortSignal.timeout(20000)})).json();}catch(e){}}return {rows:[]};};
   const [sqp,ppc,meta]=await Promise.all([
-    fetch(`${API}/data?spid=${encodeURIComponent(spid)}&mkt=${MKT}&period=${GRAN}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
-    fetch(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}&mkt=${MKT}&compact=1`).then(r=>r.json()).then(expand).catch(()=>({rows:[]})),
-    fetch(`${API}/asin-meta?spid=${encodeURIComponent(spid)}&mkt=${MKT}`).then(r=>r.json()).catch(()=>({rows:[]})),
+    jf(`${API}/data?spid=${encodeURIComponent(spid)}&mkt=${MKT}&period=${GRAN}&compact=1`).then(expand),
+    jf(`${API}/asin-ppc?spid=${encodeURIComponent(spid)}&mkt=${MKT}&compact=1`).then(expand),
+    jf(`${API}/asin-meta?spid=${encodeURIComponent(spid)}&mkt=${MKT}`),
   ]);
   sqpRows=sqp.rows||[]; ppcRows=ppc.rows||[];
   META={}; SKUMAP={}; ASTAT={}; for(const m of (meta.rows||[])){ if(m.title) META[m.asin]=m.title; if(m.sku) SKUMAP[m.asin]=m.sku; if(m.status) ASTAT[m.asin]=m.status; }
