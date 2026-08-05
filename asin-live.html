@@ -205,11 +205,13 @@ async function loadBooked(asin){
   BOOKED_LOADING.delete(asin);
 }
 
+// Top-Level: wird von onClient/pdpUrl/etc. gebraucht — als boot-lokale Funktion
+// warf jeder Aufruf ausserhalb einen ReferenceError und die Seite blieb am "Lade…" haengen
+function selKey(id){const v=document.getElementById(id)?.value||'';const i=v.indexOf('|');return i<0?[v,'DE']:[v.slice(0,i),v.slice(i+1)||'DE'];}
 async function boot(){
   try{ CLIENTS=(await (await fetch(`${API}/clients`)).json()).clients||[]; }catch(e){ CLIENTS=[]; }
   if(!CLIENTS.length){ document.getElementById('content').innerHTML='<div class="loading">Keine API-Kunden.</div>'; return; }
   CLIENTS.sort((a,b)=>(b.has_data!==false)-(a.has_data!==false)||(a.name||'').localeCompare(b.name||''));
-  function selKey(id){const v=document.getElementById(id)?.value||'';const i=v.indexOf('|');return i<0?[v,'DE']:[v.slice(0,i),v.slice(i+1)||'DE'];}
 document.getElementById('clientSelect').innerHTML=CLIENTS.map(c=>`<option value="${c.spid}|${c.marketplace||'DE'}">${c.name}${c.has_data===false?' · noch keine Daten':''}</option>`).join('');
   const _saved=localStorage.getItem('sqpr_api_spid'); if(_saved&&CLIENTS.some(c=>c.spid+'|'+(c.marketplace||'DE')===_saved))document.getElementById('clientSelect').value=_saved;
   onClient();
