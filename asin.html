@@ -512,17 +512,17 @@
                 const gapTableRows = gapRows.slice(0, 200).map(r => {
                     const isChk = checked.has(r.search_query);
                     const mktRev = marketRevenue(r);
+                    const mktRevCell = hasAnyPrice
+                        ? `<td title="${mktRev != null ? fmtInt(r.purchases_total) + ' Käufe × ' + fmtEur(r.purchases_median_price) + ' Medianpreis' : ''}">${mktRev != null ? fmtEur0(mktRev) : '—'}</td>`
+                        : '';
                     return `<tr class="${isChk ? 'gap-row-checked' : ''}">
                         <td style="width:32px;text-align:center;"><input type="checkbox" class="gap-chk" data-asin="${esc(row.asin)}" data-term="${esc(r.search_query)}" ${isChk ? 'checked' : ''}></td>
                         <td style="text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.search_query)}">${esc(r.search_query)}</td>
                         <td>${fmtInt(r.search_query_volume)}</td>
-                        <td title="${mktRev != null ? fmtInt(r.purchases_total) + ' Käufe × ' + fmtEur(r.purchases_median_price) + ' Medianpreis' : 'Medianpreis nicht im Report — Report neu hochladen'}">${mktRev != null ? fmtEur0(mktRev) : '—'}</td>
+                        ${mktRevCell}
                         <td>${r.purchases_brand_share != null ? r.purchases_brand_share.toFixed(1) + ' %' : '—'}</td>
                     </tr>`;
                 }).join('');
-                const priceHint = !hasAnyPrice
-                    ? `<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">ℹ️ Kein Medianpreis in diesem Report — für die Marktumsatz-Spalte den SQPR-Report einmal <a href="upload.html" style="color:var(--accent);">neu hochladen</a> (Spalte „Käufe: Medianpreis" wird jetzt eingelesen).</div>`
-                    : '';
 
                 const checkedCount = checked.size;
                 const actionBar = checkedCount > 0 ? `
@@ -536,7 +536,6 @@
                 gapHtml = `
                 <div style="margin-bottom:8px;display:flex;align-items:center;gap:12px;">${repInfo}</div>
                 <div style="font-size:13px;font-weight:600;color:var(--error);margin-bottom:8px;">🔴 ${gapRows.length} relevante Suchbegriffe ohne PPC-Abdeckung</div>
-                ${priceHint}
                 ${actionBar}
                 <div style="overflow-x:auto;">
                     <table>
@@ -544,7 +543,7 @@
                             <th style="width:32px;text-align:center;"><input type="checkbox" class="gap-chk-all" data-asin="${esc(row.asin)}" ${allChecked ? 'checked' : ''} title="Alle auswählen"></th>
                             <th style="text-align:left;">Suchbegriff</th>
                             <th>Suchvolumen</th>
-                            <th title="Käufe gesamt (alle Anbieter) × Medianpreis — geschätzter Gesamtumsatz über diesen Suchbegriff im SQPR-Zeitraum. Beispiel: 100.000 € Marktumsatz × 2 % mehr Purchase Share = 2.000 € Potenzial.">Marktumsatz ≈</th>
+                            ${hasAnyPrice ? `<th title="Käufe gesamt (alle Anbieter) × Medianpreis — geschätzter Gesamtumsatz über diesen Suchbegriff im SQPR-Zeitraum. Beispiel: 100.000 € Marktumsatz × 2 % mehr Purchase Share = 2.000 € Potenzial.">Marktumsatz ≈</th>` : ''}
                             <th>Purchase Share (Marke)</th>
                         </tr></thead>
                         <tbody>${gapTableRows}</tbody>
@@ -728,14 +727,22 @@
         const gapRows = sqprData.rows
             .filter(r => !coveredAds.has((r.search_query || '').toLowerCase().trim()))
             .sort((a, b) => (b.search_query_volume || 0) - (a.search_query_volume || 0));
-        const rows = [['Suchbegriff', 'Suchvolumen', 'Käufe gesamt', 'Medianpreis', 'Marktumsatz', 'Purchase Share (Marke)']];
+        const hasAnyPrice = gapRows.some(r => r.purchases_median_price > 0);
+        const rows = [hasAnyPrice
+            ? ['Suchbegriff', 'Suchvolumen', 'Käufe gesamt', 'Medianpreis', 'Marktumsatz', 'Purchase Share (Marke)']
+            : ['Suchbegriff', 'Suchvolumen', 'Purchase Share (Marke)']];
         for (const r of gapRows) {
-            const mktRev = marketRevenue(r);
-            rows.push([r.search_query, r.search_query_volume || 0,
-                r.purchases_total || 0,
-                r.purchases_median_price != null ? r.purchases_median_price.toFixed(2) : '',
-                mktRev != null ? mktRev.toFixed(2) : '',
-                r.purchases_brand_share != null ? r.purchases_brand_share.toFixed(2) + '%' : '']);
+            const share = r.purchases_brand_share != null ? r.purchases_brand_share.toFixed(2) + '%' : '';
+            if (hasAnyPrice) {
+                const mktRev = marketRevenue(r);
+                rows.push([r.search_query, r.search_query_volume || 0,
+                    r.purchases_total || 0,
+                    r.purchases_median_price != null ? r.purchases_median_price.toFixed(2) : '',
+                    mktRev != null ? mktRev.toFixed(2) : '',
+                    share]);
+            } else {
+                rows.push([r.search_query, r.search_query_volume || 0, share]);
+            }
         }
         downloadCsv(rows, `gaps_${asin}.csv`);
     }
