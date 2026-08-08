@@ -1123,6 +1123,9 @@
         const COLUMN_DB_MAP = {};
         COLUMN_DEFS.forEach(d => { COLUMN_DB_MAP[d.name] = d.db; });
 
+        // Nur im ASIN-Upload: Medianpreis (Spalte existiert nur in sqpr_asin_rows, nicht in sqpr_rows)
+        const ASIN_MEDIAN_PRICE_DEF = { name: 'Purchases: Median Price', db: 'purchases_median_price', match: ['purchases: median price', 'käufe: medianpreis', 'kaufe: medianpreis', 'käufe: median-preis', 'kaufe: median-preis', 'käufe: mittlerer preis', 'kaufe: mittlerer preis'] };
+
         // Logout
         document.getElementById('logoutBtn').addEventListener('click', () => {
             sessionStorage.removeItem('sqpr_auth');
@@ -1396,6 +1399,10 @@
 
         function findColumnIndex(headers, expected) {
             const def = COLUMN_DEFS.find(d => d.name === expected);
+            return findColumnIndexFromDef(headers, def);
+        }
+
+        function findColumnIndexFromDef(headers, def) {
             if (!def) return -1;
 
             for (let i = 0; i < headers.length; i++) {
@@ -2324,6 +2331,11 @@
                 asinSqprColumnsVal.appendChild(tag);
                 if (idx < 0) allFound = false;
             });
+            const mpIdx = findColumnIndexFromDef(asinSqprParsedHeaders, ASIN_MEDIAN_PRICE_DEF);
+            const mpTag = document.createElement('span');
+            mpTag.className = 'col-tag ' + (mpIdx >= 0 ? 'found' : 'missing');
+            mpTag.innerHTML = (mpIdx >= 0 ? '&#10003; ' : '&#10007; ') + 'Purchases: Median Price';
+            asinSqprColumnsVal.appendChild(mpTag);
             const hasQuery = findColumnIndex(asinSqprParsedHeaders, 'Search Query') >= 0;
             asinSqprRowBadge.textContent = asinSqprParsedData.length + ' Zeilen erkannt';
             asinSqprUploadBtn.disabled = !hasQuery;
@@ -2381,6 +2393,7 @@
                 const idx = findColumnIndex(headers, exp);
                 if (idx >= 0) colIdx[exp] = idx;
             });
+            const medianPriceIdx = findColumnIndexFromDef(headers, ASIN_MEDIAN_PRICE_DEF);
 
             const dbRows = rows.map(row => {
                 const obj = { asin_report_id: reportId, client_id: clientId, asin };
@@ -2398,6 +2411,9 @@
                         obj[dbCol] = p !== null ? Math.round(p) : null;
                     }
                 });
+                if (medianPriceIdx >= 0) {
+                    obj[ASIN_MEDIAN_PRICE_DEF.db] = parseGermanNumber(String(row[medianPriceIdx]).replace(/[€$£\s]/g, ''));
+                }
                 return obj;
             }).filter(r => r.search_query);
 

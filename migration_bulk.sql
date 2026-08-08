@@ -67,8 +67,12 @@ CREATE TABLE IF NOT EXISTS sqpr_asin_rows (
     cart_adds_brand_share numeric(8,6),
     purchases_total integer,
     purchases_brand integer,
-    purchases_brand_share numeric(8,6)
+    purchases_brand_share numeric(8,6),
+    purchases_median_price numeric(10,2)
 );
+
+-- Nachträglich ergänzt (08.08.2026, bereits via Management-API ausgeführt):
+-- ALTER TABLE sqpr_asin_rows ADD COLUMN IF NOT EXISTS purchases_median_price numeric(10,2);
 
 CREATE INDEX IF NOT EXISTS idx_sqpr_asin_rows_report ON sqpr_asin_rows(asin_report_id);
 CREATE INDEX IF NOT EXISTS idx_sqpr_asin_rows_client ON sqpr_asin_rows(client_id);
